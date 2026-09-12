@@ -29,3 +29,6 @@ infra/**/*.tfvars
 .DS_Store
 .vscode/
 .idea/
+
+# --- ADK local dev artifacts ---
+.adk/
