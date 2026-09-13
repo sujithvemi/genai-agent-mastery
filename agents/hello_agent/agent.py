@@ -12,7 +12,7 @@ def get_current_time() -> dict[str, str]:
 
 root_agent = Agent(
     name="hello_agent",
-    model="gemini-3.5-flash",
+    model="gemini-3.8-flash",
     description="M0 proof-of-life agent: confirms the ADK + GCP wiring works end to end.",
     instruction=(
         "You are a minimal test agent. When asked the time, call get_current_time "
