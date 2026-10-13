@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = ""
+    bucket = "sujithvemi-genai-learning-dev-tfstate"
     prefix = "hello-agent"
   }
 }

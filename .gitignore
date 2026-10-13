@@ -23,6 +23,8 @@ infra/**/.terraform/
 infra/**/*.tfstate
 infra/**/*.tfstate.backup
 infra/**/*.tfvars
+infra/**/*debug.log
+infra/**/.terraform.lock.hcl
 !infra/**/*.tfvars.example
 
 # --- OS / editor ---
