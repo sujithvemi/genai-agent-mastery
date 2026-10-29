@@ -7,7 +7,7 @@ Without looking: what properties of `customer_service_ops` make it CRITICAL? Wha
 > _Predictions:_
 
 ## Run (5 min)
-`make demo-regate` (knowledge_advisor copy with action_class raised → tier re-derived → gate BLOCKED). Note which axis moved and which controls got pulled in.
+`make demo-regate` (or `uv run python -m aicoe.cli demo regate`) (knowledge_advisor copy with action_class raised → tier re-derived → gate BLOCKED). Note which axis moved and which controls got pulled in.
 > _Observed:_
 
 ## Read (15 min)

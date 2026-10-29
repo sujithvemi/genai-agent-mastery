@@ -15,7 +15,7 @@ Write your answers here, from memory, even if guessing:
 >
 
 ## Step 1 — Run it first (5 min)
-In the ARB repo: `make demo-before-after` — read the two columns (ungoverned vs governed). Note one refund that moved money ungoverned and was refused governed, and the control ID that refused it.
+In the ARB repo: `make demo-before-after` (no `make` in your Windows shell? run `uv run python -m aicoe.cli demo before-after` from the ARB folder instead) — read the two columns (ungoverned vs governed). Note one refund that moved money ungoverned and was refused governed, and the control ID that refused it.
 
 > _Refund + control ID:_
 
@@ -27,7 +27,7 @@ In the ARB repo: `make demo-before-after` — read the two columns (ungoverned v
 | 2 | `src/aicoe/chokepoint.py` → `ToolChokepoint.call` (~line 170) | What decides between `_call_ungoverned` and `_call_governed`? |
 | 3 | `src/aicoe/chokepoint.py` → `_call_governed` (~line 247) | In what order do *decide*, *write evidence*, and *execute* happen? Why that order? |
 | 4 | `src/aicoe/chokepoint.py` → `EvidenceUnavailable` (~line 95) | Which invariant is this, and why does it fail **closed**? |
-| 5 | `src/aicoe/enforcement/plane.py` → `EnforcementPlane.decide` (~line 885) | Skim only: list the *kinds* of checks you see before a decision is returned. |
+| 5 | `src/aicoe/enforcement/plane.py` → `EnforcementPlane.decide` (~line 975) | Skim only: list the *kinds* of checks you see before a decision is returned. |
 | 6 | `src/aicoe/evidence/writer.py` → `EvidenceWriter` (~line 114) + `evidence/chain.py` → `record_digest` | What links one record to the previous one? |
 
 > _Answers 1–6:_

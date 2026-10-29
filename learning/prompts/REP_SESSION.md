@@ -16,7 +16,10 @@ builds = "Governance Local/aicoe-reference-build" (ARB) and "Governance Local/pr
 3. Close-out (you do the edits): append the LOG.md line; move the rep to Done in NEXT.md and promote the next backlog rep to Ready
    (generate its file); add 1–3 cards to cards/REVIEW.md ONLY for points I defended at ≥ B (front = scenario/trade-off question,
    back = key idea + gotcha, Box 1, Due = tomorrow); update ratings in maps/comprehension_map.md.
-4. Tell me the git command to commit and push. Stop.
+4. Refresh the Notion page "Learning OS — nudge snapshot" (id 3fbc050d-01d2-8191-a450-ec5b3b4963e0) so it mirrors NEXT.md's
+   "This weekend" checklist (with ticks) and Ready queue, plus the FRONTS of cards due in the next 3 days (never the backs).
+   The phone nudge reads only that page, because the repo is private.
+5. Tell me the git command to commit and push. Stop.
 
 Today's rep: <R0xx or "top">
 ```

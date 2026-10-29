@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "name": "1 · learning (start here)", "path": "learning" },
+    { "name": "2 · aicoe-reference-build (ARB)", "path": "../../Governance Local/aicoe-reference-build" },
+    { "name": "3 · pm-agent (PM)", "path": "../../Governance Local/project_management_building_agent" },
+    { "name": "4 · genai-agent-mastery (your hand-written code)", "path": "." }
+  ],
+  "settings": {
+    "workbench.startupEditor": "none",
+    "files.exclude": { "**/__pycache__": true, "**/.venv": true, "**/.mypy_cache": true, "**/.ruff_cache": true }
+  }
+}

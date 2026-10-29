@@ -82,6 +82,12 @@ Surveyed by sender over ~10 months; older pages not exhaustive. Topic for lesser
 
 **Suggested Gmail setup (you do this once, ~10 min):** a filter `from:(theneuralmaze OR decodingaimagazine OR systemdesignone OR bytebytego OR kenhuangus OR oliverpatel)` → label `Reading/Keep`, skip inbox; unsubscribe the DROP list (or filter it to `Reading/Archive`, skip inbox). The research radar reads `Reading/Keep` for you and surfaces at most 3 items that touch your builds.
 
+## 3b. Added 2026-10-19
+
+| Resource | What it is | Verdict | Where it lands |
+|---|---|---|---|
+| *Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents* (arXiv 2609.00006, Jul 2026) | Source-code study of 11 coding harnesses; 7 subsystems, 29 design patterns, 18 recommendations, a 90-line minimal harness | **CORE** | LL10, and a lens for your own builds: map ARB's and PM's runtime onto its 7 subsystems |
+
 ## 4. Existing curated material (kept, re-purposed)
 
 | Item | Verdict |
