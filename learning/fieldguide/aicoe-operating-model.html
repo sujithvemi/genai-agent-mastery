@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>50 · The AICoE operating model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IX · The operating model</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 50</div>
+  <ol>
+    <li><a href="#purpose">What an AICoE is for</a></li>
+    <li><a href="#structures">Structures</a></li>
+    <li><a href="#rights">Decision rights</a></li>
+    <li><a href="#autonomy">Earned autonomy</a></li>
+    <li><a href="#roles">Roles and sizing</a></li>
+    <li><a href="#rhythm">The weekly rhythm</a></li>
+    <li><a href="#kpis">KPIs that show governance enabling delivery</a></li>
+    <li><a href="#funding">Funding and the service catalogue</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IX · CHAPTER 50</div>
+  <h1>The AICoE operating model</h1>
+  <p class="lede">The people, decision rights and rhythm that make governed agents a delivery capability rather than a review queue: what an AI centre of excellence offers, how it is structured as an estate grows, who decides what, how agents and teams earn autonomy, how the centre is staffed and run week to week, and the measures that show a board governance is helping delivery.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>CLIENT · OWN</span></div>
+    <div><b>Reps</b><span>Capstone B6</span></div>
+    <div><b>Build links</b><span>ARB D45, D59; docs/operating/RACI.md</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your AICoE reviews every agent before it ships. At 150 agents a year, what breaks first?</li>
+    <li>Who should be allowed to waive a control, and which controls can nobody waive?</li>
+    <li>Name two KPIs that would show a board that governance is speeding delivery up, not slowing it down.</li>
+  </ol>
+</div>
+
+<h2 id="purpose"><span class="n">50.1</span>What an AICoE is for</h2>
+<p><span class="tag gen">Generic</span> An AI centre of excellence earns its place by making good agents fast and dangerous agents impossible. It does that with three products, not with meetings:</p>
+<ul>
+  <li><strong>A paved road.</strong> The platform, gateways, templates, evaluation harness and pipeline that make the governed way the easiest way to ship an agent (Parts V and VI).</li>
+  <li><strong>A rulebook.</strong> The control catalog, tiering, parameters and crosswalk, owned, versioned and ratified (Part III).</li>
+  <li><strong>Assurance.</strong> The gate, the evidence, the red team and the reviews that let anyone check what is true (Part IV).</li>
+</ul>
+<p>A centre that offers only a review board becomes a queue; one that offers only a platform becomes a vendor nobody has to listen to. The operating model is how the three products are owned, decided and paid for.</p>
+
+<h2 id="structures"><span class="n">50.2</span>Structures</h2>
+<div class="tw"><table>
+<thead><tr><th>Structure</th><th>How it works</th><th>Fits when</th><th>Breaks when</th></tr></thead>
+<tbody>
+<tr><td>Centralised</td><td>The AICoE builds and runs the agents</td><td>The first five to ten agents; scarce skills; one platform</td><td>Demand outgrows the team; business units route around it</td></tr>
+<tr><td>Hub and spoke</td><td>The hub owns road, rules and assurance; business-unit teams build and own agents</td><td>Tens to hundreds of agents; several platforms; most enterprises within a year</td><td>The hub keeps building instead of enabling, or spokes skip the road</td></tr>
+<tr><td>Federated standards</td><td>Units build on their own platforms; the centre sets standards and audits</td><td>Very large, diversified groups; mature units</td><td>Standards without a paved road become paperwork</td></tr>
+</tbody></table></div>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 436" role="img" aria-label="A hub-and-spoke AICoE. The hub provides a paved road (platform, gateways, templates), the rulebook (catalog, tiers, crosswalk) and assurance (gate, evidence, red team). Spokes are agent teams in business units such as customer operations, finance, HR, engineering, sales with SaaS agents, and data with platform agents. Below the hub sits the second line (risk, security, privacy, legal, model risk) and below that the third line, internal audit.">
+<defs><marker id="h50" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="300" y="70" width="300" height="190" rx="10"/>
+<text class="tx-b" x="450" y="96" text-anchor="middle">AICoE hub</text>
+<rect class="box-acc" x="316" y="108" width="268" height="40" rx="6"/>
+<text class="tx-acc" x="328" y="123.5" text-anchor="start">Paved road</text>
+<text class="tx-s" x="328" y="141.5" text-anchor="start">platform · gateways · templates</text>
+<rect class="box" x="316" y="156" width="268" height="40" rx="6"/>
+<text class="tx-b" x="328" y="171.5" text-anchor="start">Rulebook</text>
+<text class="tx-s" x="328" y="189.5" text-anchor="start">catalog · tiers · crosswalk</text>
+<rect class="box" x="316" y="204" width="268" height="40" rx="6"/>
+<text class="tx-b" x="328" y="219.5" text-anchor="start">Assurance</text>
+<text class="tx-s" x="328" y="237.5" text-anchor="start">gate · evidence · red team</text>
+<rect class="box" x="20" y="20" width="190" height="54" rx="6"/>
+<text class="tx-b" x="115" y="42.5" text-anchor="middle">Customer ops</text>
+<text class="tx-s" x="115" y="60.5" text-anchor="middle">agent team</text>
+<line class="ln" x1="210" y1="47" x2="300" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box" x="20" y="140" width="190" height="54" rx="6"/>
+<text class="tx-b" x="115" y="162.5" text-anchor="middle">Finance</text>
+<text class="tx-s" x="115" y="180.5" text-anchor="middle">agent team</text>
+<line class="ln" x1="210" y1="167" x2="300" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box" x="20" y="260" width="190" height="54" rx="6"/>
+<text class="tx-b" x="115" y="282.5" text-anchor="middle">HR</text>
+<text class="tx-s" x="115" y="300.5" text-anchor="middle">agent team</text>
+<line class="ln" x1="210" y1="287" x2="300" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box" x="690" y="20" width="190" height="54" rx="6"/>
+<text class="tx-b" x="785" y="42.5" text-anchor="middle">Engineering</text>
+<text class="tx-s" x="785" y="60.5" text-anchor="middle">agent team</text>
+<line class="ln" x1="690" y1="47" x2="600" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box" x="690" y="140" width="190" height="54" rx="6"/>
+<text class="tx-b" x="785" y="162.5" text-anchor="middle">Sales</text>
+<text class="tx-s" x="785" y="180.5" text-anchor="middle">SaaS agents</text>
+<line class="ln" x1="690" y1="167" x2="600" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box" x="690" y="260" width="190" height="54" rx="6"/>
+<text class="tx-b" x="785" y="282.5" text-anchor="middle">Data</text>
+<text class="tx-s" x="785" y="300.5" text-anchor="middle">platform agents</text>
+<line class="ln" x1="690" y1="287" x2="600" y2="165" style="stroke-dasharray:4 4"/>
+<rect class="box-ok" x="230" y="330" width="440" height="46" rx="6"/>
+<text class="tx" x="450" y="357.5" text-anchor="middle">Second line: risk · security · privacy · legal · model risk</text>
+<rect class="box" x="300" y="390" width="300" height="36" rx="6"/>
+<text class="tx" x="450" y="412.5" text-anchor="middle">Third line: internal audit</text>
+<line class="ln" x1="450" y1="260" x2="450" y2="328" marker-end="url(#h50)"/>
+</svg>
+</div>
+<figcaption><b>Fig 50.1</b>A hub-and-spoke AICoE inside the three lines. Spokes build and own agents; the hub owns the road they drive on, the rules and the proof; the second line sets risk appetite and challenges; internal audit tests the whole arrangement.</figcaption>
+</figure>
+<p><span class="tag gen">Generic</span> <cite>Team Topologies</cite> (Skelton and Pais) gives the hub its shape. The road is a <em>platform team</em>, consumed as a product with documentation and service levels. Policy authors and evaluators work as an <em>enabling team</em>, coaching spokes until they can do it themselves. The evidence plane and the decision point are <em>complicated subsystems</em> owned by specialists. Spokes are <em>stream-aligned teams</em> that own their agents end to end, including on-call. The three lines model fits around it: spokes and hub are the first line, risk and compliance functions the second, internal audit the third.</p>
+
+<h2 id="rights"><span class="n">50.3</span>Decision rights</h2>
+<p><span class="tag gen">Generic</span> Most governance friction is an unclear decision: who may approve this, and on what evidence. Write the decisions down, with one accountable owner each, and make the ones that can be computed into rules.</p>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Accountable</th><th>On what</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Accept a new use case</td><td>Business owner, with AICoE intake</td><td>Value case; agent card</td><td>Intake is triage, not approval to build</td></tr>
+<tr><td>Set the tier</td><td>Nobody: it is derived</td><td>The manifest's axis values</td><td>Disputes go to the governance office; the derivation does not change per agent (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>)</td></tr>
+<tr><td>Add or change a control or parameter</td><td>Control owner; ratified by the governance board</td><td>A written ruling with rejected alternatives</td><td>ARB records each as a numbered DECISIONS entry</td></tr>
+<tr><td>Waive a control for one agent</td><td>The control's risk owner</td><td>Compensating control; expiry date</td><td>Non-waivable at CRITICAL: ARB's <span class="ctl">CTL-0004</span>, <span class="ctl">CTL-0005</span> and <code>GBL-SOD-01</code></td></tr>
+<tr><td>Promote to production</td><td>Agent owner, through the gate</td><td>Gate verdict; sign-off bound to the configuration digest</td><td>Executive sign-off at CRITICAL</td></tr>
+<tr><td>Change the model</td><td>Model risk owner</td><td>Re-gate under the model pin (<span class="ctl">CTL-0021</span>)</td><td><a class="xref" data-ch="maintenance-evolution" data-sec="#models" href="maintenance-evolution.html#models">Chapter 40</a></td></tr>
+<tr><td>Pull the kill switch</td><td>On-call, on written criteria</td><td>Severity, not seniority</td><td>Whoever pulls it records why; restoring needs the owner</td></tr>
+<tr><td>Retire an agent</td><td>Agent owner</td><td>Recertification outcome</td><td><a class="xref" data-ch="maintenance-evolution" data-sec="#retire" href="maintenance-evolution.html#retire">Chapter 40</a></td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> ARB's <code>docs/operating/RACI.md</code> groups the catalog's authored <code>owner_role</code> values under five functions (head of engineering, data governance, CISO, agent owner, platform) and lists four roles the evolution phases added in their own right: FinOps lead (<span class="ctl">CTL-0020</span>), model risk owner (<span class="ctl">CTL-0021</span>), AI governance office (<span class="ctl">CTL-0022</span>, <span class="ctl">CTL-0023</span>) and responsible AI lead (<span class="ctl">CTL-0025</span>). A test reads every <code>owner_role</code> from the catalog and fails if the RACI table no longer matches, so accountability cannot drift from the controls it names. That is the pattern worth copying: an operating model whose claims are checked against the artefacts it governs.</p>
+
+<h2 id="autonomy"><span class="n">50.4</span>Earned autonomy</h2>
+<p><span class="tag gen">Generic</span> Autonomy should be granted the way credit is: in steps, on a record, and revocable. It applies at two levels.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 316" role="img" aria-label="Earned autonomy. Three steps: suggests (a person acts), acts with confirmation (a person approves each effect), acts autonomously within limits with sampled review. Promotion is on evidence: run volume, accuracy, override rate, approval quality. Demotion is on a trigger: an incident, drift, or a spike in control decisions. Tier caps the ladder: a CRITICAL agent never climbs past confirmation for its financial writes.">
+<defs><marker id="e50" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="20" y="184" width="250" height="60" rx="6"/>
+<text class="tx-b" x="145" y="209.5" text-anchor="middle">Suggests</text>
+<text class="tx-s" x="145" y="227.5" text-anchor="middle">a person acts</text>
+<rect class="box" x="325" y="122" width="250" height="60" rx="6"/>
+<text class="tx-b" x="450" y="147.5" text-anchor="middle">Acts with confirmation</text>
+<text class="tx-s" x="450" y="165.5" text-anchor="middle">a person approves each effect</text>
+<rect class="box-acc" x="630" y="60" width="250" height="60" rx="6"/>
+<text class="tx-acc" x="755" y="85.5" text-anchor="middle">Acts autonomously</text>
+<text class="tx-s" x="755" y="103.5" text-anchor="middle">within limits, sampled review</text>
+<line class="ln" x1="270" y1="200" x2="323" y2="160" marker-end="url(#e50)"/>
+<line class="ln" x1="575" y1="138" x2="628" y2="98" marker-end="url(#e50)"/>
+<rect class="box-ok" x="120" y="262" width="330" height="44" rx="6"/>
+<text class="tx-ok" x="285" y="279.5" text-anchor="middle">Promote on evidence</text>
+<text class="tx-s" x="285" y="297.5" text-anchor="middle">runs · accuracy · overrides · approval quality</text>
+<rect class="box-no" x="480" y="262" width="330" height="44" rx="6"/>
+<text class="tx-no" x="645" y="279.5" text-anchor="middle">Demote on a trigger</text>
+<text class="tx-s" x="645" y="297.5" text-anchor="middle">incident · drift · control-decision spike</text>
+<path class="ln-no" d="M 880 100 C 900 170, 880 250, 814 280" style="fill:none" marker-end="url(#e50)"/>
+<text class="tx-s" x="20" y="24" text-anchor="start">Tier caps the ladder: a CRITICAL agent keeps human approval for the effects that made it CRITICAL</text>
+</svg>
+</div>
+<figcaption><b>Fig 50.2</b>Autonomy is earned per agent and per action class, on evidence the platform already collects, and lost on a trigger. The tier sets the ceiling: ARB's CRITICAL treatment makes approval mandatory for the effects that made the agent CRITICAL.</figcaption>
+</figure>
+<ul>
+  <li><strong>Per agent and action class.</strong> An agent starts by suggesting, moves to acting with confirmation, and only then to acting on its own within limits, separately for each kind of effect. Promotion criteria are measured, not argued: supervised run volume, accuracy against reviewed outcomes, how often people override it, and approval quality (dwell time, rubber-stamping signals; <a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>). Demotion is automatic on a trigger. The tier sets the ceiling: under ARB's CRITICAL treatment, human approval of the effects that made an agent CRITICAL is mandatory, so no record of good behaviour removes it.</li>
+  <li><strong>Per team.</strong> Spokes that pass the gate first time and keep their agents healthy earn self-service promotion for LOW and MEDIUM agents, with the hub sampling rather than reviewing. HIGH and CRITICAL stay with central review. This is the lever that keeps the hub from becoming the bottleneck the first prediction question points at.</li>
+</ul>
+
+<h2 id="roles"><span class="n">50.5</span>Roles and sizing</h2>
+<div class="tw"><table>
+<thead><tr><th>Role</th><th>Owns</th><th>Hub or spoke</th></tr></thead>
+<tbody>
+<tr><td>AICoE lead</td><td>The three products, the board's agenda, the KPIs</td><td>Hub</td></tr>
+<tr><td>Platform engineers</td><td>Runtime, gateways, pipelines, templates, the evidence plane</td><td>Hub</td></tr>
+<tr><td>Governance engineers</td><td>Catalog, policies, conformance tests, crosswalk</td><td>Hub</td></tr>
+<tr><td>Evaluation and red team</td><td>Golden sets, evaluators, adversarial testing, falsifiers</td><td>Hub, embedded on demand</td></tr>
+<tr><td>AI governance office</td><td>Inventory, sign-off binding, waivers register, recertification calendar</td><td>Hub</td></tr>
+<tr><td>Model risk owner, FinOps lead, responsible AI lead</td><td>Model choice and change; spend; content safety and fairness</td><td>Hub or second line</td></tr>
+<tr><td>Agent owner</td><td>One agent's manifest, quality, cost and on-call</td><td>Spoke</td></tr>
+<tr><td>Enablement lead</td><td>Onboarding, documentation, office hours, the internal community</td><td>Hub</td></tr>
+</tbody></table></div>
+<p><span class="tag asm">Assumption</span> A starting size, to be tuned to the platform's maturity and how much the spokes can do:</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Agents</th><th>Hub size</th><th>Emphasis</th></tr></thead>
+<tbody>
+<tr><td>Pilot</td><td>Fewer than 10</td><td>4–6 people, several part-time</td><td>Build the first agents and the road together; write the first rulings</td></tr>
+<tr><td>Scale</td><td>10–100</td><td>8–15</td><td>Paved road as a product; enablement; self-service for LOW and MEDIUM</td></tr>
+<tr><td>Estate</td><td>100 and more, several platforms</td><td>15–25, plus spoke champions</td><td>Cross-platform registry and evidence; automation of recertification; continuous red team</td></tr>
+</tbody></table></div>
+
+<h2 id="rhythm"><span class="n">50.6</span>The weekly rhythm</h2>
+<div class="tw"><table>
+<thead><tr><th>Ritual</th><th>Cadence</th><th>Inputs</th><th>Outputs</th></tr></thead>
+<tbody>
+<tr><td>Intake triage</td><td>Weekly</td><td>New agent cards</td><td>Derived tiers, required controls, a road to use</td></tr>
+<tr><td>Control-decision review</td><td>Weekly</td><td>Refusal rates per control, approvals, incidents, new red-team findings</td><td>Tuning proposals; tickets; red-team cases</td></tr>
+<tr><td>Governance board</td><td>Fortnightly</td><td>Proposed control and parameter changes, waivers, disputes</td><td>Numbered rulings with rejected alternatives</td></tr>
+<tr><td>Fleet review</td><td>Monthly</td><td>Inventory reconciliation, cost per task, recertifications due, orphans</td><td>Recertifications, retirements, budget changes</td></tr>
+<tr><td>Framework currency</td><td>Quarterly</td><td>Dependency bumps, platform release notes, regulatory changes, the register</td><td>Re-verified crosswalk cells; upgrade plans; updated maps (<a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>)</td></tr>
+<tr><td>Incident review</td><td>After each incident</td><td>Evidence, timeline, the control that fired or failed</td><td>A red-team case; a ruling if a control changes</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> The board's output format is ARB's DECISIONS log: dated, numbered, a verdict, the reasons, what was rejected, and the test that makes it falsifiable. A client's governance board that adopts that format gets an audit trail of its own judgement for free.</p>
+
+<h2 id="kpis"><span class="n">50.7</span>KPIs that show governance enabling delivery</h2>
+<p><span class="tag gen">Generic</span> Pair every speed measure with a safety measure, and take both from systems rather than surveys. The gate, the registry and the evidence plane already produce most of them.</p>
+<div class="tw"><table>
+<thead><tr><th>KPI</th><th>Measures</th><th>Healthy direction</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Lead time, intake to production, by tier</td><td>Speed of the road</td><td>Falling, especially for LOW and MEDIUM</td><td>Intake and gate timestamps</td></tr>
+<tr><td>First-time gate pass rate</td><td>Whether the road teaches teams what the gate wants</td><td>Rising</td><td>Gate verdicts</td></tr>
+<tr><td>Share of agents on the paved road</td><td>Adoption</td><td>Rising</td><td>Registry</td></tr>
+<tr><td>Inventory completeness</td><td>Registered against discovered</td><td>Toward 100%</td><td>Reconciliation (D59)</td></tr>
+<tr><td>Open waivers and their age</td><td>Debt in the rulebook</td><td>Few and short-lived</td><td>Waiver register</td></tr>
+<tr><td>Control coverage, four numbers</td><td>Implemented, partial, mechanism, not-built</td><td>Partial and not-built falling</td><td>Crosswalk (<a class="xref" data-ch="standards-law-crosswalk" data-sec="#crosswalk" href="standards-law-crosswalk.html#crosswalk">Chapter 48</a>)</td></tr>
+<tr><td>Incidents and time to contain</td><td>Safety in operation</td><td>Fewer; faster containment</td><td>Evidence and incident records</td></tr>
+<tr><td>Approval latency and quality</td><td>Whether oversight is real</td><td>Fast without rubber-stamping</td><td>Approval evidence (dwell, fatigue signals)</td></tr>
+<tr><td>Cost per successful task</td><td>Value for money</td><td>Falling at equal quality</td><td>Evidence plus billing (<a class="xref" data-ch="capacity-cost-regions" data-sec="#levers" href="capacity-cost-regions.html#levers">Chapter 33</a>)</td></tr>
+</tbody></table></div>
+<p>Avoid counting reviews held, policies written or agents "assessed". They measure activity, and a board learns nothing from them.</p>
+
+<h2 id="funding"><span class="n">50.8</span>Funding and the service catalogue</h2>
+<p><span class="tag gen">Generic</span> Fund the road and the rulebook centrally, because their value is shared and their cost is front-loaded; show back platform and model consumption to the spokes so that cost per task is visible to the people who can change it. Publish what the hub offers as a service catalogue with service levels: intake and tiering within a week, a starter template, policy authoring for new effect classes, evaluation and red team on request, an assurance pack per agent. A catalogue turns "governance" from a gate people fear into a set of things they can ask for.</p>
+
+<h2 id="fail"><span class="n">50.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>How it shows up</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>The review board as bottleneck</td><td>Weeks of queue; teams ship around it</td><td>Rules that compute; self-service for LOW and MEDIUM; sampling</td></tr>
+<tr><td>Accountability in a slide</td><td>A RACI nobody's tooling checks</td><td>Owners in the catalog and manifests; a test that the RACI matches</td></tr>
+<tr><td>Waivers that never expire</td><td>A growing shadow rulebook</td><td>Expiry dates; non-waivable controls at CRITICAL; age as a KPI</td></tr>
+<tr><td>A hub that keeps building</td><td>The AICoE owns every agent and every incident</td><td>Spokes own agents and on-call; the hub owns the road</td></tr>
+<tr><td>Autonomy by enthusiasm</td><td>An agent moved to autonomous because the demo went well</td><td>Promotion on measured criteria only</td></tr>
+<tr><td>Vanity KPIs</td><td>"200 assessments completed"</td><td>Paired speed and safety measures from systems</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">50.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Won't an AICoE slow us down?"</strong> "If it is a review board, yes. We set it up as a paved road plus rules that compute, so low-risk agents go through on their own and the experts spend their time on the agents that can move money or affect people. We measure lead time by tier to prove it."</li>
+    <li><strong>"Who is accountable when an agent gets it wrong?"</strong> "The agent's owner, named in its manifest, for that agent. The control owners for whether their controls work. The evidence shows which it was."</li>
+    <li><strong>"When can the agent act without a person?"</strong> "When its record says so: enough supervised runs, few overrides, good approval quality, and only for actions its risk tier allows. It loses that autonomy automatically if something goes wrong."</li>
+  </ul>
+</div>
+
+<div class="panel p-future" data-trigger="ARB adds or reassigns an owner role, or the GTM pack's operating-model workbook changes">
+  <span class="k">Waiting on the builds</span>
+  <p>Keep the decision-rights table aligned with ARB's <code>RACI.md</code> (four roles were added in E2 and E5). When the GTM support pack's operating-model workbook is revised, reconcile its role names with this chapter's so the pack and the book use one vocabulary.</p>
+</div>
+
+<h2 id="prove"><span class="n">50.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · D45</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The AICoE's three products, and what happens if it offers only one.</li>
+    <li><span class="lvl">Recall</span>Which ARB controls cannot be waived at CRITICAL, and why.</li>
+    <li><span class="lvl">Apply</span>Write the promotion and demotion criteria for a claims-triage agent moving from confirmation to autonomy for payments under a threshold.</li>
+    <li><span class="lvl">Design</span>An operating model for 30 agents today and 150 next year on two platforms: structure, decision rights, rituals and sizing.</li>
+    <li><span class="lvl">Trade-off</span>Central review of every agent against self-service with sampling: where do you draw the line, and what evidence moves it?</li>
+  </ol>
+  <p class="small">Card candidates: <em>road, rulebook, assurance</em> · <em>the tier is derived, not decided</em> · <em>autonomy is earned per action class and lost on a trigger</em> · <em>pair every speed KPI with a safety KPI</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">50.12</span>Further reading</h2>
+<ul>
+  <li>Matthew Skelton and Manuel Pais, <cite>Team Topologies</cite> (IT Revolution, 2019): platform, enabling, complicated-subsystem and stream-aligned teams.</li>
+  <li>Nicole Forsgren, Jez Humble and Gene Kim, <cite>Accelerate</cite> (IT Revolution, 2018): delivery metrics that pair speed with stability.</li>
+  <li>The Institute of Internal Auditors, <cite>The IIA's Three Lines Model</cite> (2020).</li>
+  <li>NIST AI RMF, GOVERN function; ISO/IEC 42001 clause 5 (leadership) and clause 9 (performance evaluation).</li>
+  <li><span class="tag own">Your build</span> ARB <code>docs/operating/RACI.md</code>, <code>RUNBOOKS.md</code>, <code>GATE_AS_PROMOTION.md</code>, <code>SLOS.md</code>; DECISIONS D45 (the day-2 operating model) and D59 (inventory reconciliation).</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="regulated-industries.html"><small>Previous</small>49 · Regulated industries</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="readiness-first-90-days.html"><small>Next</small>51 · Readiness and the first 90 days</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

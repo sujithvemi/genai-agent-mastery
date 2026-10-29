@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>36 · Tools, integration, sandboxes and computer use</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 36</div>
+  <ol>
+    <li><a href="#reach">Tools are the agent's reach</a></li>
+    <li><a href="#design">Designing tools for models</a></li>
+    <li><a href="#paths">Integration paths</a></li>
+    <li><a href="#fleet">MCP at fleet scale</a></li>
+    <li><a href="#sandbox">Code-execution sandboxes</a></li>
+    <li><a href="#computer">Browser and computer use</a></li>
+    <li><a href="#ui">Agent UI protocols</a></li>
+    <li><a href="#payments">Agent payments and commerce</a></li>
+    <li><a href="#platforms">Platform comparison</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 36</div>
+  <h1>Tools, integration, sandboxes and computer use</h1>
+  <p class="lede">An agent can only do what its tools let it do, so tools are where usefulness and risk are both decided. This chapter covers how to design tools a model uses well, the paths by which enterprise systems become tools, how to run MCP as a managed fleet, how to give an agent a computer (a code sandbox, a browser, a desktop) without giving it your network, and the newer protocols for agent interfaces and agent payments.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>TECH · SYSTEMS</span></div>
+    <div><b>Reps</b><span>TC-02 · TC-03 · lab T05</span></div>
+    <div><b>Controls</b><span>CTL-0024 (MCP integrity) · CTL-0007 (value limits) · CTL-0008 (identity)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An agent has 80 tools available. What goes wrong, and what are two ways to fix it?</li>
+    <li>Where should the credentials live when an agent browses a website that requires a login?</li>
+    <li>An agent pays for an API call with a stablecoin through HTTP 402. Which tier of control should that effect get?</li>
+  </ol>
+</div>
+
+<h2 id="reach"><span class="n">36.1</span>Tools are the agent's reach</h2>
+<p><span class="tag gen">Generic</span> Classify tools by what they let the agent do, because the class sets both the design and the controls:</p>
+<div class="tw"><table>
+<thead><tr><th>Class</th><th>Examples</th><th>Typical controls</th></tr></thead>
+<tbody>
+<tr><td>Read</td><td>Search, database queries, CRM and ticket lookups, retrieval</td><td>Caller's permissions, data classification, result screening</td></tr>
+<tr><td>Reversible write</td><td>Draft an email, create a ticket, comment</td><td>Policy check, idempotency, evidence</td></tr>
+<tr><td>Irreversible or financial write</td><td>Refunds, payments, deletions, sending external messages</td><td>Trusted-fact policy, value limits, approval, evidence before effect</td></tr>
+<tr><td>Computation</td><td>Code execution, data analysis</td><td>Sandbox isolation, no ambient credentials, egress limits</td></tr>
+<tr><td>Environment control</td><td>Browser and computer use, shell</td><td>Isolated environment, separate identities, human takeover</td></tr>
+<tr><td>Delegation</td><td>Calling another agent (A2A), spawning sub-agents</td><td>Edge declaration, provenance, no transitive authority (<a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>)</td></tr>
+</tbody></table></div>
+
+<h2 id="design"><span class="n">36.2</span>Designing tools for models</h2>
+<p><span class="tag gen">Generic</span> A tool is an interface whose user is a model. Anthropic's engineering guidance, "Writing effective tools for agents" (2025), and the experience of both builds agree on a short list:</p>
+<ul>
+  <li><strong>Fewer, larger-grained tools.</strong> One <code>schedule_meeting</code> beats <code>list_users</code>, <code>list_events</code> and <code>create_event</code> chained by the model. Each extra tool costs context and adds a decision the model can get wrong.</li>
+  <li><strong>Names and descriptions are prompts.</strong> They are read on every call. Say when to use the tool, when not to, and what it returns.</li>
+  <li><strong>Typed, narrow parameters.</strong> Enumerations instead of free text; identifiers the system can verify, not names it must guess (<a class="xref" data-ch="loop-tools-typed-outputs" href="loop-tools-typed-outputs.html">Chapter 2</a>).</li>
+  <li><strong>Return what the model needs, not everything.</strong> Truncate and paginate; return meaningful identifiers and a short summary; make error messages say what to do next.</li>
+  <li><strong>Separate reads from writes</strong> and declare the effect class, so policy and tiering can see it.</li>
+  <li><strong>Make writes idempotent</strong> with a key the caller supplies, and offer a dry-run or preview mode for consequential actions.</li>
+</ul>
+<p>The first prediction question: with 80 tools the context fills with descriptions, selection accuracy falls, and similar tools get confused. Fix it by consolidating tools, by <strong>tool search</strong> (retrieve the few relevant tools per task; Microsoft Foundry and others now offer it as a service), or by packaging procedures as <strong>skills</strong> that are loaded only when needed.</p>
+
+<h2 id="paths"><span class="n">36.3</span>Integration paths</h2>
+<p><span class="tag gen">Generic</span> Enterprise systems become tools by one of five paths:</p>
+<div class="tw"><table>
+<thead><tr><th>Path</th><th>How</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>Direct API tool</td><td>A function in the agent's code calls the system's API</td><td>One agent, one system, simple auth; hardest to govern at scale</td></tr>
+<tr><td>MCP server</td><td>The system's capabilities are published as an MCP server (vendor-supplied or your own)</td><td>Reuse across agents and frameworks; the default for new integrations</td></tr>
+<tr><td>Gateway-generated MCP</td><td>An API gateway turns existing REST APIs or functions into MCP tools: AgentCore Gateway (APIs, Lambda, services), Azure API Management (expose REST as MCP), GEAP Agent Gateway and connectors, Apigee</td><td>Many existing APIs; central auth, quotas and logging</td></tr>
+<tr><td>Integration platform</td><td>iPaaS flows (MuleSoft, Boomi, Workato, Google Application Integration) exposed as tools</td><td>Multi-step business transactions that already exist as flows</td></tr>
+<tr><td>Agent-to-agent</td><td>Ask another team's or vendor's agent through A2A</td><td>The other side owns the logic and data, for example a SaaS agent</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your builds</span> pm-agent reaches Jira through an Atlassian MCP binding for reads and a separate write adapter, each behind a seam (<code>platform/jira/</code>). ARB publishes its tools on a FastMCP server behind the tool gateway, so the same tools serve in-process ADK and out-of-process framework hosts (<a class="xref" data-ch="frameworks-sdks-studios" data-sec="#hosts" href="frameworks-sdks-studios.html#hosts">Chapter 35</a>).</p>
+
+<h2 id="fleet"><span class="n">36.4</span>MCP at fleet scale</h2>
+<p><span class="tag gen">Generic</span> One MCP server is a convenience; two hundred are an estate. Running MCP at scale needs five things:</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="MCP at fleet scale. An agent with only its declared tools calls a tool gateway, the policy enforcement point. The gateway authenticates the agent and uses an on-behalf-of token from a vault; checks the server is approved in the registry; checks the tool description and schema hash against the reviewed pin; asks the PDP to decide on trusted facts; and applies limits, logging and screening. Behind it sit four kinds of MCP server: vendor servers, your own servers, gateway-generated MCP from existing REST APIs and functions, and integration-platform flows exposed as tools. They reach business systems such as Jira, CRM, ERP and data platforms.">
+<defs><marker id="f36" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="22" width="130" height="60" rx="6"/>
+<text class="tx-b" x="75" y="47" text-anchor="middle">Vault</text>
+<text class="tx-s" x="75" y="65" text-anchor="middle">users' OAuth tokens</text>
+<rect class="box-strong" x="10" y="120" width="130" height="70" rx="6"/>
+<text class="tx-b" x="75" y="150" text-anchor="middle">Agent</text>
+<text class="tx-s" x="75" y="168" text-anchor="middle">declared tools only</text>
+<rect class="box" x="10" y="228" width="130" height="60" rx="6"/>
+<text class="tx-b" x="75" y="253" text-anchor="middle">Registry</text>
+<text class="tx-s" x="75" y="271" text-anchor="middle">servers · pins · owners</text>
+<rect class="box-strong" x="175" y="22" width="320" height="266" rx="8"/>
+<text class="tx-b" x="335" y="46" text-anchor="middle">Tool gateway (PEP)</text>
+<rect class="box" x="190" y="60" width="290" height="34" rx="6"/>
+<text class="tx-b" x="335" y="82" text-anchor="middle">authenticate agent · on-behalf-of token</text>
+<rect class="box" x="190" y="104" width="290" height="34" rx="6"/>
+<text class="tx-b" x="335" y="126" text-anchor="middle">registry: is this server approved?</text>
+<rect class="box" x="190" y="148" width="290" height="34" rx="6"/>
+<text class="tx-b" x="335" y="170" text-anchor="middle">pin: description and schema hash</text>
+<rect class="box-ok" x="190" y="192" width="290" height="34" rx="6"/>
+<text class="tx-ok" x="335" y="214" text-anchor="middle">policy: PDP decides on trusted facts</text>
+<rect class="box" x="190" y="236" width="290" height="34" rx="6"/>
+<text class="tx-b" x="335" y="258" text-anchor="middle">limits · logging · screening</text>
+<line class="ln" x1="140" y1="52" x2="188" y2="77" style="stroke-dasharray:3 4"/>
+<line class="ln" x1="140" y1="258" x2="188" y2="121" style="stroke-dasharray:3 4"/>
+<line class="ln" x1="140" y1="155" x2="173" y2="155" marker-end="url(#f36)"/>
+<rect class="box" x="535" y="22" width="200" height="56" rx="6"/>
+<text class="tx-b" x="635" y="45" text-anchor="middle">Vendor MCP server</text>
+<text class="tx-s" x="635" y="63" text-anchor="middle">Atlassian · GitHub · SaaS</text>
+<line class="ln" x1="495" y1="50" x2="533" y2="50" marker-end="url(#f36)"/>
+<line class="ln" x1="735" y1="50" x2="766" y2="137" marker-end="url(#f36)"/>
+<rect class="box" x="535" y="90" width="200" height="56" rx="6"/>
+<text class="tx-b" x="635" y="113" text-anchor="middle">Your MCP server</text>
+<text class="tx-s" x="635" y="131" text-anchor="middle">FastMCP, as in ARB</text>
+<line class="ln" x1="495" y1="118" x2="533" y2="118" marker-end="url(#f36)"/>
+<line class="ln" x1="735" y1="118" x2="766" y2="149" marker-end="url(#f36)"/>
+<rect class="box" x="535" y="158" width="200" height="56" rx="6"/>
+<text class="tx-b" x="635" y="181" text-anchor="middle">Gateway-generated MCP</text>
+<text class="tx-s" x="635" y="199" text-anchor="middle">from REST APIs, functions</text>
+<line class="ln" x1="495" y1="186" x2="533" y2="186" marker-end="url(#f36)"/>
+<line class="ln" x1="735" y1="186" x2="766" y2="161" marker-end="url(#f36)"/>
+<rect class="box" x="535" y="226" width="200" height="56" rx="6"/>
+<text class="tx-b" x="635" y="249" text-anchor="middle">Integration flow as tool</text>
+<text class="tx-s" x="635" y="267" text-anchor="middle">MuleSoft · Workato</text>
+<line class="ln" x1="495" y1="254" x2="533" y2="254" marker-end="url(#f36)"/>
+<line class="ln" x1="735" y1="254" x2="766" y2="173" marker-end="url(#f36)"/>
+<rect class="box" x="770" y="110" width="120" height="90" rx="6"/>
+<text class="tx-b" x="830" y="141" text-anchor="middle">Systems</text>
+<text class="tx-s" x="830" y="159" text-anchor="middle">Jira · CRM</text>
+<text class="tx-s" x="830" y="177" text-anchor="middle">ERP · data</text>
+</svg>
+</div>
+<figcaption><b>Fig 36.1</b>MCP as an estate. Every tool call passes one gateway that checks who is calling, whether the server is approved, whether what the model was shown is what was reviewed, and whether the business rule allows it, before any of the four kinds of MCP server is reached.</figcaption>
+</figure>
+<ol>
+  <li><strong>A registry with approval.</strong> Only registered, reviewed servers are reachable. GEAP's Agent Registry and AWS Agent Registry both register MCP servers alongside agents and skills; Azure API Center does the same for APIM-managed servers <span class="tag ver">Verify</span>.</li>
+  <li><strong>Authentication per the specification.</strong> Remote MCP uses OAuth 2.1; agents acting for users need delegated (on-behalf-of) tokens, ideally held by a vault or gateway rather than the agent (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>).</li>
+  <li><strong>Integrity of what the model sees.</strong> Tool descriptions are instructions to the model. ARB's CTL-0024 hashes each tool's canonical name, description and schema and withholds any tool whose hash changes after review (a "rug pull"); re-pinning needs a reviewer who is not the requester (<code>make demo-mcp-rugpull</code>, <code>make gov-mcp-repin</code>).</li>
+  <li><strong>A gateway in the path</strong> for rate limits, logging, policy and content screening: platform gateways (GEAP Agent Gateway, AgentCore Gateway, APIM) or data-platform ones (Snowflake Cortex AI Gateway, Databricks Unity AI Gateway, ServiceNow's AI Gateway for MCP).</li>
+  <li><strong>Selection, not exposure.</strong> Give each agent the tools its manifest declares, not the catalogue.</li>
+</ol>
+
+<h2 id="sandbox"><span class="n">36.5</span>Code-execution sandboxes</h2>
+<p><span class="tag gen">Generic</span> Letting a model write and run code is the most powerful tool and the most dangerous. The sandbox must assume the code is hostile, because injected content can make it so. Isolation comes in grades:</p>
+<div class="tw"><table>
+<thead><tr><th>Isolation</th><th>Mechanism</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Process</td><td>Separate process, restricted user, seccomp</td><td>Fast, weak; shared kernel</td></tr>
+<tr><td>Container</td><td>Namespaces and cgroups; gVisor adds a user-space kernel</td><td>Common; kernel exploits are the risk without gVisor</td></tr>
+<tr><td>MicroVM</td><td>Firecracker-style lightweight virtual machines</td><td>Strong isolation, fast start; what several managed services use (AgentCore Harness sessions run in isolated microVMs)</td></tr>
+<tr><td>Language isolate</td><td>WebAssembly or V8 isolates</td><td>Very fast, limited language support</td></tr>
+</tbody></table></div>
+<p>Managed options: GEAP Code Execution and Agent Sandbox (shell and computer-use sandboxes GA in September 2026), AgentCore Code Interpreter (Python, JavaScript, TypeScript), Azure Container Apps dynamic sessions, the code-execution tools of OpenAI and Anthropic, and specialists such as E2B, Daytona and Modal <span class="tag ver">Verify</span>. Whatever the isolation, the controls are the same:</p>
+<ul>
+  <li><strong>No ambient credentials.</strong> Nothing in the sandbox can reach your cloud with the agent's identity. Anthropic's managed agents keep credentials out of the sandbox entirely and broker tool access through a proxy.</li>
+  <li><strong>Egress allow-lists</strong>, or no network at all.</li>
+  <li><strong>Resource limits</strong> on CPU, memory, time and disk.</li>
+  <li><strong>Ephemeral by default</strong>; files that must persist are copied out deliberately and scanned.</li>
+  <li><strong>Evidence</strong>: the code that ran and its outputs are recorded.</li>
+</ul>
+
+<h2 id="computer"><span class="n">36.6</span>Browser and computer use</h2>
+<p><span class="tag gen">Generic</span> Browser and computer-use agents operate interfaces built for people: clicking, typing and reading screens. Managed browsers (AgentCore Browser, GEAP computer-use sandboxes) and model-native computer use (Anthropic, OpenAI, Google) make this practical for systems without APIs. They are also the most exposed agents you can build, because every web page is untrusted input and the action space is unbounded.</p>
+<ul>
+  <li><strong>Credentials</strong> (the second prediction question) live in a vault or the platform's identity service and are injected into the session for the specific site, never placed in the prompt or visible to the model. Use dedicated accounts with the narrowest rights, not a person's own login.</li>
+  <li><strong>Isolation</strong>: a fresh browser profile per session, in a sandbox with egress rules.</li>
+  <li><strong>Constraints</strong>: an allow-list of domains, no downloads or uploads unless required, and confirmation before submitting forms that commit to anything.</li>
+  <li><strong>Human takeover</strong> for logins, CAPTCHAs and consequential steps.</li>
+  <li><strong>Identification</strong>: standards such as Web Bot Auth (supported by AgentCore Browser) let sites recognise a legitimate agent rather than treat it as a scraper.</li>
+  <li><strong>Prefer an API.</strong> A browser agent is a bridge to systems without one, not the target architecture.</li>
+</ul>
+
+<h2 id="ui"><span class="n">36.7</span>Agent UI protocols</h2>
+<p><span class="tag gen">Generic</span> Agents increasingly drive interfaces rather than return text. Three approaches have emerged <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Approach</th><th>What it is</th><th>Governance note</th></tr></thead>
+<tbody>
+<tr><td>AG-UI</td><td>An open event protocol (from CopilotKit) for streaming agent state, messages and tool activity between an agent back end and a front end; supported by AgentCore Runtime and several frameworks</td><td>The event stream can carry approval requests; render them in a trusted component</td></tr>
+<tr><td>A2UI</td><td>Google's protocol for agents to return declarative descriptions of UI components that the client renders from its own trusted library</td><td>Safer than letting a model emit HTML or script: the client decides what can render</td></tr>
+<tr><td>Apps on MCP</td><td>Interactive components delivered with MCP tool results (for example OpenAI's Apps SDK)</td><td>Treat embedded UI as third-party content; sandbox it</td></tr>
+</tbody></table></div>
+<p>Whatever the protocol, the approval surface for a consequential action must show the facts the decision rests on, not the model's summary of them (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>).</p>
+
+<h2 id="payments"><span class="n">36.8</span>Agent payments and commerce</h2>
+<p><span class="tag gen">Generic</span> 2025 and 2026 produced a set of protocols for agents that buy, sell and pay <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Protocol</th><th>Origin</th><th>Layer</th><th>Mechanism</th></tr></thead>
+<tbody>
+<tr><td>AP2, Agent Payments Protocol</td><td>Google Cloud and partners, September 2025</td><td>Payment authorisation</td><td>Cryptographically signed mandates (intent, cart, payment) that prove what the user authorised; an extension of A2A</td></tr>
+<tr><td>UCP, Universal Commerce Protocol</td><td>Google and Shopify, January 2026</td><td>Commerce workflow</td><td>One schema for catalogue, cart, checkout, inventory, fulfilment and orders</td></tr>
+<tr><td>ACP, Agentic Commerce Protocol</td><td>OpenAI and Stripe, September 2025</td><td>Commerce workflow</td><td>Checkout within a chat assistant; reportedly narrowed to product discovery in 2026. Not the same ACP as the Agent Client Protocol in <a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>.</td></tr>
+<tr><td>x402 and MPP</td><td>x402 from Coinbase; MPP, the Machine Payments Protocol</td><td>Machine-to-machine micropayments</td><td>Pay per request over HTTP 402; supported by AgentCore Payments with spending limits and managed wallets (GA August 2026)</td></tr>
+</tbody></table></div>
+<p>The third prediction question has a simple answer: a payment is an irreversible financial write, the top of the action scale, whatever its size. Many small autonomous payments add up, so the controls are the ones your build already has for refunds: per-transaction and per-window value limits on trusted counters (CTL-0007), a declared set of payees, evidence before effect, and approval above a threshold. Signed mandates help: they are evidence of what the user authorised, which is exactly what a dispute needs.</p>
+
+<h2 id="platforms"><span class="n">36.9</span>Platform comparison</h2>
+<div class="tw"><table>
+<thead><tr><th>Capability</th><th>Google (GEAP)</th><th>AWS (AgentCore)</th><th>Microsoft</th></tr></thead>
+<tbody>
+<tr><td>Tool gateway</td><td>Agent Gateway (GA June 2026; Model Armor on the gateway; VPC Service Controls)</td><td>AgentCore Gateway (APIs, Lambda, MCP servers; rate limits; 3-legged OAuth to MCP targets)</td><td>API Management AI gateway; Foundry Toolboxes (preview)</td></tr>
+<tr><td>MCP and tool registry</td><td>Agent Registry (agents, tools, MCP servers, skills)</td><td>AWS Agent Registry (GA August 2026)</td><td>API Center; Foundry tool catalogue; Agent 365 registry</td></tr>
+<tr><td>Code sandbox</td><td>Code Execution; Agent Sandbox</td><td>Code Interpreter; Harness microVM sessions</td><td>Foundry code interpreter; Container Apps dynamic sessions</td></tr>
+<tr><td>Browser and computer use</td><td>Computer-use sandboxes (GA September 2026)</td><td>AgentCore Browser (Web Bot Auth)</td><td>Foundry browser and computer-use tools</td></tr>
+<tr><td>Connectors</td><td>Native integrations; Application Integration; Apigee</td><td>Gateway connectors (Salesforce, Jira, Slack, Zoom); Managed Knowledge Base connectors</td><td>Copilot connectors; Logic Apps; Power Platform connectors</td></tr>
+<tr><td>Payments</td><td>AP2 and UCP (protocols)</td><td>AgentCore Payments (x402, MPP)</td><td><span class="tag ver">Verify</span></td></tr>
+</tbody></table></div>
+<p class="small muted">Sources: GEAP release notes and overview (read 2026-10-21); AgentCore developer guide and release notes; Microsoft Learn (API Management AI gateway, 2026-05-29) and Foundry Build 2026 announcements. Part VII has the full platform chapters.</p>
+
+<h2 id="fail"><span class="n">36.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Tool sprawl in context</td><td>Consolidate; tool search; skills loaded on demand</td></tr>
+<tr><td>Tool description changed after review</td><td>Hash pinning and withholding (CTL-0024)</td></tr>
+<tr><td>Agent holds long-lived API keys</td><td>Gateway or vault holds credentials; delegated tokens</td></tr>
+<tr><td>Sandbox with network and credentials</td><td>No ambient credentials; egress allow-list</td></tr>
+<tr><td>Browser agent logged in as a person</td><td>Dedicated narrow accounts; injected credentials; takeover</td></tr>
+<tr><td>Micropayments without aggregate limits</td><td>Per-window value limits on trusted counters</td></tr>
+<tr><td>Model-generated HTML rendered in the app</td><td>Declarative UI from a trusted component library</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">36.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Should every team build its own MCP servers?"</strong> "Build them once per system, register and review them centrally, put a gateway in front, and let agents use the ones their manifests declare."</li>
+    <li><strong>"Can the agent just use the website?"</strong> "It can, in an isolated browser with its own narrow account and a person on call for the hard steps. Treat it as a bridge until the system has an API."</li>
+    <li><strong>"Can agents pay for things?"</strong> "Yes, with the same controls as any financial write: limits, declared payees, evidence before the payment and approval above a threshold. Signed mandates are your evidence of what the customer authorised."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">36.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · lab T05</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Six tool-design rules and the failure each prevents.</li>
+    <li><span class="lvl">Recall</span>The five things MCP needs at fleet scale.</li>
+    <li><span class="lvl">Apply</span>Lab T05: wrap one ARB tool as an MCP server and call it from two frameworks; then change its description and watch CTL-0024 withhold it.</li>
+    <li><span class="lvl">Design</span>A sandbox policy for a data-analysis agent at a bank: isolation level, network, data in and out, evidence.</li>
+    <li><span class="lvl">Trade-off</span>Gateway-generated MCP tools from existing APIs against hand-designed tools.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a tool description is a prompt</em> · <em>no ambient credentials in a sandbox</em> · <em>a payment is a financial write at any size</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">36.13</span>Further reading</h2>
+<ul>
+  <li><b>Guidance.</b> Anthropic, "Writing effective tools for agents" (2025). The MCP specification (authorisation section). OWASP Top 10 for Agentic Applications on tool misuse.</li>
+  <li><b>Protocols.</b> A2A 1.0 (Linux Foundation, 2026); AP2 specification; UCP; AG-UI documentation.</li>
+  <li><b>Platform documentation.</b> GEAP Agent Gateway, Agent Registry and Sandbox; AgentCore Gateway, Code Interpreter, Browser and Payments; Azure API Management AI gateway.</li>
+  <li><span class="tag own">Your builds</span> ARB CTL-0024, <code>platform/gateway/</code>, D60; pm-agent <code>platform/jira/</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="frameworks-sdks-studios.html"><small>Previous</small>35 · Frameworks, SDKs and studios</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="runtime-sessions-memory.html"><small>Next</small>37 · Runtimes, sessions and memory services</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

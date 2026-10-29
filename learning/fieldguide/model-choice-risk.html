@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>10 · Model choice, routing and model risk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part II · The model layer</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 10</div>
+  <ol>
+    <li><a href="#pertask">Choice is per task</a></li>
+    <li><a href="#criteria">The criteria</a></li>
+    <li><a href="#builds">What your builds learned</a></li>
+    <li><a href="#routing">Routing</a></li>
+    <li><a href="#gateway">The model gateway</a></li>
+    <li><a href="#caching">Caching economics</a></li>
+    <li><a href="#pinning">Pinning and provenance</a></li>
+    <li><a href="#budgets">Budgets</a></li>
+    <li><a href="#datapath">The data path</a></li>
+    <li><a href="#mrm">Model risk management</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART II · CHAPTER 10</div>
+  <h1>Model choice, routing and model risk</h1>
+  <p class="lede">Which model an agent uses is a product decision, a cost decision, a data-protection decision and a risk decision at once. This chapter treats it as all four: how to choose per task, how to route between models without losing track of which one answered, how to cache without leaking, how to pin and meter models as governed configuration, and how model risk management applies when the regulator has explicitly left generative and agentic AI out of scope.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>MODEL · SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-11 · TC-03</span></div>
+    <div><b>Controls</b><span>ARB CTL-0020 (model budget), CTL-0021 (model pin), CTL-0022 (sign-off digest) · pm-agent CTL-0007 (run budget), pm CTL-0021 (permission-scoped cache)</span></div>
+    <div><b>Decisions</b><span>D53 · D57 · D58 · D66 · D71 · pm ADR-0006</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-gotcha">
+  <span class="k">Read this first · the two builds number controls differently</span>
+  <p>CTL-0020 and CTL-0021 mean different things in the two builds: in ARB they are the model budget and the model pin; in pm-agent, CTL-0021 is the permission-scoped cache (finding F-02 in <a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>). This chapter always prefixes the build.</p>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your provider's SDK silently falls back to another model when the first is overloaded. Is that a reliability feature or a governance defect?</li>
+    <li>You set a token limit at the 99th percentile of completed turns, times 1.5. What is wrong with the data you used?</li>
+    <li>A bank's model risk team says "SR 11-7 covers this agent". What is wrong with that sentence in October 2026?</li>
+  </ol>
+</div>
+
+<h2 id="pertask"><span class="n">10.1</span>Choice is per task</h2>
+<p><span class="tag gen">Generic</span> "Which model does the agent use?" is usually the wrong question. An agent does several kinds of work, and they need different things:</p>
+<div class="tw"><table>
+<thead><tr><th>Task inside an agent</th><th>Needs most</th><th>Typical choice</th></tr></thead>
+<tbody>
+<tr><td>Planning, authoring, multi-step reasoning</td><td>Capability, instruction-following, tool-use reliability</td><td>Frontier model, possibly with a reasoning budget</td></tr>
+<tr><td>Routing, intent classification</td><td>Latency, cost, consistency</td><td>Small model or a fine-tuned classifier</td></tr>
+<tr><td>Extraction into a schema</td><td>Structured-output reliability</td><td>Mid-size model with constrained decoding</td></tr>
+<tr><td>Summarising retrieved text</td><td>Faithfulness, long context</td><td>Mid-size or frontier; measure groundedness</td></tr>
+<tr><td>Judging (evals, screening)</td><td>Agreement with humans, independence from the producer</td><td>A different model family from the one being judged</td></tr>
+<tr><td>Embeddings</td><td>Retrieval quality on your corpus and languages</td><td>A dedicated embedding model</td></tr>
+</tbody></table></div>
+
+<h2 id="criteria"><span class="n">10.2</span>The criteria</h2>
+<p><span class="tag gen">Generic</span> Decide on evidence from your own golden set, not leaderboards. The criteria an architect should be able to defend:</p>
+<ol>
+  <li><strong>Task success</strong> on your golden set, measured over repeated runs (pass^k), with cost per <em>successful</em> task as the headline number.</li>
+  <li><strong>Tool-calling and structured-output reliability</strong>: the rate of valid calls and valid typed answers. In ARB's first live golden run on Vertex, 14 of 26 answers were not the typed shape, so the answer contract (CTL-0026) refused them and only 7 of 26 passed (D71).</li>
+  <li><strong>Latency</strong> at p95 for the whole turn, including thinking tokens (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>).</li>
+  <li><strong>Data path</strong>: retention, training use, processing location, sub-processors (<a class="sref" href="#datapath">10.9</a>).</li>
+  <li><strong>Capacity</strong>: quota regime, tiers, reservation options in the regions you need.</li>
+  <li><strong>Lifecycle</strong>: how the provider versions, how long a version lives, how much notice a retirement gets (<a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a>).</li>
+  <li><strong>Safety behaviour</strong>: refusal patterns, and the obey rate for injected instructions, re-measured for every candidate (<a class="xref" data-ch="transformers-tokens" data-sec="#training" href="transformers-tokens.html#training">Chapter 8</a>).</li>
+  <li><strong>Licence and control</strong> for open-weight models: who can run it, where, and with what usage restrictions.</li>
+</ol>
+
+<h2 id="builds"><span class="n">10.3</span>What your builds learned</h2>
+<p><span class="tag own">pm-agent</span> ADR-0006 (accepted 2026-10-18) records a model decision driven by evidence. Five phases on a local Qwen2.5-7B were free and private, but plan quality undersold the product, the model obeyed only about 5% of injected steers (so it barely exercised the guard), and a full live evaluation took about eleven hours. The decision:</p>
+<ul>
+  <li><strong>Default:</strong> OpenRouter through the existing LiteLLM seam, a strong model for authoring and planning and a cheaper one for extraction and routing, restricted to zero-data-retention, no-training providers (pinned provider order, <code>allow_fallbacks=false</code>, <code>data_collection=deny</code>).</li>
+  <li><strong>Served identity:</strong> record the model id <em>and provider</em> on every call; served ≠ requested, or provider ≠ pinned, excludes or refuses the call.</li>
+  <li><strong>Cost:</strong> a per-run budget on pm-agent's CTL-0007 plus per-call <code>max_tokens</code>.</li>
+  <li><strong>Egress:</strong> context goes to a hosted model only if the deployment is entitled to send it; evaluation traffic is synthetic.</li>
+  <li><strong>Client-trust option:</strong> Vertex AI (Gemini, or Claude on Vertex) for clients who will not route data through an intermediary. <strong>CI</strong> stays on local and fake models.</li>
+  <li>Specific models are chosen "by live eval on the R1 golden set".</li>
+</ul>
+<p><span class="tag own">Reference build</span> ARB's story runs the other way: from a local pin to a cloud one. D57 pinned both agents to the one local model shown to work with tool calls (a configured Gemma build was broken in that install, and "a pin to a model that cannot run is no pin"). E4 re-pinned the CRITICAL agent to Vertex <code>gemini-3.8-flash</code> as a deliberate, re-gated configuration change (D66). The first live runs then showed the controls doing their job and exposing the model's cost: typed-shape refusals on the golden set, and 13 of 19 fairness turns refused by the model budget. D71's response was structured output requested from the provider (with the CTL-0026 parser unchanged as the enforcement) and a calibration of the budget from measured data (<a class="sref" href="#budgets">10.8</a>). The next recorded live run returned 22 of 26 answers in the typed, cited shape, with 7 of 26 matching their scripted expectations; the build reports both as informational, never gating (<code>docs/defense/POSTURE.md</code>).</p>
+
+<h2 id="routing"><span class="n">10.4</span>Routing</h2>
+<p><span class="tag gen">Generic</span> Four routing patterns, from simplest to most adaptive:</p>
+<div class="tw"><table>
+<thead><tr><th>Pattern</th><th>How it works</th><th>Evidence</th><th>Governance note</th></tr></thead>
+<tbody>
+<tr><td>Static assignment</td><td>Each task type has a pinned model (pm-agent's authoring vs extraction split)</td><td>Simple, testable, cache-friendly</td><td>Each assignment is a pin, gated like any other</td></tr>
+<tr><td>Cascade</td><td>Try a cheap model; escalate if a scorer is not satisfied</td><td>FrugalGPT (Chen, Zaharia and Zou, 2023) reported matching the best single model's quality at up to 98% lower cost on its benchmarks</td><td>The scorer is a classifier; its errors decide quality</td></tr>
+<tr><td>Learned router</td><td>A model predicts which candidate will suffice for this query</td><td>RouteLLM (Ong et al., 2024) reported cost reductions of over 2× without quality loss on some benchmarks</td><td>Router drift silently changes the quality mix</td></tr>
+<tr><td>Fallback chain</td><td>On error or overload, call the next model</td><td>Improves availability</td><td>Changes the answering model mid-run</td></tr>
+</tbody></table></div>
+<p>The first prediction question turns on the last row. A silent fallback is a reliability feature for a chatbot and a governance defect for a governed agent: the model that answered was never gated, never priced and never covered by the sign-off. The rules that follow:</p>
+<ol>
+  <li><strong>Every candidate is a pin.</strong> Routes and fallbacks may only choose among models the manifest declares, each with a price entry and a gate record.</li>
+  <li><strong>Record the route.</strong> Evidence names the model that answered and why it was chosen.</li>
+  <li><strong>Route by risk, not only by cost.</strong> A router that sends a CRITICAL agent's planning step to a cheaper model is lowering a control's strength. Tie the allowed candidates to the agent's tier.</li>
+  <li><strong>No vendor-side fallbacks you cannot see.</strong> Turn them off (pm-agent's <code>allow_fallbacks=false</code>) and implement fallbacks yourself, in the gateway, among declared pins.</li>
+</ol>
+
+<h2 id="gateway"><span class="n">10.5</span>The model gateway</h2>
+<p><span class="tag gen">Generic</span> An AI gateway sits between applications and model providers and centralises keys, quotas, routing, retries, caching, logging, cost attribution and sometimes guardrails. Products include LiteLLM Proxy, Portkey, Kong AI Gateway, Cloudflare AI Gateway, Apigee and Azure API Management's AI gateway features; the cloud agent platforms are adding their own (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>, <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>).</p>
+<p><span class="tag own">Reference build</span> D53 gave the gateway a governance job. Non-ADK frameworks (LangGraph, OpenAI Agents SDK, CrewAI, Microsoft Agent Framework) run as out-of-process <strong>agent hosts</strong> that reach governance only through two gateways: a tool gateway (MCP in front of the chokepoint) and a <strong>model gateway</strong>, an OpenAI-compatible endpoint that enforces model identity and meters tokens into the budget ledger. "The host process holds no tool implementations and no model credentials", so a framework-native bypass is structurally impossible, not merely tested for. This is the same idea as complete mediation (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>) applied to model calls.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 312" role="img" aria-label="A governed model call. At design time the gate refuses a manifest with no model block, an alias pin, or a pin with no price. At run time the plane projects the call size, reserves budget atomically in the agent and principal ledgers, and refuses if any scope would be exceeded. The call goes through the model gateway to the provider. The response's reported model identity is compared with the pin, falling back to the requested id with identity_source request. Usage is reconciled into the ledger, charged at the ceiling if unreported. Evidence records pin, observed id, identity source, usage and cost.">
+  <defs><marker id="a10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+  <marker id="a10n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-no"/></marker></defs>
+  <rect class="box" x="10" y="12" width="880" height="62" rx="6"/>
+  <text class="tx-b" x="24" y="36">Design time · CTL-0021 and CTL-0020 gate halves</text>
+  <text class="tx-s" x="24" y="60">no model block · alias pin (latest, *-latest, stable, default, auto, …) · pin without a price → BLOCKED</text>
+
+  <rect class="box-acc" x="10" y="100" width="160" height="90" rx="6"/>
+  <text class="tx-acc" x="90" y="126" text-anchor="middle">Project</text>
+  <text class="tx-s" x="90" y="148" text-anchor="middle">request bytes</text>
+  <text class="tx-s" x="90" y="166" text-anchor="middle">+ max_output_tokens</text>
+  <rect class="box-acc" x="200" y="100" width="160" height="90" rx="6"/>
+  <text class="tx-acc" x="280" y="126" text-anchor="middle">Reserve</text>
+  <text class="tx-s" x="280" y="148" text-anchor="middle">agent + principal</text>
+  <text class="tx-s" x="280" y="166" text-anchor="middle">atomic, both scopes</text>
+  <rect class="box" x="390" y="100" width="150" height="90" rx="6"/>
+  <text class="tx-b" x="465" y="126" text-anchor="middle">Model gateway</text>
+  <text class="tx-s" x="465" y="148" text-anchor="middle">→ provider</text>
+  <text class="tx-s" x="465" y="166" text-anchor="middle">(Vertex, LM Studio)</text>
+  <rect class="box-acc" x="570" y="100" width="150" height="90" rx="6"/>
+  <text class="tx-acc" x="645" y="126" text-anchor="middle">Identity check</text>
+  <text class="tx-s" x="645" y="148" text-anchor="middle">response id = pin?</text>
+  <text class="tx-s" x="645" y="166" text-anchor="middle">else requested id</text>
+  <rect class="box-ok" x="750" y="100" width="140" height="90" rx="6"/>
+  <text class="tx-ok" x="820" y="126" text-anchor="middle">Reconcile</text>
+  <text class="tx-s" x="820" y="148" text-anchor="middle">reported usage</text>
+  <text class="tx-s" x="820" y="166" text-anchor="middle">or the ceiling</text>
+  <line class="ln" x1="170" y1="145" x2="196" y2="145" marker-end="url(#a10)"/>
+  <line class="ln" x1="360" y1="145" x2="386" y2="145" marker-end="url(#a10)"/>
+  <line class="ln" x1="540" y1="145" x2="566" y2="145" marker-end="url(#a10)"/>
+  <line class="ln" x1="720" y1="145" x2="746" y2="145" marker-end="url(#a10)"/>
+  <line class="ln-no" x1="280" y1="190" x2="280" y2="226" marker-end="url(#a10n)"/>
+  <text class="tx-no" x="290" y="216">over budget → governed refusal, provider never asked</text>
+  <line class="ln-no" x1="645" y1="190" x2="645" y2="244" marker-end="url(#a10n)"/>
+  <text class="tx-no" x="655" y="234">mismatch → refused before</text>
+  <text class="tx-no" x="655" y="252">any tool call or output</text>
+  <text class="tx-s" x="10" y="282">Evidence on every call: pinned and observed model id · identity_source (response | request)</text>
+  <text class="tx-s" x="10" y="300">tokens · usage_source (reported | ceiling) · cost · scope · remaining</text>
+</svg>
+</div>
+<figcaption><b>Fig 10.1</b>A governed model call in the reference build (CTL-0020 and CTL-0021, D58). The same path runs in-process through the model seam and out-of-process through the D53 model gateway.</figcaption>
+</figure>
+
+<h2 id="caching"><span class="n">10.6</span>Caching economics</h2>
+<p><span class="tag gen">Generic</span> Three kinds of caching get confused:</p>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>What is reused</th><th>Saving</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td>Prompt (prefix) caching</td><td>The provider's computed state for a repeated prefix</td><td>Cheaper input tokens, lower TTFT</td><td>Timing side channels where caches are shared (<a class="xref" data-ch="inference-serving" data-sec="#prefix" href="inference-serving.html#prefix">Chapter 9</a>)</td></tr>
+<tr><td>Exact response caching</td><td>A stored answer for an identical request</td><td>The whole call</td><td>Stale answers; cross-user leakage if the key omits who asked</td></tr>
+<tr><td>Semantic caching</td><td>A stored answer for a <em>similar</em> request (embedding distance)</td><td>The whole call, on more hits</td><td>Returns an answer to a different question; poisoning; leakage across permission scopes</td></tr>
+</tbody></table></div>
+<p><span class="tag own">pm-agent</span> pm-agent caches Jira reads, and its CTL-0021 makes the cache key carry the principal's permission scope "so no cross-user result bleeds". The test is two principals reading the same issue key and getting no cross-user cache hit. Any cache in front of permissioned data needs this rule, and a semantic cache in front of an agent that acts needs a second one: never let a cached answer authorise an effect.</p>
+
+<h2 id="pinning"><span class="n">10.7</span>Pinning and provenance</h2>
+<p><span class="tag gen">Generic</span> Provider aliases move. A name like <code>…-latest</code> is a promise that the model behind it will change. A governed agent needs to know which model answered, so the pin has three parts: provider, a versioned model id, and a version that a check could falsify.</p>
+<p><span class="tag own">Reference build</span> ARB's CTL-0021, "Model identity pinned; mismatch refused", is the worked design:</p>
+<ul>
+  <li><strong>At the gate:</strong> a manifest at MEDIUM or above with no <code>model</code> block, or with an alias (a case-insensitive pattern list: <code>latest</code>, <code>*-latest</code>, <code>stable</code>, <code>default</code>, <code>auto</code>, plus <code>gemini-flash-latest</code>, the unversioned name cited from Google's documentation for the model actually pinned), is BLOCKED.</li>
+  <li><strong>At run time:</strong> the identity the <em>response</em> reports is compared with the pin, and a mismatch is refused before any tool call or output derives from it. Where a provider reports no identity, the requested id is used and evidence says <code>identity_source: request</code>.</li>
+  <li><strong>For a local model</strong> "version" means the SHA-256 of the exact weights file, because the server reports only a name. A live preflight re-hashes the file and refuses the run on a mismatch (D57). The knowledge advisor's pin records the file (<code>Qwen2.5-7B-Instruct-Q4_K_M.gguf</code>), the quantisation and the digest.</li>
+  <li><strong>For Vertex</strong> the version is the provider's reported <code>model_version</code>, observed as <code>gemini-3.8-flash</code> and checked per response; Google documents the <code>gemini-&lt;N.M&gt;-flash</code> pattern as a stable model, unlike the hot-swapped <code>gemini-flash-latest</code> alias, which the alias list refuses.</li>
+  <li><strong>A change of pin is a change of configuration.</strong> The sign-off is bound to a digest of the governing configuration, so a new pin re-gates and, at CRITICAL, needs a new sign-off (CTL-0022; <a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a>).</li>
+</ul>
+<p>The control is honest about its limit. Its detection window says that where identity is request-only, "the control proves only that we ASKED for the pinned model, not that we got it", and that behavioural drift under an unchanged id is out of scope for enforcement and is <em>measured</em> by scheduled evaluations instead (<a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a>).</p>
+
+<h2 id="budgets"><span class="n">10.8</span>Budgets</h2>
+<p><span class="tag own">Reference build</span> ARB's CTL-0020 bounds model consumption per agent and per principal over a rolling window, in tokens and synthetic cost, so "a runaway loop, an injected 'keep going', or a compromised model cannot exhaust spend or capacity". Its mechanics (D58) are a compact lesson in fail-closed metering:</p>
+<ul>
+  <li><strong>Project before the call</strong>: request bytes (an upper bound on tokens; <a class="xref" data-ch="transformers-tokens" data-sec="#tokens" href="transformers-tokens.html#tokens">Chapter 8</a>) plus <code>max_output_tokens</code>, which every request must carry.</li>
+  <li><strong>Reserve atomically</strong> in both the agent and the principal ledgers, so two replicas cannot both spend the last of a budget.</li>
+  <li><strong>Reconcile after</strong> with reported usage; unreported usage is charged at the ceiling, never zero; usage above the projection is charged in full, so the next call is refused.</li>
+  <li><strong>Refuse cleanly</strong>: the turn's answer becomes a governed refusal and the provider is never asked. A ledger failure refuses too: "an unreachable budget is not an empty one".</li>
+  <li><strong>Price by pin</strong>: a pinned model with no price entry is refused at the call and failed at the gate, because charging zero would fail open.</li>
+</ul>
+<p>The second prediction question comes from calibrating those limits. D71 set the CRITICAL tier's token limit from live data: the 99th percentile of completed legitimate turns × 1.5. The addendum that followed caught the flaw: the distribution is <strong>censored</strong>. A legitimate turn that the budget refused never completed, so it is missing from the data, and every such turn sat above the old limit. Calibrating on completed turns alone would keep refusing exactly the turns the calibration was meant to admit. The corrected rule takes the larger of the p99 of completed turns and the largest censored lower bound (the projection at refusal) of any legitimate case, notes that p99 over fewer than 100 turns is simply the maximum, and keeps two non-vacuity checks: the new value must still stop the runaway-loop golden case and the quota red-team case, or the value is wrong. This is survivorship bias, caught in a budget.</p>
+<div class="panel p-note">
+  <span class="k">Two budgets, two different things</span>
+  <p>ARB separates model consumption (CTL-0020) from tool-write and refund-value limits (CTL-0007). pm-agent binds its per-run cost cap to its own CTL-0007. Whatever the numbering, keep the two distinct: one bounds what the agent <em>thinks</em>, the other what it <em>does</em>.</p>
+</div>
+
+<h2 id="datapath"><span class="n">10.9</span>The data path</h2>
+<p><span class="tag gen">Generic</span> Every hosted model call is a data transfer to a processor. The questions to settle per model and per deployment: is the data retained, and for how long (zero-data-retention options); is it used for training; where is it processed (global, data zone or region); which sub-processors are involved (an aggregator such as OpenRouter adds one); and is the deployment entitled to send this data at all. pm-agent's ADR-0006 answers the first two with provider routing restrictions and the last with an egress rule, and offers Vertex as the configuration where data stays in the client's own cloud project. Data-boundary controls in general are in <a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>.</p>
+
+<h2 id="mrm"><span class="n">10.10</span>Model risk management</h2>
+<p><span class="tag gen">Generic</span> For fifteen years, banks governed models under the Federal Reserve and OCC's SR 11-7 (2011). On <strong>17 April 2026</strong> the Federal Reserve, OCC and FDIC replaced it with <strong>SR 26-2</strong>, which also supersedes the 2021 BSA/AML model statement. SR 26-2 keeps the familiar structure: a risk-based approach; individual and aggregate model risk; effective challenge; development aligned to purpose; informed use; validation covering conceptual soundness, outcomes analysis and ongoing monitoring; governance with an inventory; and validation of vendor and third-party models. It is non-binding and aimed mainly at banking organisations above $30 billion in assets.</p>
+<p>The third prediction question turns on its footnote 3: "Generative AI and agentic AI models are novel and rapidly evolving. As such, they are not within the scope of this guidance." So SR 11-7 no longer exists as guidance, and its successor deliberately does not cover the agent. Governance for those systems falls back on the institution's broader risk management.</p>
+<p>The practical position for a client:</p>
+<ul>
+  <li><strong>Use the structure as a design precedent, not a compliance claim.</strong> The limbs map cleanly onto an agent programme: inventory (the registry), tiering by materiality (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>), validation before use (gates and conformance), ongoing monitoring (scheduled evals and drift), vendor-model validation (pins, identity checks, provider documentation).</li>
+  <li><strong>Name the model correctly.</strong> The thing at risk is the system: foundation model, prompts, retrieval, tools and policy together. A foundation model validated in isolation says little about an agent built on it.</li>
+  <li><strong>Effective challenge needs an owner.</strong> Independent people with the authority to stop a release are the limb most programmes design least. Red teams, independent evaluation and a gate that can say no are its agent-era form.</li>
+  <li><strong>Vendor opacity shifts the weight to outcomes.</strong> You cannot inspect a hosted model's conceptual soundness, so outcome testing, monitoring and contractual commitments (versioning, notice of change, retention) carry more of the load.</li>
+</ul>
+<p>Other frames that apply: NIST AI 600-1, the generative AI profile of the AI RMF (2024); ISO/IEC 42001 for the management system; and the EU AI Act's general-purpose AI obligations on model providers, which deployers rely on for documentation. The crosswalk is in <a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>, and banking, insurance and healthcare overlays are in <a class="xref" data-ch="regulated-industries" href="regulated-industries.html">Chapter 49</a>.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>SR 26-2's date, scope and footnote were read from the Federal Reserve's published letter on 2026-10-21. Supervisory expectations for generative and agentic AI in banking are moving; check for newer statements before advising a bank.</p>
+</div>
+
+<h2 id="alts"><span class="n">10.11</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Model access</td><td>Direct provider APIs · cloud platform (Vertex, Bedrock, Foundry) · aggregator (OpenRouter) · self-hosted open weights</td><td>Simplicity and breadth vs data path, residency and control; pm-agent defaults to an aggregator with ZDR and keeps Vertex for client trust</td></tr>
+<tr><td>Routing</td><td>Static per task · cascade · learned router · fallback chain</td><td>Adaptivity vs testability and identity tracking</td></tr>
+<tr><td>Gateway</td><td>None (SDK in each app) · OSS proxy · commercial AI gateway · platform-native gateway</td><td>A gateway centralises identity, metering and keys; it is also a new critical dependency</td></tr>
+<tr><td>Identity proof</td><td>Requested id · response-reported id · weights digest with preflight</td><td>Strength of evidence vs what the provider exposes</td></tr>
+<tr><td>Budget unit</td><td>Requests · tokens · money</td><td>Tokens bound capacity; money bounds spend; ARB meters both and bounds tokens</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">10.12</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Alias pin moves under you</td><td>Versioned pins; alias list refused at the gate</td></tr>
+<tr><td>Silent vendor fallback</td><td>Disable; implement declared fallbacks in your gateway</td></tr>
+<tr><td>Served model ≠ requested (local server, misrouted gateway)</td><td>Per-response identity check; preflight; exclude mismatched runs</td></tr>
+<tr><td>Budget charged at zero when usage is unreported</td><td>Charge the ceiling</td></tr>
+<tr><td>Limits calibrated on survivors</td><td>Include censored lower bounds; keep non-vacuity cases</td></tr>
+<tr><td>Semantic cache returns another user's answer</td><td>Permission-scoped keys; no caching in front of effects</td></tr>
+<tr><td>Model chosen on a leaderboard</td><td>Golden set, pass^k, cost per successful task</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">10.13</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Which model should we standardise on?"</strong> "On a small set, chosen per task by your own evaluation, behind one gateway that pins, meters and records every call, so changing a model is a governed configuration change rather than a code change."</li>
+    <li><strong>"Can we use the cheapest model and fall back to a better one?"</strong> "Yes, if every candidate is declared, priced and gated, and the route is recorded. Never let the vendor choose for you silently."</li>
+    <li><strong>"Our model risk policy covers this."</strong> "SR 26-2 replaced SR 11-7 in April and explicitly excludes generative and agentic AI. Its structure is still the right design precedent; the agent needs its own controls under your broader risk framework."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">10.14</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-11</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>CTL-0021's trigger, evidence and detection window.</li>
+    <li><span class="lvl">Recall</span>Five D58 budget mechanics and why each fails closed.</li>
+    <li><span class="lvl">Apply</span>Recalibrate a budget from a run with 40 completed and 6 refused legitimate turns. Show the rule and the non-vacuity check.</li>
+    <li><span class="lvl">Design</span>A routing policy for a CRITICAL agent with three declared models, including fallbacks, evidence and what the router may not do.</li>
+    <li><span class="lvl">Trade-off</span>OpenRouter with ZDR against Vertex in the client's project, for a European insurer.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a silent fallback is an ungated model</em> · <em>identity_source: request proves only that you asked</em> · <em>censored calibration</em> · <em>SR 26-2 excludes GenAI and agents (footnote 3)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">10.15</span>Further reading</h2>
+<ul>
+  <li><b>Regulation.</b> Federal Reserve, OCC and FDIC, SR 26-2, "Guidance on Model Risk Management" (17 April 2026). NIST AI 600-1, "Generative Artificial Intelligence Profile" (2024).</li>
+  <li><b>Papers.</b> Chen, Zaharia and Zou, FrugalGPT (arXiv 2305.05176). Ong et al., RouteLLM (arXiv 2406.18665). Mitchell et al., "Model Cards for Model Reporting" (arXiv 1810.03993). "Governing Generative AI Across Financial Institutions: An SR 26-2-Compatible Framework" (arXiv 2607.04103) <span class="tag ver">Verify</span> before citing to a client.</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapter 4 on evaluating and selecting models and chapter 10 on architecture (gateways, caching, routing).</li>
+  <li><b>Your library.</b> Ramchandani, <cite>AI System Design Playbook</cite>, case 17 (RouteLLM) and case 5 (prompt caching).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/catalog/CTL-0020.yaml</code>, <code>CTL-0021.yaml</code>, D53, D57, D58, D71; pm-agent <code>artifacts/adr/ADR-0006-model-routing.md</code>, <code>platform/model/identity.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="inference-serving.html"><small>Previous</small>9 · Inference and serving</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="governance-when-software-acts.html"><small>Next</small>11 · What governance must do when software acts</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

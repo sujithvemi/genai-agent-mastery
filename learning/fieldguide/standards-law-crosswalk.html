@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>48 · Standards, law and crosswalk engineering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VIII · Frameworks and law</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 48</div>
+  <ol>
+    <li><a href="#kinds">Five kinds of external text</a></li>
+    <li><a href="#owasp">OWASP: the agentic threat lists</a></li>
+    <li><a href="#nist">NIST: the risk framework and the agent work</a></li>
+    <li><a href="#iso">ISO/IEC 42001 and its family</a></li>
+    <li><a href="#euaia">The EU AI Act after the Omnibus</a></li>
+    <li><a href="#agentic">Agent-specific frameworks</a></li>
+    <li><a href="#crosswalk">Crosswalk engineering</a></li>
+    <li><a href="#verify">Writing Verify cells honestly</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VIII · CHAPTER 48</div>
+  <h1>Standards, law and crosswalk engineering</h1>
+  <p class="lede">The external texts a client will hold your design against, sorted by what each asks for: OWASP's agentic threat lists, NIST's risk framework and its new agent work, ISO/IEC 42001 and its family, the EU AI Act as amended by the 2026 Omnibus, and agent-specific guidance such as Singapore's. Then the engineering that connects them to a catalog without overclaiming: crosswalks as code, dated Verify cells and four numbers instead of one.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · FRAMEWORKS · CLIENT</span></div>
+    <div><b>Reps</b><span>GF-2, GF-3, GF-6 · Capstone B4</span></div>
+    <div><b>Build links</b><span>ARB D44, D55; governance/crosswalk/</span></div>
+    <div><b>Read</b><span>~50 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (EU AI Act as amended by Regulation (EU) 2026/1744)</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Does the EU AI Act regulate "AI agents"? What would make one of your agents high-risk?</li>
+    <li>A crosswalk says your build "implements 27 of 52" controls. What is wrong with that sentence?</li>
+    <li>ISO/IEC 42001 is a paid standard you cannot quote in full. How do you cite it honestly in a crosswalk?</li>
+  </ol>
+</div>
+
+<h2 id="kinds"><span class="n">48.1</span>Five kinds of external text</h2>
+<p><span class="tag gen">Generic</span> Clients will put a stack of frameworks in front of you and ask whether the design "complies". The first move is to sort them, because each kind asks for a different thing and accepts different evidence.</p>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>Examples</th><th>What it asks of you</th><th>Evidence it accepts</th></tr></thead>
+<tbody>
+<tr><td>Threat taxonomy</td><td>OWASP Top 10 for Agentic Applications; OWASP LLM Top 10; MITRE ATLAS; CSA MAESTRO</td><td>Show you considered each threat and what stops it</td><td>A threat model, controls mapped per threat, red-team cases that exercise them</td></tr>
+<tr><td>Risk framework</td><td>NIST AI RMF and its profiles; ISO/IEC 23894</td><td>Run a risk process: govern, map, measure, manage</td><td>Inventories, risk assessments, metrics, decisions with owners</td></tr>
+<tr><td>Management system</td><td>ISO/IEC 42001 (certifiable); ISO/IEC 42005 impact assessment</td><td>Operate a documented, audited system of policies, roles, controls and improvement</td><td>Policies, records, internal audits, management review; certification by an accredited body</td></tr>
+<tr><td>Law and regulation</td><td>EU AI Act; GDPR; sector rules (<a class="xref" data-ch="regulated-industries" href="regulated-industries.html">Chapter 49</a>)</td><td>Meet specific obligations by specific dates, depending on your role and the use</td><td>Technical documentation, logs, conformity assessment, registration, incident reports</td></tr>
+<tr><td>Agent-specific guidance</td><td>Singapore's Model AI Governance Framework for Agentic AI; NIST's agent standards work; vendor frameworks</td><td>Adopt recommended practices for autonomy, oversight and access</td><td>Usually your own: design records and operating evidence</td></tr>
+</tbody></table></div>
+<p>None of these regulates "agents" as a category. They regulate threats, processes, organisations and uses (<a class="xref" data-ch="governance-when-software-acts" data-sec="#posture" href="governance-when-software-acts.html#posture">Chapter 11</a>). The engineering consequence is that one well-built control catalog with operating evidence serves all five, provided each mapping says honestly how good it is. That is crosswalk engineering, <a class="sref" href="#crosswalk">48.7</a>.</p>
+
+<h2 id="owasp"><span class="n">48.2</span>OWASP: the agentic threat lists</h2>
+<p><span class="tag gen">Generic</span> Two OWASP documents matter, and they are easy to confuse. The <strong>Top 10 for Agentic Applications</strong> (version 2026, published 9 December 2025) names ten risks, ASI01 to ASI10, from agent goal hijack to rogue agents; <a class="xref" data-ch="security-multitenancy" data-sec="#owasp" href="security-multitenancy.html#owasp">Chapter 32</a> maps each to controls. The earlier <strong>Agentic AI Threats and Mitigations</strong> guide uses T-numbers (T3 privilege compromise, T8 repudiation, T9 identity spoofing, T12 agent communication poisoning, T13 rogue agents and so on). The general <strong>OWASP Top 10 for LLM Applications</strong> (2025) still applies underneath: LLM01 prompt injection, LLM05 improper output handling, LLM06 excessive agency, LLM10 unbounded consumption.</p>
+<p><span class="tag own">Your build</span> ARB's crosswalk cites LLM ids and the T-numbers; its posture document calls the T-number source the "Agentic Top 10", which is the other document. Adding an ASI column beside the T-numbers is finding F-07 (<a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>). D44's check against the 2025 LLM list also caught a real error: <span class="ctl">CTL-0008</span> was mapped to LLM08, which in the 2025 list is "vector and embedding weaknesses", not identity; it now maps to Agentic T9.</p>
+<p>Use a threat list to drive two things: the threat model (<a class="xref" data-ch="security-multitenancy" data-sec="#model" href="security-multitenancy.html#model">Chapter 32</a>) and the red-team corpus. A threat with a mapped control but no red-team case is a claim, not a defence.</p>
+
+<h2 id="nist"><span class="n">48.3</span>NIST: the risk framework and the agent work</h2>
+<p><span class="tag gen">Generic</span> The <strong>AI Risk Management Framework</strong> (AI RMF 1.0, NIST AI 100-1, January 2023) organises AI risk work into four functions, GOVERN, MAP, MEASURE and MANAGE, each with categories and subcategories (MAP 3.5, MANAGE 4.1 and so on). The <strong>Generative AI Profile</strong> (NIST AI 600-1, July 2024) applies it to generative systems. Both are voluntary, freely published and widely used as the backbone of US enterprise AI policies.</p>
+<p>NIST's agent-specific work is newer and mostly not final as of October 2026:</p>
+<div class="tw"><table>
+<thead><tr><th>Work</th><th>State</th><th>Why it matters for agents</th></tr></thead>
+<tbody>
+<tr><td>AI Agent Standards Initiative, led by the Center for AI Standards and Innovation (CAISI), announced 17 February 2026</td><td>Programme; a request for information on agent security (January 2026) and sector listening sessions</td><td>Signals where US voluntary standards for agent security and interoperability will come from</td></tr>
+<tr><td>NCCoE concept paper on software and AI agent identity and authorisation (February 2026)</td><td>Comment period closed; project work under way <span class="tag ver">Verify</span></td><td>Agent identity, OAuth extensions, delegation chains and audit trails: the subjects of <a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a></td></tr>
+<tr><td>Control overlays for securing AI systems (COSAiS) on SP 800-53</td><td>Five use cases including single-agent and multi-agent systems; only one overlay (fine-tuning predictive AI) had a public draft by mid-2026 <span class="tag ver">Verify</span></td><td>Will give federal and many regulated buyers a control baseline for agents, in a vocabulary their auditors already use</td></tr>
+<tr><td>Cyber AI Profile (NIST IR 8596)</td><td>Preliminary draft, December 2025 <span class="tag ver">Verify</span></td><td>Places AI cyber risk in the Cybersecurity Framework 2.0 structure</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> D44 checked every NIST hook against AI 100-1 and found that <span class="ctl">CTL-0004</span> and <span class="ctl">CTL-0005</span> had been mapped to MANAGE 2 ("benefits and impact management"), which has nothing to do with human oversight. The correct hooks are MAP 3.5 (processes for human oversight are defined and documented) for the approval gate and MANAGE 4.1 (post-deployment monitoring including appeal and override) for its measurement. The function-level tags elsewhere were left as they were, because adding subcategory numbers nobody checked would overstate the review.</p>
+
+<h2 id="iso"><span class="n">48.4</span>ISO/IEC 42001 and its family</h2>
+<p><span class="tag gen">Generic</span> <strong>ISO/IEC 42001:2023</strong> specifies an AI management system: requirements in clauses 4 to 10 (context, leadership, planning, support, operation, performance evaluation, improvement) and 38 reference controls in Annex A, with implementation guidance in Annex B. It is certifiable, and certification is a claim about an organisation's management system, not about any one agent. Its family fills in the pieces:</p>
+<ul>
+  <li><strong>ISO/IEC 23894:2023</strong>, guidance on AI risk management.</li>
+  <li><strong>ISO/IEC 42005:2025</strong>, AI system impact assessment.</li>
+  <li><strong>ISO/IEC 42006:2025</strong>, requirements for bodies that audit and certify AI management systems.</li>
+  <li><strong>ISO/IEC 27001</strong> for information security, which most enterprises already hold and which carries the access-control and security controls 42001 does not.</li>
+</ul>
+<p><span class="tag own">Your build</span> The standard's text is paid, so ARB's D44 verified its Annex A citations against a control-ID skeleton corroborated by two independent secondary sources, and said so. Five of eight labels mapped cleanly: operational controls A.9.2, operation and monitoring A.6.2.6, event logs A.6.2.8, verification and validation A.6.2.4, documentation for users A.8.2. Three did not: "human oversight", "access control" and "AI security" have no Annex A control by those names, and they stay <code>[Verify]</code> rather than be forced onto a clause that does not say that. Inventing an ISO/IEC 27001 family to house two of them was rejected as new scope. That is the right instinct: a crosswalk that cannot cite a clause should say so, not find the nearest number.</p>
+
+<h2 id="euaia"><span class="n">48.5</span>The EU AI Act after the Omnibus</h2>
+<p><span class="tag gen">Generic</span> Regulation (EU) 2024/1689 entered into force on 1 August 2024 and applies in stages. The <strong>Digital Omnibus on AI</strong>, Regulation (EU) 2026/1744, published in the Official Journal on 24 July 2026 and in force since 27 July 2026, moved the high-risk dates and changed several obligations.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 270" role="img" aria-label="The EU AI Act&#x27;s application dates after the Digital Omnibus (Regulation (EU) 2026/1744). In force 1 August 2024. 2 February 2025: prohibitions and AI literacy. 2 August 2025: general-purpose AI model duties, governance and penalties. 2 August 2026: Article 50 transparency and most other provisions. 2 December 2026: new prohibitions and Article 50(2) marking for systems already on the market. 2 December 2027: high-risk obligations for Annex III systems, moved from 2 August 2026. 2 August 2028: high-risk obligations for Annex I product systems. 2 August 2030: legacy high-risk systems used by public authorities. Today, 21 October 2026, falls after the transparency date and before the new prohibitions.">
+<defs><marker id="t48" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<line class="ln" x1="30" y1="150" x2="880" y2="150"/>
+<circle cx="30" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="30" y1="142" x2="30" y2="124"/>
+<text class="tx-b" x="24" y="64" text-anchor="start">1 Aug 2024</text>
+<text class="tx-s" x="24" y="84" text-anchor="start">in force</text>
+<circle cx="100" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="100" y1="158" x2="100" y2="176"/>
+<text class="tx-b" x="100" y="194" text-anchor="middle">2 Feb 2025</text>
+<text class="tx-s" x="100" y="214" text-anchor="middle">prohibitions</text>
+<text class="tx-s" x="100" y="232" text-anchor="middle">AI literacy</text>
+<circle cx="170" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="170" y1="142" x2="170" y2="124"/>
+<text class="tx-b" x="170" y="64" text-anchor="middle">2 Aug 2025</text>
+<text class="tx-s" x="170" y="84" text-anchor="middle">GPAI model duties</text>
+<text class="tx-s" x="170" y="102" text-anchor="middle">governance, penalties</text>
+<circle cx="310" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="310" y1="158" x2="310" y2="176"/>
+<text class="tx-b" x="310" y="194" text-anchor="middle">2 Aug 2026</text>
+<text class="tx-s" x="310" y="214" text-anchor="middle">transparency (Art. 50)</text>
+<text class="tx-s" x="310" y="232" text-anchor="middle">most other provisions</text>
+<circle cx="356.667" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="356.667" y1="142" x2="356.667" y2="124"/>
+<text class="tx-b" x="356.667" y="64" text-anchor="middle">2 Dec 2026</text>
+<text class="tx-s" x="356.667" y="84" text-anchor="middle">new prohibitions</text>
+<text class="tx-s" x="356.667" y="102" text-anchor="middle">Art. 50(2) for earlier systems</text>
+<circle cx="496.667" cy="150" r="6" class="box-acc"/>
+<line class="ln" x1="496.667" y1="158" x2="496.667" y2="176"/>
+<text class="tx-acc" x="496.667" y="194" text-anchor="middle">2 Dec 2027</text>
+<text class="tx-s" x="496.667" y="214" text-anchor="middle">high-risk: Annex III</text>
+<text class="tx-s" x="496.667" y="232" text-anchor="middle">was 2 Aug 2026</text>
+<circle cx="590" cy="150" r="6" class="box-acc"/>
+<line class="ln" x1="590" y1="142" x2="590" y2="124"/>
+<text class="tx-acc" x="590" y="64" text-anchor="middle">2 Aug 2028</text>
+<text class="tx-s" x="590" y="84" text-anchor="middle">high-risk: Annex I</text>
+<text class="tx-s" x="590" y="102" text-anchor="middle">products</text>
+<circle cx="870" cy="150" r="6" class="box-strong"/>
+<line class="ln" x1="870" y1="158" x2="870" y2="176"/>
+<text class="tx-b" x="876" y="194" text-anchor="end">2 Aug 2030</text>
+<text class="tx-s" x="876" y="214" text-anchor="end">public-authority</text>
+<text class="tx-s" x="876" y="232" text-anchor="end">legacy systems</text>
+<line class="ln-ok" x1="341.5" y1="136" x2="341.5" y2="164" style="stroke-width:2"/>
+<text class="tx-ok" x="345.5" y="180" text-anchor="start">today</text>
+</svg>
+</div>
+<figcaption><b>Fig 48.1</b>The EU AI Act's dates as amended by the Digital Omnibus, in force since 27 July 2026. For an agent programme the important facts are that transparency already applies, and that high-risk obligations for Annex III uses (employment, credit, essential services and the rest) now start on 2 December 2027.</figcaption>
+</figure>
+<p>What the Act means for an agent programme:</p>
+<ul>
+  <li><strong>An agent is an AI system, classified by use.</strong> It is high-risk if its use falls in an Annex III area (employment, access to essential private and public services including credit scoring, education, law enforcement, migration, justice, critical infrastructure and others) or it is a safety component of a product under Annex I. A refund agent is not high-risk; an agent that screens job applicants or decides creditworthiness is.</li>
+  <li><strong>Roles carry the duties.</strong> Providers carry most high-risk obligations (risk management, data governance, technical documentation, record-keeping in Article 12, transparency to deployers, human oversight by design in Article 14, accuracy and robustness, conformity assessment, registration). Deployers carry their own in Article 26: use per instructions, assign competent human oversight, monitor, keep the logs under their control for at least six months, inform affected workers. A firm that builds its own agent for its own use is both.</li>
+  <li><strong>Transparency already applies.</strong> Under Article 50, people must be told they are interacting with an AI system unless it is obvious, and synthetic content must be marked; most of these duties apply from 2 August 2026.</li>
+  <li><strong>General-purpose models are the provider's problem, mostly.</strong> GPAI model obligations (since 2 August 2025) fall on model providers; a firm that substantially modifies a model by fine-tuning should check whether it becomes one.</li>
+  <li><strong>Serious incidents are reportable</strong> for high-risk systems (Article 73), which presumes you can reconstruct what happened: an evidence requirement (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</li>
+</ul>
+<p><span class="tag own">Your build</span> D44 verified three EU mappings against the official text: Article 14 human oversight for the approval controls (<span class="ctl">CTL-0004</span>, <span class="ctl">CTL-0005</span>), Article 12 record-keeping for evidence minimisation, chaining and provenance (<span class="ctl">CTL-0009</span>, <span class="ctl">CTL-0011</span>, <span class="ctl">CTL-0019</span>, with GDPR Article 5(1)(c) data minimisation), and Article 50 transparency for <span class="ctl">CTL-0015</span>. The E5 additions (<span class="ctl">CTL-0025</span>, <span class="ctl">CTL-0026</span>) carry Article 50 as <code>[Verify]</code>.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>Article 12 asks high-risk systems to log events automatically over their lifetime for traceability; it does not ask for tamper evidence. Your evidence plane exceeds it, which is useful when a regulator, a court or an insurer asks whether a log could have been edited. Say "meets Article 12 and adds tamper evidence", not "Article 12 requires a hash chain".</p>
+</div>
+
+<h2 id="agentic"><span class="n">48.6</span>Agent-specific frameworks</h2>
+<p><span class="tag gen">Generic</span> Guidance written for agents specifically is mostly principles-based. It is valuable because it names agent-specific practices (bounding autonomy, checkpoints for human approval, agent identity), and awkward for crosswalks because it has no numbered clauses to cite per control.</p>
+<div class="tw"><table>
+<thead><tr><th>Framework</th><th>What it is</th><th>How to use it</th></tr></thead>
+<tbody>
+<tr><td>Singapore IMDA, Model AI Governance Framework for Agentic AI (launched 22 January 2026 at Davos)</td><td>Voluntary guidance in four areas: scoping risk and bounding agents' autonomy, tool and data access; human accountability with checkpoints for approval; technical controls and testing across the lifecycle; end-user transparency and training. A living document</td><td>A prose overlay on the catalog; strong on autonomy bounding and checkpoints, which map to tiering (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>) and approvals (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>)</td></tr>
+<tr><td>Cloud Security Alliance: MAESTRO threat modelling; AI Controls Matrix (AICM); agentic red-teaming guidance</td><td>A layered threat-modelling method for agentic systems; a large control matrix mapped to other standards; red-team test categories</td><td>MAESTRO for the threat model; AICM where a client already uses CSA's Cloud Controls Matrix</td></tr>
+<tr><td>UK AI Cyber Security Code of Practice, and ETSI TS 104 223 built from it <span class="tag ver">Verify</span></td><td>Baseline security principles across the AI lifecycle</td><td>A checklist overlay for UK public-sector and supplier work</td></tr>
+<tr><td>Vendor frameworks and toolkits (Microsoft AGT and ACS, Google's and AWS's agent security guidance)</td><td>Product-shaped guidance</td><td>Read through your build, as in <a class="xref" data-ch="agt-through-your-build" href="agt-through-your-build.html">Chapter 47</a></td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> ARB records Singapore's frameworks (generative, 2024; agentic, January 2026) and MITRE ATLAS as prose overlays in <code>controls_to_standards.md</code>, not as crosswalk columns. Adding a column would mean writing "not assessed" in every row, a bigger claim than the review earned (D44).</p>
+
+<h2 id="crosswalk"><span class="n">48.7</span>Crosswalk engineering</h2>
+<p><span class="tag gen">Generic</span> A crosswalk relates two vocabularies: your controls and someone else's requirements. Done in a spreadsheet, it drifts from the controls, hides how sure each cell is and collapses into a single coverage percentage. Done as code, it can be checked like any other artefact.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="A crosswalk as code. Sources on the left: OWASP agentic lists, NIST AI RMF, ISO/IEC 42001 Annex A, EU AI Act articles and the client&#x27;s control pack feed the crosswalk; Singapore&#x27;s and CSA&#x27;s principles-based frameworks are recorded as a prose overlay. The crosswalk is versioned YAML with one cell per control and family, each tagged Verified with a date or Verify, a status of implemented, mechanism or not-built, an optional partial note and pack gaps. gov-validate keeps it equal to each catalog control&#x27;s standards block; tests forbid bare cells and fail if a mechanism is removed; the evidence pack reports four numbers, 10 implemented, 12 partial, 5 mechanism and 25 not-built, never one figure out of 52.">
+<defs><marker id="c48" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="14" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="31.5" text-anchor="start">OWASP agentic</text>
+<text class="tx-s" x="22" y="49.5" text-anchor="start">ASI 2026 · T-numbers</text>
+<line class="ln" x1="200" y1="36" x2="268" y2="150" marker-end="url(#c48)"/>
+<rect class="box" x="10" y="66" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="83.5" text-anchor="start">NIST AI RMF</text>
+<text class="tx-s" x="22" y="101.5" text-anchor="start">AI 100-1 · AI 600-1</text>
+<line class="ln" x1="200" y1="88" x2="268" y2="150" marker-end="url(#c48)"/>
+<rect class="box" x="10" y="118" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="135.5" text-anchor="start">ISO/IEC 42001</text>
+<text class="tx-s" x="22" y="153.5" text-anchor="start">Annex A controls</text>
+<line class="ln" x1="200" y1="140" x2="268" y2="150" marker-end="url(#c48)"/>
+<rect class="box" x="10" y="170" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="187.5" text-anchor="start">EU AI Act</text>
+<text class="tx-s" x="22" y="205.5" text-anchor="start">articles</text>
+<line class="ln" x1="200" y1="192" x2="268" y2="150" marker-end="url(#c48)"/>
+<rect class="box" x="10" y="222" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="239.5" text-anchor="start">Client control pack</text>
+<text class="tx-s" x="22" y="257.5" text-anchor="start">GCL-01 … GCL-52</text>
+<line class="ln" x1="200" y1="244" x2="268" y2="150" marker-end="url(#c48)"/>
+<rect class="box" x="10" y="274" width="190" height="44" rx="6"/>
+<text class="tx-b" x="22" y="291.5" text-anchor="start">Singapore, CSA</text>
+<text class="tx-s" x="22" y="309.5" text-anchor="start">prose overlay</text>
+<line class="ln" x1="200" y1="296" x2="268" y2="196" style="stroke-dasharray:3 4"/>
+<rect class="box-strong" x="270" y="34" width="300" height="250" rx="8"/>
+<text class="tx-b" x="420" y="58" text-anchor="middle">Crosswalk (YAML, versioned)</text>
+<rect class="box" x="285" y="72" width="270" height="33" rx="6"/>
+<text class="tx" x="420" y="93" text-anchor="middle">one cell per control × family</text>
+<rect class="box-acc" x="285" y="113" width="270" height="33" rx="6"/>
+<text class="tx-acc" x="420" y="134" text-anchor="middle">[Verified date] or [Verify]</text>
+<rect class="box" x="285" y="154" width="270" height="33" rx="6"/>
+<text class="tx" x="420" y="175" text-anchor="middle">implemented · mechanism · not-built</text>
+<rect class="box" x="285" y="195" width="270" height="33" rx="6"/>
+<text class="tx" x="420" y="216" text-anchor="middle">partial: what is absent</text>
+<rect class="box" x="285" y="236" width="270" height="33" rx="6"/>
+<text class="tx" x="420" y="257" text-anchor="middle">pack_gap: a finding about the pack</text>
+<rect class="box-ok" x="640" y="14" width="250" height="56" rx="6"/>
+<text class="tx-ok" x="765" y="37.5" text-anchor="middle">Catalog CTL-####</text>
+<text class="tx-s" x="765" y="55.5" text-anchor="middle">standards block per control</text>
+<rect class="box" x="640" y="110" width="250" height="70" rx="6"/>
+<text class="tx-b" x="765" y="131.5" text-anchor="middle">Tests</text>
+<text class="tx-s" x="765" y="149.5" text-anchor="middle">catalog = crosswalk · no bare cell</text>
+<text class="tx-s" x="765" y="167.5" text-anchor="middle">removing a mechanism fails</text>
+<rect class="box-ok" x="640" y="224" width="250" height="60" rx="6"/>
+<text class="tx-ok" x="765" y="249.5" text-anchor="middle">Evidence pack</text>
+<text class="tx-s" x="765" y="267.5" text-anchor="middle">10 · 12 · 5 · 25, never "N of 52"</text>
+<line class="ln" x1="570" y1="60" x2="638" y2="42" marker-end="url(#c48)"/>
+<line class="ln" x1="638" y1="52" x2="572" y2="70" marker-end="url(#c48)"/>
+<line class="ln" x1="570" y1="150" x2="638" y2="145" marker-end="url(#c48)"/>
+<line class="ln" x1="765" y1="180" x2="765" y2="222" marker-end="url(#c48)"/>
+<text class="tx-s" x="578" y="102" text-anchor="start">gov-validate</text>
+</svg>
+</div>
+<figcaption><b>Fig 48.2</b>A crosswalk as code, as ARB runs it. The mapping is data, every cell says how sure it is, every claim of coverage names a test that fails without it, and the report keeps partial and absent rows visible instead of folding them into one percentage.</figcaption>
+</figure>
+<p><span class="tag own">Your build</span> ARB's practice, from D44 and D55:</p>
+<ol>
+  <li><strong>One source of truth per side.</strong> Each catalog control carries a <code>standards</code> block; <code>governance/crosswalk/crosswalk.yaml</code> holds the same cells; <code>make gov-validate</code> fails if the two differ.</li>
+  <li><strong>Every regulatory cell says how sure it is.</strong> EU AI Act and ISO cells carry <code>[Verified &lt;date&gt;]</code> with the article or clause named, or <code>[Verify]</code>. There is no third, bare state, and a test (<code>test_no_crosswalk_cell_is_silently_bare_prose</code>) enforces it. A <code>[Verified]</code> EU cell must name a real article, checked by pattern.</li>
+  <li><strong>Coverage has three statuses plus a qualifier.</strong> Against the client's 52-control pack (<code>gcl_crosswalk.yaml</code>), each row is <code>implemented</code> (named controls plus a test that proves it), <code>mechanism</code> (met by framework machinery, with a test that fails if the machinery is removed) or <code>not-built</code> (a reason only). Either of the first two may be <code>partial</code>, with what is absent.</li>
+  <li><strong>Four numbers, never one.</strong> At <code>main</code> on 19 October 2026: 10 implemented, 12 partial, 5 mechanism, 25 not-built, of 52. The evidence pack prints those four.</li>
+  <li><strong>Findings flow both ways.</strong> A build control with no matching pack control gets a <code>pack_gap</code>: <span class="ctl">CTL-0006</span> (idempotent writes) has none in the pack, which is a finding about the pack, sent to the team that owns it. The build does not edit the pack.</li>
+  <li><strong>Corrections are recorded, not silently fixed.</strong> D44's two corrections are named in the affected catalog files and tested so the old values cannot return.</li>
+</ol>
+<p><span class="tag gen">Generic</span> The test for a crosswalk is the auditor's question "show me". If a cell says "implemented", the answer must be a test or a piece of evidence, not a paragraph. That rule alone removes most of what makes compliance mappings untrustworthy.</p>
+
+<h2 id="verify"><span class="n">48.8</span>Writing Verify cells honestly</h2>
+<ul>
+  <li><strong>Verify against the primary text,</strong> or say what you verified against instead (a corroborated skeleton for a paid standard, as D44 did).</li>
+  <li><strong>Date every verified cell.</strong> Standards are revised and laws amended; the Omnibus moved dates eleven months before they applied.</li>
+  <li><strong>Leave a cell open rather than force it.</strong> "No Annex A control by this name" is a finding. A nearest-clause citation is an error waiting for an auditor.</li>
+  <li><strong>Match the granularity you checked.</strong> Function-level NIST tags that were confirmed stay function-level.</li>
+  <li><strong>Keep law and guidance separate.</strong> A voluntary framework's recommendation is not an obligation; mark the difference in the report.</li>
+  <li><strong>Re-verify on a trigger.</strong> A new version of a standard, an amendment, a new delegated act or guideline, or a quarterly review.</li>
+</ul>
+
+<h2 id="fail"><span class="n">48.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>How it shows up</th><th>Guard</th></tr></thead>
+<tbody>
+<tr><td>Coverage percentage</td><td>"Implements 27 of 52" hides 12 partial rows and 25 absent ones</td><td>Four numbers; partial never counted as full</td></tr>
+<tr><td>Spreadsheet drift</td><td>The crosswalk says a control exists that the catalog retired</td><td>Equality test between catalog and crosswalk</td></tr>
+<tr><td>Nearest-clause citation</td><td>A human-oversight control cited to an ISO clause about something else</td><td><code>[Verify]</code> until a primary source supports the cell</td></tr>
+<tr><td>Stale dates</td><td>A deck says high-risk duties start in August 2026</td><td>Dated cells; a re-verify trigger on amendments</td></tr>
+<tr><td>Confused lists</td><td>OWASP T-numbers labelled as the Agentic Top 10</td><td>Name the document and version in every column header</td></tr>
+<tr><td>Mapping as compliance</td><td>A mapped control with no test or evidence</td><td>"Implemented" requires a test that fails without the control</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">48.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Are we compliant with the EU AI Act?"</strong> "That depends on what each agent is used for and whether you build or deploy it. Most agents are not high-risk; transparency duties already apply to all of them. For any agent in an Annex III area, high-risk duties now start on 2 December 2027, and the logging and oversight we build today is most of the evidence you will need."</li>
+    <li><strong>"Can you map us to NIST, ISO and OWASP?"</strong> "Yes, from one control catalog. Each mapping says whether it is verified against the source, and each claim of coverage points to a test or a record. We report what is implemented, partial, provided by the platform and not built, separately."</li>
+    <li><strong>"Will ISO 42001 certification cover our agents?"</strong> "It certifies the management system you run them under, which auditors and customers value. It does not certify any agent's behaviour; the operating evidence does that."</li>
+  </ul>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Confirm EU AI Act dates against the consolidated text including Regulation (EU) 2026/1744 and any later guidelines or delegated acts; confirm which NIST agent documents are final; quote OWASP ids with the document name and version; and never quote ISO/IEC 42001 clause titles you have not checked. Sector rules are in <a class="xref" data-ch="regulated-industries" href="regulated-industries.html">Chapter 49</a>.</p>
+</div>
+
+<div class="panel p-future" data-trigger="ARB adds ASI ids to its crosswalk (F-07), or NIST publishes the agent overlays, or the EU issues high-risk guidelines">
+  <span class="k">Waiting on the builds</span>
+  <p>When ARB adds an ASI column, replace the T-number discussion in the OWASP section with its mapping. When NIST publishes the single-agent and multi-agent COSAiS overlays, add a worked mapping of ARB's catalog to them. When the Commission's guidelines on high-risk classification are final, add a worked classification of three agent use cases.</p>
+</div>
+
+<h2 id="prove"><span class="n">48.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · GF-2, GF-3, GF-6</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The five kinds of external text and the evidence each accepts.</li>
+    <li><span class="lvl">Recall</span>The EU AI Act dates for transparency, Annex III and Annex I high-risk duties after the Omnibus.</li>
+    <li><span class="lvl">Apply</span>Classify three agents under the Act: a refund agent, a CV-screening agent, a credit-limit agent. Name the role (provider, deployer) and two duties each.</li>
+    <li><span class="lvl">Apply</span>Explain D44's two corrections and why three ISO cells stayed <code>[Verify]</code>.</li>
+    <li><span class="lvl">Design</span>A crosswalk schema for a bank that must map to NIST AI RMF, ISO/IEC 42001, the EU AI Act and its own model-risk policy, with the tests that keep it honest.</li>
+    <li><span class="lvl">Trade-off</span>A client wants Singapore's agentic framework as a crosswalk column. What do you do, and why?</li>
+  </ol>
+  <p class="small">Card candidates: <em>regimes regulate uses, not agents</em> · <em>four numbers, never one</em> · <em>[Verified date] or [Verify], never bare</em> · <em>high-risk Annex III: 2 Dec 2027</em> · <em>MAP 3.5 is human oversight; MANAGE 2 is not</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">48.12</span>Further reading</h2>
+<ul>
+  <li><b>Primary texts.</b> Regulation (EU) 2024/1689 and Regulation (EU) 2026/1744 on EUR-Lex; NIST AI 100-1 and AI 600-1; NIST CAISI's AI Agent Standards Initiative pages and the NCCoE agent identity concept paper; OWASP GenAI Security Project, Top 10 for Agentic Applications (2026) and Agentic AI Threats and Mitigations; IMDA, Model AI Governance Framework for Agentic AI (2026).</li>
+  <li><b>Commentary used here.</b> White &amp; Case and Orrick client alerts on the AI Omnibus (July 2026); NIST COSAiS project page.</li>
+  <li><span class="tag own">Your build</span> <code>governance/crosswalk/</code> (<code>crosswalk.yaml</code>, <code>gcl_crosswalk.yaml</code>, <code>controls_to_standards.md</code>); <code>tests/test_crosswalk_verification.py</code>, <code>tests/test_gcl_crosswalk.py</code>; DECISIONS D44, D55; <code>docs/defense/STANDARDS_MAPPING.md</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="agt-through-your-build.html"><small>Previous</small>47 · Microsoft AGT through your build</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="regulated-industries.html"><small>Next</small>49 · Regulated industries</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

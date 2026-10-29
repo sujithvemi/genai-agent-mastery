@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>54 · Defending your builds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part X · Practice</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 54</div>
+  <ol>
+    <li><a href="#method">The method</a></li>
+    <li><a href="#arb">ARB in ninety seconds</a></li>
+    <li><a href="#pm">pm-agent in ninety seconds</a></li>
+    <li><a href="#demos">The demo spine</a></li>
+    <li><a href="#peer">Questions from an architect</a></li>
+    <li><a href="#ciso">Questions from a CISO</a></li>
+    <li><a href="#audit">Questions from an auditor or CDO</a></li>
+    <li><a href="#product">Questions about pm-agent</a></li>
+    <li><a href="#limits">Owning the limits</a></li>
+    <li><a href="#rehearse">Rehearsal</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART X · CHAPTER 54</div>
+  <h1>Defending your builds</h1>
+  <p class="lede">The questions a GTM colleague, a client's security chief, an auditor, a peer architect and an interviewer will ask about the reference build and pm-agent, with answers that point at a command, a test or a decision, and with the limits stated before anyone has to find them.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>PROVE</span></div>
+    <div><b>Reps</b><span>Monthly PROVE · GR1 self-test</span></div>
+    <div><b>Build sources</b><span>docs/showcase/ · docs/defense/ · DECISIONS · pm ADRs</span></div>
+    <div><b>Read</b><span>~50 min, then rehearse</span></div>
+    <div><b>Facts as of</b><span>2026-10-20 (ARB at the GR1 claims review, pm-agent at R1-S1)</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Write, from memory, the three strongest things you can say about the reference build, and the command that shows each.</li>
+    <li>Write the three questions you would least like to be asked. Keep the list; this chapter answers each.</li>
+  </ol>
+</div>
+
+<h2 id="method"><span class="n">54.1</span>The method</h2>
+<p><span class="tag own">Your build</span> The reference build already has the discipline you need, written down in <code>docs/showcase/CLAIMS_CARD.md</code>: <em>every "say" line has a command or file that keeps it true; if a sentence isn't there, don't say it</em>. A defence built on that rule has five habits:</p>
+<ol>
+  <li><strong>Claim, then artifact.</strong> Two sentences of answer, then a pointer someone can open or run. "That's covered by <code>test_…</code>; the short answer is X; I'll send the evidence after the session."</li>
+  <li><strong>Every figure carries its date, the word "synthetic" where it applies, and its set size.</strong> "7 of 26 synthetic golden expectations met live on 2026-10-16" is defensible; "about a quarter" is not.</li>
+  <li><strong>Counts carry their scope.</strong> The red-team corpus (41 attacks) and the module suites (42 attacks) are counted separately; say which.</li>
+  <li><strong>Versioned statements about other people's products.</strong> AGT is "at <code>agent-governance-toolkit-core</code> 5.0.0, …", never "AGT fails open".</li>
+  <li><strong>"Not built; here is how we would do it"</strong> is a complete answer. Never let a "how we'd do it" sound like "we have it".</li>
+</ol>
+<p>The rest of the chapter applies those habits at architect depth. For seller-level phrasing, the build's own <code>docs/showcase/CLIENT_QA.md</code> (25 rows, 8 starred) is the source; this chapter is what you say when the follow-up question goes one level down.</p>
+
+<h2 id="arb"><span class="n">54.2</span>The reference build in ninety seconds</h2>
+<div class="panel p-client">
+  <span class="k">Say it like this</span>
+  <p>"We built a competent customer-service agent with four tools and no governance, ran it on a real local model, and catalogued fifteen ways it could cause harm; in that first live run the model refused four of six adversarial refunds on its own, and money still moved twice. Each gap became a control with an owner, a trigger, evidence and a test. A five-axis tiering engine decides which controls each agent needs; a fail-closed gate blocks deployment until a conformance run, generated on that machine, proves each one fires; and every tool call goes through one chokepoint to a real policy engine, with a signed, hash-chained, externally anchored record written before the effect. A red team with a fully compromised model ran 41 attacks; one moved money, and it was fixed. A second agent with a different risk shape onboarded with zero framework changes, and the edge between them is governed as its own object. Since then: model budgets and pinning, sign-off bound to a configuration digest, an agent inventory, MCP tool pinning, content safety and typed cited answers, eight bindings exercised against a real GCP project, and a fairness measurement we are holding rather than gating because its criterion can't yet tell noise from bias."</p>
+</div>
+
+<h2 id="pm"><span class="n">54.3</span>pm-agent in ninety seconds</h2>
+<div class="panel p-client">
+  <span class="k">Say it like this</span>
+  <p>"pm-agent is a governed product that helps project and product managers keep a software product's plan and its systems of record in step: it reads Jira and the repository, proposes plans and changes, and applies them only through typed actions a deterministic eligibility policy permits and a human approves. It forked the reference build's chassis and runs on LangGraph with Postgres checkpoints, so a run can park for approval and resume. Its biggest lesson was about injection: after a dozen rounds of improving a text detector, held-out acceptance stayed at 56%, so we stopped detecting and started containing, with typed effects, eligibility rules, display-only written text and provenance lanes. Each release's definition of done is the same five governance items, and the next releases add more of the lifecycle and executors like coding agents, each behind one shared contract."</p>
+</div>
+
+<h2 id="demos"><span class="n">54.4</span>The demo spine</h2>
+<p><span class="tag own">Your build</span> The reference build's Makefile has a demo per claim, all on a scripted model so every number reproduces. Learn them as a sequence; each answers a question before it is asked.</p>
+<div class="tw"><table>
+<thead><tr><th>Order</th><th>Command</th><th>Shows</th><th>Book</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>make demo-before-after</code></td><td>Ungoverned versus governed golden run: money moved versus refused, and the control that refused</td><td><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td>2</td><td><code>make demo-gate-flip</code></td><td>Gate blocked as designed, allowed live, then blocked again when one control is unbound</td><td><a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a></td></tr>
+<tr><td>3</td><td><code>make demo-tamper</code></td><td>Verified; one record edited, fails; truncation with anchors, fails</td><td><a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a></td></tr>
+<tr><td>4</td><td><code>make demo-redteam</code></td><td>Named attacks replayed and judged from evidence, including RT-11</td><td><a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td></tr>
+<tr><td>5</td><td><code>make demo-regate</code></td><td>A risk axis raised; tier re-derived; gate blocks until new controls are proven</td><td><a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a></td></tr>
+<tr><td>6</td><td><code>make demo-portability</code></td><td>ADK, LangGraph and OpenAI Agents SDK hosts, same decisions</td><td><a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a></td></tr>
+<tr><td>7</td><td><code>make demo-budget</code>, <code>demo-model-swap</code>, <code>demo-inventory</code>, <code>demo-mcp-rugpull</code></td><td>Budget cap, impostor model refused, unregistered agent refused, changed MCP tool withheld</td><td><a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>, <a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td>8</td><td><code>make demo-content-safety</code>, <code>demo-groundedness</code></td><td>Classifier can only add a hold; typed cited answers or the fixed refusal</td><td><a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a></td></tr>
+<tr><td>9</td><td><code>make demo-approve</code></td><td>The approval console binding one click to one exact action</td><td><a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a></td></tr>
+</tbody></table></div>
+
+<h2 id="peer"><span class="n">54.5</span>Questions from an architect or interviewer</h2>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Why a chokepoint in process rather than a gateway?</td><td>Both. In process it sees the most context (the turn's retrieval, the verified principal, the exact arguments) and can demote outputs; for hosts we don't control there are model and tool gateways driving the same plane, and an equivalence test shows both paths decide identically.</td><td><code>chokepoint.py</code>; <code>gateways/equivalence.py</code>; D53</td></tr>
+<tr><td>Why embed OPA instead of running the server?</td><td>So a clean clone reproduces the governance story with no external process. The engine sits behind a protocol; production would likely run the OPA server for bundle distribution and decision logs, which is one adapter.</td><td>D17</td></tr>
+<tr><td>Why two policy engines?</td><td>Falsifiability. If swapping the engine changed an answer, the rules would live in the engine, not the catalog. Cedar covers the four pure authorisation controls; parity is tested over the golden set, boundaries and every fixture order.</td><td>D22; <code>test_policy_parity.py</code></td></tr>
+<tr><td>How does tiering avoid being fitted to the first agent?</td><td>Each control declares its own lowest tier and the shape it applies to; an agent's set is derived. The second archetype derived a different set with zero framework edits; a fixture test fails if anyone fits the catalog to one agent.</td><td>D14, D39; <code>test_governance_tiering.py</code></td></tr>
+<tr><td>How do you test anything with a non-deterministic model?</td><td>Controls are tested with scripted and fully hostile models, because the claim is about enforcement, not model behaviour. Quality is measured separately, with the answering model's identity recorded and retries only on effect-free rate-limit errors.</td><td>D29; D71; pm D-PM-P5-r</td></tr>
+<tr><td>What breaks first at a hundred times the load?</td><td><span class="tag asm">Assumption</span> Per-call signing if it goes through KMS, the evidence write path's single file per sink, and model quota. The design answers are head-sealing at boundaries, sharded append-only stores with anchors, and quota-aware routing; none is built yet.</td><td><a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a></td></tr>
+<tr><td>What was the hardest bug?</td><td>RT-11: an evidence sink that accepted the decision record and refused the action record let an approved refund execute unrecorded while audit still said VERIFIED. The fix reverses any effect whose record cannot be written, and taught us that one invariant was resting on another.</td><td>D30; <code>test_s4_evidence_integrity.py</code></td></tr>
+<tr><td>What would you do differently?</td><td>Name the agent's identity and directory from day one instead of comparing strings and fixing it twice; verify evidence signatures as soon as they became asymmetric; and namespace control ids across catalogs before forking.</td><td>D33; <a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a></td></tr>
+<tr><td>Why should anyone believe a build mostly written by an AI coding agent?</td><td>Because nothing depends on believing it: every claim has a test, the tests have falsifiers, an independent validator thread reviews each stage, and the semantics (taxonomy, catalog, rulings) were authored and ratified by a human. The decisions log records each ruling and its reason.</td><td>ADR-0001; D49; D56; pm T3 reports</td></tr>
+<tr><td>Is it a framework or a demo?</td><td>A reference implementation of a framework: the semantics are reusable YAML, the machinery sits behind seams, and a whole framework version swap (ADK) touched pins and zero adapter code. It is not a product and does not claim production readiness.</td><td>D48; claims card "don't say"</td></tr>
+</tbody></table></div>
+
+<h2 id="ciso"><span class="n">54.6</span>Questions from a CISO</h2>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Answer</th><th>Honest limit</th></tr></thead>
+<tbody>
+<tr><td>Can the agent bypass the checkpoint?</td><td>It holds only governed tools, never the payment client; vendor SDKs are confined to adapters by an import-firewall test; out-of-process hosts go through gateways.</td><td>A co-resident host with a local model server could get a text-only answer outside the gateway; it cannot act.</td></tr>
+<tr><td>What about prompt injection?</td><td>Retrieved text is fenced with a per-wrap nonce; a match taints the turn and blocks writes; and the refund is decided on facts read from the order system, so an injected instruction cannot raise a limit or forge an approval.</td><td>Detection is a tripwire; residual RESID-01/02 keep a semantic classifier as a second tripwire, never the control.</td></tr>
+<tr><td>Where are the keys?</td><td>Signing is Ed25519; in live mode the private key is in Cloud KMS and never leaves it; verifiers hold only public keys.</td><td>The committed sign-off uses a local synthetic key, so non-repudiation is claimed only for KMS signatures. Evidence signatures are not yet verified by the audit tool (F-01).</td></tr>
+<tr><td>How do you stop self-approval?</td><td>Approver and executor are resolved to directory subjects; approvers must be human subjects; the approval is signed over the exact act and spent once per intent.</td><td>The approver kind is declared, not detected.</td></tr>
+<tr><td>What if the policy engine or state store is down?</td><td>Writes fail closed; a contended state transaction refuses with a named error; an unreachable directory is a distinct error, not "unknown user".</td><td>Availability under failure has not been load-tested.</td></tr>
+<tr><td>Supply chain: models and tools?</td><td>Models are pinned and an impostor model gets no tool; MCP tools are pinned by a hash of name, description and schema, and a changed tool is withheld; unlisted endpoints are refused before contact.</td><td>Only the synthetic MCP server is exercised.</td></tr>
+<tr><td>Does PII reach logs or traces?</td><td>The open log is an allowlist; free text goes to a capability-gated detail store; spans carry no arguments or results and use the same redaction policy.</td><td>Synthetic data only; no DLP seam on outbound text in ARB.</td></tr>
+<tr><td>What can't it stop?</td><td>Eleven named residuals with reasons, in <code>docs/defense/WHY_TRUST_THIS.md</code>: for example approval fatigue is measured but not enforced, and a truncation inside the anchor window is declared, not caught.</td><td>That is the answer; do not soften it.</td></tr>
+</tbody></table></div>
+
+<h2 id="audit"><span class="n">54.7</span>Questions from an auditor or CDO</h2>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Reconstruct a refund from last month.</td><td><code>aicoe audit trace &lt;refund_id&gt;</code> rebuilds the call from the open log's allowlisted fields; personal content shows as markers unless an authorised principal reveals it.</td><td>D28; <code>audit.py</code></td></tr>
+<tr><td>Was the configuration that ran the one that was approved?</td><td>The sign-off names a configuration digest; the gate recomputes it independently; the agent checks its registry entry's digest before acting.</td><td>CTL-0022, CTL-0023; D59</td></tr>
+<tr><td>How do you map to the EU AI Act and ISO 42001?</td><td>Each control traces to NIST AI RMF, ISO/IEC 42001, OWASP and the EU AI Act; 19 regulatory cells are verified against primary text, 14 are marked to verify.</td><td><code>docs/defense/STANDARDS_MAPPING.md</code>; D44, D55</td></tr>
+<tr><td>Who owns each control?</td><td>Every control has an <code>owner_role</code>; a RACI overlay groups those under the functions an organisation has, without changing any control.</td><td><code>docs/operating/RACI.md</code>; D45</td></tr>
+<tr><td>Show me one page per agent I can sign.</td><td>The evidence pack: generated from artifacts, including what it does not show (faked bindings, fairness status, who holds the sign-off key).</td><td><code>aicoe gov evidence-pack</code></td></tr>
+<tr><td>Is it compliant?</td><td>Compliance is an organisation's status, not a build's. The build demonstrates mechanisms and evidence an organisation can use toward it.</td><td>CLIENT_QA row 25</td></tr>
+</tbody></table></div>
+
+<h2 id="product"><span class="n">54.8</span>Questions about pm-agent</h2>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Answer</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>Why LangGraph here and ADK in the reference build?</td><td>pm-agent's work is a resumable, approval-gated planning graph, which a typed state graph with checkpoints fits; the runtime sits behind an owned orchestrator interface, and the import firewall keeps LangGraph inside it.</td><td>ADR-0001; D-PM-2</td></tr>
+<tr><td>Why did you stop trying to detect injection?</td><td>Twelve rounds of fixes and held-out acceptance stayed at 56%; each fix fitted the corpus. Containment by construction is a property, not a rate.</td><td>ADR-0005; D-PM-P5-q</td></tr>
+<tr><td>What stops it doing what a ticket comment says?</td><td>Effects are typed actions on retrieved keys; an eligibility policy on system-of-record facts decides each; written text is display-only; free-text-only suggestions go to a separate lane with provenance, out of batch approval.</td><td>ADR-0005; D-PM-R1-30</td></tr>
+<tr><td>Where does its data go?</td><td>By default to hosted models via OpenRouter restricted to zero-retention, no-training providers with fallbacks off; Vertex for clients who won't route through OpenRouter; the answering model and provider are recorded and a mismatch is refused.</td><td>ADR-0006</td></tr>
+<tr><td>Will it run coding agents?</td><td>Through one executor contract: a delegation is a typed action needing eligibility and a signed approval; the executor runs in its own sandbox with its own credentials; its output returns as a proposal verified against acceptance criteria. Coding agents join via ACP, with their permission requests mapped onto pm-agent's approval gate.</td><td>ADR-0008</td></tr>
+<tr><td>Why should we trust its memory?</td><td>Scoped per principal and project, PII-redacted with check-digit validation, expiring within 30 days, MAC-signed; without a key it is a hint for retrieval only.</td><td>D-PM-P5-i, -j, -l, -p</td></tr>
+</tbody></table></div>
+
+<h2 id="limits"><span class="n">54.9</span>Owning the limits</h2>
+<p><span class="tag own">Your build</span> Say these before you are asked. Each is current as of the GR1 claims review (2026-10-19) unless noted.</p>
+<div class="tw"><table>
+<thead><tr><th>Limit</th><th>How to say it</th></tr></thead>
+<tbody>
+<tr><td>Four org-level controls are FAKED (Cloud Identity, Organization Policy, VPC Service Controls, org audit sinks)</td><td>"They need a GCP organisation; they're labelled FAKED wherever they appear and close in our next major release."</td></tr>
+<tr><td>The demo is scripted</td><td>"So every number reproduces. The dated live report shows the same agent on Gemini on Vertex."</td></tr>
+<tr><td>Live quality is modest: on 2026-10-16, 22 of 26 synthetic golden answers came back typed, 7 of 26 matched expectations</td><td>Quote it with the date and set size, then separate quality from control: the live report records what the controls did on those answers (each refusal, its control and its case), which is the claim the build makes.</td></tr>
+<tr><td>Fairness is held</td><td>The D74 sentence, verbatim.</td></tr>
+<tr><td>Approver kind is declared</td><td>"We record who started the console and as what; software cannot prove a person was at the keyboard."</td></tr>
+<tr><td>Evidence signatures are produced but not yet verified by the audit tool (F-01)</td><td>"The chain and anchors detect edits and truncation today; signature verification with published keys is the next step." Better: close it before the showcase.</td></tr>
+<tr><td>Not deployed to the cloud; single region; GCP only</td><td>"It runs in a container and exercises bindings against a real project; portability is enforced by an import firewall, not by a second cloud."</td></tr>
+<tr><td>pm-agent's containment is being built in R1</td><td>"The guard is frozen and disclosed; the action layer that makes containment structural lands this release, with a hostile-planner proof."</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="each GTM release (GR1–GR5) or pm-agent release closes">
+  <span class="k">Waiting on the builds</span>
+  <p>This chapter's limits table and live figures are a snapshot of the GR1 claims review and pm-agent R1-S1. At every GR release and pm-agent release, re-read <code>CLAIMS_CARD.md</code>, <code>CLIENT_QA.md</code> and the newest <code>live_*.md</code>, update the figures and limits here, and retire any limit that closed (for example the FAKED list at GR3).</p>
+</div>
+
+<h2 id="rehearse"><span class="n">54.10</span>Rehearsal</h2>
+<p><span class="tag own">Your build</span> The GR1 gate includes a readiness check that draws 15 rows at random from the 25 client questions. Use the same method for this chapter, at architect depth:</p>
+<ol>
+  <li>Shuffle the questions in this chapter's four tables. Answer five aloud, cold, in under a minute each, naming the evidence.</li>
+  <li>Check against the tables. Any answer without an artifact, or with an unqualified figure, is a miss.</li>
+  <li>Run one demo end to end without notes, narrating what each line of output proves.</li>
+  <li>Add a card for any miss; the monthly PROVE slot repeats the drill.</li>
+</ol>
+
+<h2 id="prove"><span class="n">54.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · monthly PROVE</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Give the ninety-second story of each build from memory.</li>
+    <li><span class="lvl">Apply</span>Run <code>make demo-before-after</code> and <code>make demo-tamper</code>, narrating what each line proves and which chapter explains it.</li>
+    <li><span class="lvl">Apply</span>Answer your three "least liked" questions from Predict first using this chapter's pattern: two sentences, then the artifact.</li>
+    <li><span class="lvl">Design</span>A skeptic says "a scripted demo proves nothing". Construct the answer from three artifacts.</li>
+    <li><span class="lvl">Trade-off</span>Should you close F-01 before the showcase or disclose it? Argue both and decide.</li>
+  </ol>
+</div>
+
+<h2 id="deeper"><span class="n">54.12</span>Further reading</h2>
+<ul>
+  <li><span class="tag own">Your build</span> <code>docs/showcase/CLAIMS_CARD.md</code>, <code>CLIENT_QA.md</code>, <code>BEAT_WALKTHROUGH.md</code>, <code>SELF_TEST.md</code>, <code>GR1_GATE.md</code>; <code>docs/defense/POSTURE.md</code>, <code>LIVE_QA.md</code>, <code>WHY_TRUST_THIS.md</code>, <code>retrospective.md</code>; <code>governance/reports/live_*.md</code>. pm-agent: <code>artifacts/adr/</code>, <code>docs/validation/</code>.</li>
+  <li><b>Books.</b> Barbara Minto, <cite>The Pyramid Principle</cite>, for leading with the answer; any edition.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="capstone-b.html"><small>Previous</small>53 · Capstone B: a framework for a client estate</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="design-interview.html"><small>Next</small>55 · The design interview for governed agents</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

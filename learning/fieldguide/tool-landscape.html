@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>46 · The independent tool landscape and build vs buy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VII · Platforms and tools</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 46</div>
+  <ol>
+    <li><a href="#why">Why an independent layer exists</a></li>
+    <li><a href="#map">The map by component</a></li>
+    <li><a href="#harness">Open-source harnesses</a></li>
+    <li><a href="#consolidation">A consolidating market</a></li>
+    <li><a href="#method">Build, adopt or buy: a method</a></li>
+    <li><a href="#arb">Your builds' choices as worked examples</a></li>
+    <li><a href="#defaults">Defaults for an AICoE</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VII · CHAPTER 46</div>
+  <h1>The independent tool landscape and build vs buy</h1>
+  <p class="lede">Between the clouds and your own code sits a crowded market of independent tools: gateways, tracing, evaluation, guardrails, policy engines, identity, memory, sandboxes and harnesses. Many are open source, several were acquired in the last year, and most overlap with a cloud feature. This chapter maps them by component and gives a method for deciding, component by component, whether to build, adopt or buy, using your builds' own choices as the worked examples.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>TECH · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>Technology track TC-01 to TC-18 · labs T01 to T19</span></div>
+    <div><b>Build links</b><span>ARB: OPA and Cedar, FastMCP, LiteLLM, OpenTelemetry and Langfuse, Model Armor; D9, D22, D32, D63</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Which component of your reference build could you not have bought from anyone?</li>
+    <li>An observability vendor you use is acquired by a platform company. What should you check first?</li>
+    <li>When is it right to build a component a cloud already offers?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">46.1</span>Why an independent layer exists</h2>
+<p><span class="tag gen">Generic</span> Independent tools survive next to the clouds for three reasons: they work across clouds and models (most enterprises run several), they move faster in narrow areas (evaluation, tracing, red teaming), and open-source ones can run inside the client's boundary. Their risks are the mirror image: integration work, vendor viability, and overlap with platform features that improve every quarter.</p>
+
+<h2 id="map"><span class="n">46.2</span>The map by component</h2>
+<p>A working list, not an endorsement; your technology track (<code>learning/maps/technology_track.md</code>) marks which ones have labs <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Component</th><th>Open source</th><th>Commercial</th><th>Platform equivalents</th></tr></thead>
+<tbody>
+<tr><td>Model and AI gateways</td><td>LiteLLM, Envoy AI Gateway, agentgateway</td><td>Portkey, Kong AI Gateway, Cloudflare AI Gateway</td><td>API Management, Apigee, GEAP Agent Gateway, AgentCore Gateway, Unity and Cortex AI gateways</td></tr>
+<tr><td>Tracing and observability</td><td>OpenTelemetry with GenAI conventions, Langfuse, Arize Phoenix, OpenLLMetry</td><td>LangSmith, Arize AX, Datadog LLM Observability, Braintrust, Weights &amp; Biases Weave, Helicone</td><td>Cloud Trace and Agent Observability, CloudWatch, Azure Monitor and Foundry</td></tr>
+<tr><td>Evaluation</td><td>DeepEval, Ragas, promptfoo, Inspect AI, MLflow</td><td>Braintrust, LangSmith, Arize, Patronus</td><td>GEAP evaluation and simulation, AgentCore Evaluations, Foundry evaluations</td></tr>
+<tr><td>Guardrails and screening</td><td>NeMo Guardrails, Llama Guard and Prompt Guard, Guardrails AI, Microsoft Presidio (PII)</td><td>Lakera, Protect AI, Prisma AIRS and other AI security suites</td><td>Model Armor, Bedrock Guardrails, Azure AI Content Safety</td></tr>
+<tr><td>Policy and authorisation</td><td>OPA and Rego, Cedar, Cerbos, OpenFGA, SpiceDB, Microsoft AGT</td><td>Styra, Permit.io, Aserto</td><td>AgentCore Policy (Cedar), IAM access policies (CEL)</td></tr>
+<tr><td>Identity for agents</td><td>SPIFFE and SPIRE, Keycloak</td><td>Okta, Auth0, Aembit, SailPoint and other non-human identity tools</td><td>Agent Identity, Entra Agent ID, AgentCore Identity</td></tr>
+<tr><td>Memory</td><td>Mem0, Zep and Graphiti, Letta</td><td>Hosted versions of the same</td><td>Memory Bank, AgentCore Memory, Foundry memory</td></tr>
+<tr><td>Sandboxes</td><td>Firecracker, gVisor, Kubernetes sandbox projects</td><td>E2B, Daytona, Modal</td><td>GEAP Sandbox, AgentCore Code Interpreter and Browser, Container Apps dynamic sessions</td></tr>
+<tr><td>Durable execution</td><td>Temporal, Restate, DBOS</td><td>Temporal Cloud, Inngest</td><td>Step Functions, Workflows, Durable Functions</td></tr>
+<tr><td>MCP servers and registries</td><td>FastMCP, the MCP SDKs, the official MCP Registry</td><td>Managed MCP platforms</td><td>Agent registries; API Center; Registry MCP servers</td></tr>
+<tr><td>Red teaming</td><td>garak, PyRIT, promptfoo red team</td><td>Specialist services</td><td>AI Red Teaming Agent (Foundry)</td></tr>
+<tr><td>Prompt and configuration management</td><td>Langfuse prompts, MLflow</td><td>LangSmith hub, PromptLayer</td><td>Prompt management in each cloud</td></tr>
+</tbody></table></div>
+
+<h2 id="harness"><span class="n">46.3</span>Open-source harnesses</h2>
+<p><span class="tag gen">Generic</span> Whole harnesses are also open source: OpenHands, Goose (Block, donated to the Agentic AI Foundation), opencode, Cline, Aider, Hermes Agent, and DeepSeek's harness preview. They matter for two reasons: they are executors a meta-harness may delegate to (<a class="xref" data-ch="orchestration-meta-harness" data-sec="#meta" href="orchestration-meta-harness.html#meta">Chapter 6</a>), and they are the best place to study how real loops, permissions and sandboxes are built. The 2026 harness study found that production harnesses rarely import general frameworks and that skills had overtaken MCP as the extensibility mechanism (<a class="xref" data-ch="harness-anatomy" href="harness-anatomy.html">Chapter 1</a>). Lab T19 runs one coding task through two of them.</p>
+
+<h2 id="consolidation"><span class="n">46.4</span>A consolidating market</h2>
+<p><span class="tag gen">Generic</span> Acquisitions in 2025 and 2026 moved several independent tools inside larger platforms <span class="tag ver">Verify</span> each before quoting: ServiceNow bought Traceloop (the company behind OpenLLMetry) to observe agent reasoning in AI Control Tower; Snowflake bought Natoma for MCP; Check Point acquired Lakera; Palo Alto Networks acquired Protect AI; CoreWeave acquired Weights &amp; Biases. The second prediction question: check data path and contract first (where your traces go now, under whose terms), then the product's roadmap and open-source licence, then your exit plan. A tool behind a seam with an open data format (OpenTelemetry, your own eval files) is cheap to leave; one without is not.</p>
+
+<h2 id="method"><span class="n">46.5</span>Build, adopt or buy: a method</h2>
+<p>For each component, answer in order:</p>
+<ol>
+  <li><strong>Is it the control itself, or infrastructure for it?</strong> Controls whose semantics are yours (what a refund limit means, what evidence must show) are built or authored; engines and plumbing are adopted or bought.</li>
+  <li><strong>Does a native or available product meet the control's contract?</strong> Use the control's own objective, trigger, evidence and test; then run its falsifiers against the product (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>). "Has a feature called guardrails" is not an answer.</li>
+  <li><strong>Data path and residency</strong>: where does the data go, and can it run inside the client's boundary?</li>
+  <li><strong>Can it sit behind a seam?</strong> If replacing it would mean a rewrite, the bar rises sharply (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>).</li>
+  <li><strong>Total cost</strong>: licence plus integration plus operation plus the upgrades it will force.</li>
+  <li><strong>Maturity and viability</strong>: release cadence, users, maintainers, funding or owner.</li>
+</ol>
+<p>The third prediction question follows from step 2: build when the available component does not meet the control's contract, or meets it only on one platform when you need it on several.</p>
+
+<h2 id="arb"><span class="n">46.6</span>Your builds' choices as worked examples</h2>
+<div class="tw"><table>
+<thead><tr><th>Component</th><th>Choice</th><th>Why (decision)</th></tr></thead>
+<tbody>
+<tr><td>Enforcement plane, evidence chain, gate, sign-off digest</td><td>Built</td><td>No product provides tamper-evident decision evidence or configuration-bound sign-off; they are the reference model's core (the first prediction question)</td></tr>
+<tr><td>Policy engines</td><td>Adopted OPA and Cedar, both, with a parity suite</td><td>Mature, embeddable, testable; parity proves the semantics are the build's, not the engine's (D22)</td></tr>
+<tr><td>Microsoft AGT</td><td>Evaluated, not adopted; revisit trigger set</td><td>The parity spike found rules it could not express without failing open (D63; <a class="xref" data-ch="agt-through-your-build" href="agt-through-your-build.html">Chapter 47</a>)</td></tr>
+<tr><td>MCP</td><td>Adopted FastMCP behind the gateway seam</td><td>Standard protocol; in-memory transport runs in CI (D32)</td></tr>
+<tr><td>Model access</td><td>Adopted LiteLLM behind the model seam; pm-agent adds OpenRouter (ADR-0006)</td><td>One interface to many providers; swap tested</td></tr>
+<tr><td>Tracing</td><td>Adopted OpenTelemetry and Langfuse</td><td>Open format; self-hostable; traces derived from evidence through one redaction policy</td></tr>
+<tr><td>Screening</td><td>Adopted Model Armor behind the screening seam</td><td>Native to the client cloud; composed so it can only restrict (D52)</td></tr>
+<tr><td>Classifier on the enforcement path</td><td>Built the composition, adopted the models</td><td>The rule (monotone-restrictive) is yours; the detector is a commodity</td></tr>
+</tbody></table></div>
+
+<h2 id="defaults"><span class="n">46.7</span>Defaults for an AICoE</h2>
+<p><span class="tag asm">Assumption</span> For a GCP-standard AICoE serving clients on several platforms:</p>
+<ul>
+  <li><strong>Build</strong>: the catalog and its semantics, the enforcement plane's decision logic and PIP adapters, the evidence schema and chain, the gate and sign-off, the registry of record, parity and equivalence suites.</li>
+  <li><strong>Adopt (open source)</strong>: OpenTelemetry, OPA or Cedar, an MCP SDK, an evaluation framework whose files you own, a red-team tool.</li>
+  <li><strong>Use native</strong>: agent identity, runtimes, sandboxes, model screening, gateways, on each platform where they meet the control contract.</li>
+  <li><strong>Buy selectively</strong>: an observability and evaluation product if the team needs its workflow; an AI security posture product for estate discovery; always behind open formats.</li>
+</ul>
+
+<h2 id="fail"><span class="n">46.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Buying a "governance platform" that has no enforcement point</td><td>Map each control to where it is enforced before buying</td></tr>
+<tr><td>Tool chosen on features, not on the control contract</td><td>Falsifiers run against the candidate</td></tr>
+<tr><td>Data in a vendor format you cannot export</td><td>Open formats; own copies of eval sets and traces</td></tr>
+<tr><td>Tool sprawl: five overlapping products</td><td>One owner per component; a short approved list</td></tr>
+<tr><td>Acquisition changes terms</td><td>Seams, exit plans, contract clauses</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">46.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Which AI governance tool should we buy?"</strong> "Start from the controls you need and where each must be enforced. Then buy for the gaps your platforms leave, and keep the rulebook, the evidence and the gate as your own, because no product supplies them."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">46.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The six-step build, adopt or buy method.</li>
+    <li><span class="lvl">Apply</span>Run the method on an observability product for pm-agent at the scale in its design document.</li>
+    <li><span class="lvl">Design</span>An approved-tools list for an AICoE, one owner per component.</li>
+    <li><span class="lvl">Trade-off</span>Langfuse self-hosted against a SaaS observability product, for a regulated client.</li>
+  </ol>
+  <p class="small">Card candidates: <em>build the semantics, adopt the engines</em> · <em>falsifiers before purchase</em> · <em>open formats are the exit plan</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">46.11</span>Further reading</h2>
+<ul>
+  <li><b>Your maps.</b> <code>learning/maps/technology_track.md</code> (components TC-01 to TC-18 and labs); the landscape matrix in <code>learning/frameworks/landscape/</code>.</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026).</li>
+  <li><span class="tag own">Your builds</span> ARB D9 (work-relevant tools, not just open-source defaults), D22, D32, D52, D63; pm-agent ADR-0006.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="across-platforms.html"><small>Previous</small>45 · Across platforms: capability map and governance</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="agt-through-your-build.html"><small>Next</small>47 · Microsoft AGT through your build</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

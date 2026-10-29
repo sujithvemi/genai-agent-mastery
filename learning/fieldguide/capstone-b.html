@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>53 · Capstone B: a framework for a client estate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part X · Practice</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 53</div>
+  <ol>
+    <li><a href="#what">What this capstone proves</a></li>
+    <li><a href="#b1">B1 · Inventory and the tiering model</a></li>
+    <li><a href="#b2">B2 · The catalog cut</a></li>
+    <li><a href="#b3">B3 · The enforcement-point map</a></li>
+    <li><a href="#b4">B4 · The crosswalk</a></li>
+    <li><a href="#b5">B5 · Evidence and assurance</a></li>
+    <li><a href="#b6">B6 · Operating model and rollout</a></li>
+    <li><a href="#b7">B7 · Build the toolkit</a></li>
+    <li><a href="#pack">The framework pack</a></li>
+    <li><a href="#rubric">How to grade yourself</a></li>
+    <li><a href="#fail">Where people get stuck</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART X · CHAPTER 53</div>
+  <h1>Capstone B: a framework for a client estate</h1>
+  <p class="lede">The design and build of a governance framework for an estate you do not own: an inventory and tiering model, a cut of the control catalog for platforms you cannot instrument, an enforcement-point map per control and platform, a crosswalk, an evidence design, an operating model with a rollout, and a toolkit with a conformance suite the client can run after you leave.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>CLIENT · PROVE</span></div>
+    <div><b>Reps</b><span>GF-L3 · B1–B7</span></div>
+    <div><b>Build links</b><span>ARB src/aicoe/ as reference; gcl_crosswalk.yaml; docs/operating/</span></div>
+    <div><b>Time</b><span>PROVE slot, alternating months</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (scenario generic and assumed)</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Thirty agents run across a CRM-native agent platform, Gemini Enterprise and a few custom ADK agents. Which of your controls cannot be enforced inside the CRM platform at all?</li>
+    <li>Where in a client toolkit should client-specific facts live, so the core stays reusable?</li>
+    <li>How will the client know, a year after you leave, that each control still fires on each platform?</li>
+  </ol>
+</div>
+
+<h2 id="what"><span class="n">53.1</span>What this capstone proves</h2>
+<p><span class="tag gen">Generic</span> Capstone B is level GF-L3: designing and building the governance framework for a client's estate, not your own build. It is the work you will be paid for, so it doubles as GTM support-pack material. The scenario in <code>learning/capstones/B_client_framework.md</code> is generic and assumed, not a client's facts:</p>
+<ul>
+  <li>Agents on two platforms, a CRM-native agent platform (Salesforce-style) and Gemini Enterprise on Google Cloud, plus a few custom ADK agents.</li>
+  <li>Thirty agents today, 150 planned. Operations in the EU and the US.</li>
+  <li>Low governance maturity; the client wants a provider to enable them while they build their own framework and tooling.</li>
+</ul>
+<p>Keep any real pursuit's facts in that pursuit's own folder, never in this book or the learning repository.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 214" role="img" aria-label="Capstone B in seven stages with the chapters that feed each: B1 inventory and tiering (chapters 13 and 45); B2 catalog cut (14, 44); B3 enforcement-point map (16, 41 to 47); B4 crosswalk (48, 49); B5 evidence and assurance (22, 45); B6 operating model and rollout (50, 51); B7 the toolkit, hands-on (7, 17, 24). The output is a 10 to 15 page client framework pack, one architecture diagram and a runnable toolkit skeleton with its conformance suite.">
+<defs><marker id="s53" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="68.5" y="64.5" text-anchor="middle">B1</text>
+<text class="tx-s" x="68.5" y="82.5" text-anchor="middle">Inventory</text>
+<text class="tx-s" x="68.5" y="100.5" text-anchor="middle">and tiering</text>
+<text class="tx-s" x="68.5" y="146" text-anchor="middle">Ch 13, 45</text>
+<line class="ln" x1="127" y1="78" x2="135" y2="78" marker-end="url(#s53)"/>
+<rect class="box" x="137" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="195.5" y="73.5" text-anchor="middle">B2</text>
+<text class="tx-s" x="195.5" y="91.5" text-anchor="middle">Catalog cut</text>
+<text class="tx-s" x="195.5" y="146" text-anchor="middle">Ch 14, 44</text>
+<line class="ln" x1="254" y1="78" x2="262" y2="78" marker-end="url(#s53)"/>
+<rect class="box-strong" x="264" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="322.5" y="64.5" text-anchor="middle">B3</text>
+<text class="tx-s" x="322.5" y="82.5" text-anchor="middle">Enforcement-</text>
+<text class="tx-s" x="322.5" y="100.5" text-anchor="middle">point map</text>
+<text class="tx-s" x="322.5" y="146" text-anchor="middle">Ch 16, 41–47</text>
+<line class="ln" x1="381" y1="78" x2="389" y2="78" marker-end="url(#s53)"/>
+<rect class="box" x="391" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="449.5" y="73.5" text-anchor="middle">B4</text>
+<text class="tx-s" x="449.5" y="91.5" text-anchor="middle">Crosswalk</text>
+<text class="tx-s" x="449.5" y="146" text-anchor="middle">Ch 48, 49</text>
+<line class="ln" x1="508" y1="78" x2="516" y2="78" marker-end="url(#s53)"/>
+<rect class="box" x="518" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="576.5" y="64.5" text-anchor="middle">B5</text>
+<text class="tx-s" x="576.5" y="82.5" text-anchor="middle">Evidence and</text>
+<text class="tx-s" x="576.5" y="100.5" text-anchor="middle">assurance</text>
+<text class="tx-s" x="576.5" y="146" text-anchor="middle">Ch 22, 45</text>
+<line class="ln" x1="635" y1="78" x2="643" y2="78" marker-end="url(#s53)"/>
+<rect class="box" x="645" y="30" width="117" height="96" rx="6"/>
+<text class="tx-b" x="703.5" y="64.5" text-anchor="middle">B6</text>
+<text class="tx-s" x="703.5" y="82.5" text-anchor="middle">Operating model</text>
+<text class="tx-s" x="703.5" y="100.5" text-anchor="middle">and rollout</text>
+<text class="tx-s" x="703.5" y="146" text-anchor="middle">Ch 50, 51</text>
+<line class="ln" x1="762" y1="78" x2="770" y2="78" marker-end="url(#s53)"/>
+<rect class="box-acc" x="772" y="30" width="117" height="96" rx="6"/>
+<text class="tx-acc" x="830.5" y="64.5" text-anchor="middle">B7</text>
+<text class="tx-s" x="830.5" y="82.5" text-anchor="middle">The toolkit</text>
+<text class="tx-s" x="830.5" y="100.5" text-anchor="middle">(hands-on)</text>
+<text class="tx-s" x="830.5" y="146" text-anchor="middle">Ch 7, 17, 24</text>
+<rect class="box-ok" x="10" y="166" width="880" height="40" rx="6"/>
+<text class="tx" x="450" y="190.5" text-anchor="middle">Output: a 10–15 page client framework pack, one architecture diagram, and a runnable toolkit skeleton with its conformance suite</text>
+</svg>
+</div>
+<figcaption><b>Fig 53.1</b>Capstone B's stages. B3 is the hinge: once you know where each control can be enforced on each platform, the crosswalk, evidence design and toolkit follow. B7 turns the design into something the client can run.</figcaption>
+</figure>
+
+<h2 id="b1"><span class="n">53.2</span>B1 · Inventory and the tiering model</h2>
+<p>List the agent archetypes on each platform, decide which axes drive their tiers, and estimate the distribution. Use the fleet-first rule: tiers are derived from axis values by one rule, never decided per agent (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>). A starting hypothesis to test against the real inventory, <span class="tag asm">Assumption</span> illustrative:</p>
+<div class="tw"><table>
+<thead><tr><th>Archetype</th><th>Platform</th><th>Driving axes</th><th>Likely tier</th></tr></thead>
+<tbody>
+<tr><td>Case summariser</td><td>CRM</td><td>PII; read-only; internal users</td><td>MEDIUM</td></tr>
+<tr><td>Goodwill credit or refund agent</td><td>CRM</td><td>Financial write; external customers</td><td>CRITICAL if autonomous; HIGH with confirmation</td></tr>
+<tr><td>Knowledge assistant</td><td>Gemini Enterprise</td><td>Internal data; read-only</td><td>LOW or MEDIUM</td></tr>
+<tr><td>HR policy assistant</td><td>Gemini Enterprise</td><td>Sensitive data; employment context</td><td>HIGH; check EU Annex III if it touches decisions about people</td></tr>
+<tr><td>Procurement agent</td><td>Custom ADK</td><td>Writes purchase orders; supplier data</td><td>HIGH or CRITICAL</td></tr>
+</tbody></table></div>
+<p><strong>Checkpoint.</strong> Every archetype tiered by the rule, with the distribution across tiers and the axis value that would move each one. The first finding is usually how many agents run on someone's personal credentials.</p>
+
+<h2 id="b2"><span class="n">53.3</span>B2 · The catalog cut</h2>
+<p>Decide which of your controls apply, which change meaning on a platform you cannot instrument, and which new ones the estate needs.</p>
+<div class="tw"><table>
+<thead><tr><th>Control family</th><th>Custom ADK agents</th><th>Gemini Enterprise</th><th>CRM SaaS agents</th></tr></thead>
+<tbody>
+<tr><td>Business limits on trusted facts</td><td>Your PEP and PDP</td><td>Agent Gateway with a service extension to your PDP</td><td>Platform's deterministic steps inside; your gateway on calls that leave it</td></tr>
+<tr><td>Approvals bound to an action</td><td>Your approval service</td><td>Your approval service, called from the agent's tools</td><td>Platform approval flows; binding to the exact action may be weaker</td></tr>
+<tr><td>Idempotency of effects</td><td>Keys at your tools</td><td>Keys at your tools</td><td>The platform's behaviour; test and document it</td></tr>
+<tr><td>Evidence</td><td>Your chained records</td><td>Your records for calls through your gateway; platform logs labelled as imported</td><td>Vendor logs, labelled; your records only at your boundary</td></tr>
+<tr><td>Inventory</td><td>Your registry</td><td>Agent Registry reconciled into yours</td><td>Vendor inventory reconciled into yours</td></tr>
+</tbody></table></div>
+<p>New controls an estate like this usually needs: detection of agents acting on personal (maker) credentials; approval of connectors and MCP servers before use; configuration drift detection for SaaS agents; and reconciliation of every platform's inventory into one registry of record (<a class="xref" data-ch="across-platforms" data-sec="#registry" href="across-platforms.html#registry">Chapter 45</a>).</p>
+
+<h2 id="b3"><span class="n">53.4</span>B3 · The enforcement-point map</h2>
+<p>For each control and each platform, name the enforcement point: native platform control, gateway, your PDP (OPA, Cedar, or AGT where it can express the rule), or process only. This is the hinge of the capstone, and the tables in <a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a> to <a class="xref" data-ch="data-saas-model-platforms" href="data-saas-model-platforms.html">Chapter 44</a> are your inputs. Rules for filling it:</p>
+<ul>
+  <li>Native enforcement counts only where it meets the control's contract (trigger, fail-closed behaviour, evidence) and passes the control's falsifiers on that platform (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>).</li>
+  <li>A probabilistic enforcement point (a model-judged policy, a classifier) may restrict but never authorise (D52); it cannot carry a business limit alone.</li>
+  <li>For the systems that matter most (payments, customer records, HR), add one shared checkpoint you control, which every platform's agents must pass (<a class="xref" data-ch="across-platforms" data-sec="#pattern" href="across-platforms.html#pattern">Chapter 45</a>).</li>
+  <li>Mark where AGT fits and where it cannot, with the evidence from R25 and the version (<a class="xref" data-ch="agt-through-your-build" data-sec="#fit" href="agt-through-your-build.html#fit">Chapter 47</a>).</li>
+</ul>
+<p><strong>Checkpoint.</strong> No cell says "covered" without naming a mechanism, and every "process only" cell has an owner and a compensating detective control.</p>
+
+<h2 id="b4"><span class="n">53.5</span>B4 · The crosswalk</h2>
+<p>Map the controls to NIST AI RMF, ISO/IEC 42001 and the EU AI Act obligations for this client's risk classes, using the crosswalk-as-code practice: dated <code>[Verified]</code> or <code>[Verify]</code> cells, statuses of implemented, mechanism or not-built with partial noted, four numbers in the report (<a class="xref" data-ch="standards-law-crosswalk" data-sec="#crosswalk" href="standards-law-crosswalk.html#crosswalk">Chapter 48</a>). If the client is regulated, add the sector overlay (<a class="xref" data-ch="regulated-industries" data-sec="#overlay" href="regulated-industries.html#overlay">Chapter 49</a>). Classify the HR assistant and any agent touching credit or eligibility under Annex III explicitly; those carry high-risk obligations from 2 December 2027.</p>
+
+<h2 id="b5"><span class="n">53.6</span>B5 · Evidence and assurance</h2>
+<p>For each control, write what evidence it emits, where it is stored, who can read it and how an auditor verifies it. Normalise into one decision schema and label provenance: your chained, signed records against imported platform logs (<a class="xref" data-ch="across-platforms" data-sec="#evidence" href="across-platforms.html#evidence">Chapter 45</a>). Decide retention per class of record, and keep personal data out of decision records where a reference will do (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</p>
+<p><strong>Checkpoint.</strong> An auditor's walk-through for one CRITICAL action, from the request to the anchored record, with every step reproducible by someone who is not you.</p>
+
+<h2 id="b6"><span class="n">53.7</span>B6 · Operating model and rollout</h2>
+<p>RACI with one accountable owner per decision, promotion gates by tier, the waiver process with expiry, and a 90-day interim state against a 12–18 month target, each with dependencies and risks (<a class="xref" data-ch="aicoe-operating-model" href="aicoe-operating-model.html">Chapter 50</a>, <a class="xref" data-ch="readiness-first-90-days" href="readiness-first-90-days.html">Chapter 51</a>). With 30 agents growing to 150, the plan must show how the hub stops reviewing every agent: self-service promotion for LOW and MEDIUM by month six is a reasonable target to argue for.</p>
+
+<h2 id="b7"><span class="n">53.8</span>B7 · Build the toolkit</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 350" role="img" aria-label="The client toolkit. A generic core called agentgov holds the catalog, schemas and tiering; PDP bundles in Rego and Cedar; a PEP library and PIP interface; evidence chaining, signing, anchoring and verification; the gate with generated conformance; and the registry of record with reconciliation. An overlay, agentgov_client, holds the client&#x27;s parameters, tier floors, added controls, owners, crosswalk cells and sector overlay. Platform adapters connect the core to GEAP (service extension, registry, Model Armor), the CRM SaaS platform (inventory, decision logs, outbound gateway) and ADK (a chokepoint plugin). A conformance suite the client runs makes each control fire on each platform and proves the evidence records it.">
+<defs><marker id="t53" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="10" y="10" width="420" height="250" rx="8"/>
+<text class="tx-b" x="220" y="34" text-anchor="middle">agentgov: the generic core</text>
+<rect class="box" x="26" y="48" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="66.5" text-anchor="middle">catalog · schemas · tiering</text>
+<rect class="box" x="26" y="82" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="100.5" text-anchor="middle">PDP bundles: Rego, Cedar</text>
+<rect class="box" x="26" y="116" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="134.5" text-anchor="middle">PEP library · PIP interface</text>
+<rect class="box" x="26" y="150" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="168.5" text-anchor="middle">evidence: chain, sign, anchor, verify</text>
+<rect class="box" x="26" y="184" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="202.5" text-anchor="middle">gate · generated conformance</text>
+<rect class="box" x="26" y="218" width="388" height="28" rx="6"/>
+<text class="tx" x="220" y="236.5" text-anchor="middle">registry of record · reconciliation</text>
+<rect class="box-acc" x="460" y="10" width="430" height="110" rx="8"/>
+<text class="tx-acc" x="675" y="34" text-anchor="middle">agentgov_client: the overlay</text>
+<rect class="box" x="476" y="46" width="398" height="28" rx="6"/>
+<text class="tx" x="675" y="64.5" text-anchor="middle">params · tier floors · added controls</text>
+<rect class="box" x="476" y="80" width="398" height="28" rx="6"/>
+<text class="tx" x="675" y="98.5" text-anchor="middle">owners · crosswalk cells · sector overlay</text>
+<rect class="box" x="460" y="140" width="430" height="120" rx="8" style="fill:none"/>
+<text class="tx-b" x="675" y="162" text-anchor="middle">Platform adapters</text>
+<rect class="box" x="476" y="172" width="398" height="24" rx="6"/>
+<text class="tx-s" x="675" y="188.5" text-anchor="middle">GEAP: service extension · registry · Model Armor</text>
+<rect class="box" x="476" y="200" width="398" height="24" rx="6"/>
+<text class="tx-s" x="675" y="216.5" text-anchor="middle">CRM SaaS: inventory · decision logs · outbound gateway</text>
+<rect class="box" x="476" y="228" width="398" height="24" rx="6"/>
+<text class="tx-s" x="675" y="244.5" text-anchor="middle">ADK: chokepoint plugin</text>
+<rect class="box-ok" x="10" y="290" width="880" height="50" rx="6"/>
+<text class="tx-ok" x="450" y="310.5" text-anchor="middle">Conformance suite the client runs</text>
+<text class="tx-s" x="450" y="328.5" text-anchor="middle">for each control on each platform: make it fire, then prove the evidence says so</text>
+<line class="ln" x1="458" y1="66" x2="432" y2="80" marker-end="url(#t53)"/>
+<line class="ln" x1="458" y1="200" x2="432" y2="200" marker-end="url(#t53)"/>
+<line class="ln" x1="220" y1="260" x2="220" y2="288" marker-end="url(#t53)"/>
+<line class="ln" x1="675" y1="260" x2="675" y2="288" marker-end="url(#t53)"/>
+</svg>
+</div>
+<figcaption><b>Fig 53.2</b>The toolkit B7 asks for. The core is yours and reusable; the overlay is the client's and holds every client-specific fact; adapters are thin; the conformance suite is what lets the client, not you, prove each control works on each platform.</figcaption>
+</figure>
+<p>Package a generic core and a client overlay, write the platform adapters your B3 map needs, and ship a conformance suite the client can run. ARB's <code>src/aicoe/</code> is the reference implementation of the core's ideas; Rebuild rep R10 and your Capstone A code are your own starting points. A layout to start from:</p>
+<pre><code>agentgov/                       # generic core: no client facts, ever
+  catalog/  schemas/  tiering/
+  pdp/rego/  pdp/cedar/         # bundles + parity tests
+  pep/  pip/                    # library the adapters call
+  evidence/                     # chain, sign, anchor, verify
+  gate/  conformance/           # generated, never hand-edited
+  registry/                     # record of truth + reconcilers
+  adapters/
+    geap/                       # service extension, registry reader, Model Armor classifier
+    crm_saas/                   # inventory reader, decision-log importer, outbound rules
+    adk/                        # chokepoint plugin
+agentgov_client/                # overlay: params, tier floors, added controls,
+                                #   owners, crosswalk cells, sector overlay
+conformance_suite/              # what the client runs: each control fires, per platform</code></pre>
+<p>Three rules make it last. Client facts live only in the overlay, and a test fails if the core imports it. Every adapter has a fake and a conformance test, as ARB's platform seams do (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>). And the conformance suite produces the four-number report itself, so the client's coverage claim is generated, not written.</p>
+
+<h2 id="pack"><span class="n">53.9</span>The framework pack</h2>
+<ol>
+  <li>Executive summary: the recommendation, the 90-day plan, the decisions needed (one page).</li>
+  <li>The estate today: inventory, tiers, findings (B1).</li>
+  <li>The rulebook: catalog cut and new controls (B2).</li>
+  <li>The enforcement architecture: one diagram and the enforcement-point map (B3).</li>
+  <li>Obligations: the crosswalk summary with four numbers (B4).</li>
+  <li>Evidence and assurance: what an auditor can verify, and how (B5).</li>
+  <li>Operating model and rollout: RACI, gates, waivers, interim and target, dependencies, risks (B6).</li>
+  <li>The toolkit: what is delivered, how to run the conformance suite (B7).</li>
+  <li>Assumptions and open questions, every one labelled.</li>
+</ol>
+
+<h2 id="rubric"><span class="n">53.10</span>How to grade yourself</h2>
+<div class="tw"><table>
+<thead><tr><th>Area</th><th>Not yet</th><th>Done</th><th>Strong</th></tr></thead>
+<tbody>
+<tr><td>Tiering</td><td>Tiers assigned by judgement</td><td>Derived by one rule for every archetype</td><td>Sensitivity shown: which axis change moves each tier</td></tr>
+<tr><td>Enforcement map</td><td>"Platform covers it"</td><td>A mechanism per cell; process-only cells owned</td><td>Native controls tested against the contract; a shared checkpoint for the critical systems</td></tr>
+<tr><td>Crosswalk</td><td>A percentage</td><td>Four numbers; Verify cells honest</td><td>Generated from the conformance suite</td></tr>
+<tr><td>Operating model</td><td>A RACI slide</td><td>Decision rights, gates, waivers, interim and target</td><td>A credible path from central review to self-service</td></tr>
+<tr><td>Toolkit</td><td>Slides about a toolkit</td><td>Core, overlay, one adapter, a running conformance test</td><td>All B3 adapters with fakes; the client runs the suite unaided</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">53.11</span>Where people get stuck</h2>
+<div class="tw"><table>
+<thead><tr><th>Trap</th><th>Symptom</th><th>Way out</th></tr></thead>
+<tbody>
+<tr><td>Designing for your own build</td><td>Every control assumes you own the runtime</td><td>Start B2 from the SaaS column</td></tr>
+<tr><td>Trusting feature names</td><td>"The platform has policies" marked as enforcement</td><td>Test expressiveness against your triggers, as the AGT spike did</td></tr>
+<tr><td>Client facts in the core</td><td>A threshold hard-coded in a shared module</td><td>The overlay holds every number; an import test guards it</td></tr>
+<tr><td>A pack with no toolkit</td><td>The client cannot prove anything after you leave</td><td>Ship the conformance suite first, even with one adapter</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="ARB's E7 (governing agents you do not host) is chosen, or a Capstone B iteration is completed">
+  <span class="k">Waiting on the builds</span>
+  <p>ARB's handover names governing SaaS agents the build does not host as the strongest E7 candidate. If E7 goes that way, replace the CRM column in B2 and B3 with what the build measured, and use its adapters as the reference for B7. After each Capstone B iteration, add the most useful finding here.</p>
+</div>
+
+<h2 id="prove"><span class="n">53.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · GF-L3</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The seven stages, and why B3 is the hinge.</li>
+    <li><span class="lvl">Apply</span>Fill the enforcement-point map for <span class="ctl">CTL-0001</span>, <span class="ctl">CTL-0004</span> and <span class="ctl">CTL-0023</span> across the three platforms.</li>
+    <li><span class="lvl">Apply</span>Classify the HR assistant under the EU AI Act and say what changes on 2 December 2027.</li>
+    <li><span class="lvl">Design</span>The toolkit's package boundaries, with the test that keeps client facts out of the core.</li>
+    <li><span class="lvl">Trade-off</span>Native CRM platform controls against a shared outbound gateway for the refund agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>B3 is the hinge</em> · <em>client facts only in the overlay</em> · <em>the conformance suite is the deliverable that outlives you</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">53.13</span>Further reading</h2>
+<ul>
+  <li>Part VII for the platforms and <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a> for the cross-platform pattern; Part VIII for frameworks, law and overlays; Part IX for the operating model.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>src/aicoe/</code> (core ideas), <code>governance/crosswalk/gcl_crosswalk.yaml</code> (statuses), <code>docs/operating/</code>; the T1 handover's E7 options.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="capstone-a.html"><small>Previous</small>52 · Capstone A: govern a new agent by hand</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="defending-your-builds.html"><small>Next</small>54 · Defending your builds</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>I · Service map across platforms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Appendices</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this appendix">
+  <div class="t">Appendix I</div>
+  <ol>
+    <li><a href="#how">How to use this map</a></li>
+    <li><a href="#agent">Agent platform services</a></li>
+    <li><a href="#foundation">Foundation services</a></li>
+    <li><a href="#beyond">Beyond the three clouds</a></li>
+    <li><a href="#current">Keeping it current</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">APPENDIX I</div>
+  <h1>Service map across platforms</h1>
+  <p class="lede">One place to translate a capability into the service that provides it on each major platform: first the agent-specific services, grouped as Google groups its agent platform and extended with what that grouping leaves out, then the ordinary foundation services every agent system still runs on. Names only; the judgement is in the chapters.</p>
+  <div class="meta">
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+    <div><b>Use with</b><span>Chapters 25–33 and 41–45</span></div>
+  </div>
+</div>
+
+<h2 id="how"><span class="n">I.1</span>How to use this map</h2>
+<p>Use it to answer "what is the AWS (or Azure, or Google) equivalent of this?" in a design review or an interview, then follow the link to the chapter that says whether the equivalent actually meets the need. Equivalence of name is not equivalence of guarantee: AgentCore Policy and GEAP's IAM access policies are both "policy on the gateway", but one decides on tool arguments and the other on destinations (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a> rates them). Three conventions:</p>
+<ul>
+  <li>A dash means no first-party service for that capability; the gap is usually filled by the last column or by your own build.</li>
+  <li><span class="tag ver">Verify</span> marks a name or status checked against announcements rather than documentation, or one that was preview when written.</li>
+  <li>The foundation table in <a class="sref" href="#foundation">I.3</a> is assembled automatically from the "Managed services across clouds" section of each Part V chapter, so it changes when they do.</li>
+</ul>
+
+<h2 id="agent"><span class="n">I.2</span>Agent platform services</h2>
+<p><span class="tag gen">Generic</span> Grouped by Google's four agent-platform buckets (Build, Scale, Govern, Optimize) with tools and data split out of Build, and a fifth group, Operate, for what an agent estate needs that none of the agent platforms package.</p>
+<div class="tw"><table>
+<thead><tr><th>Capability</th><th>Google Cloud (GEAP)</th><th>AWS</th><th>Microsoft</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td colspan="5"><b>Build</b></td></tr>
+<tr><td>Code-first framework</td><td>Agent Development Kit (ADK)</td><td>Strands Agents; any framework on AgentCore</td><td>Microsoft Agent Framework</td><td>LangGraph; CrewAI; OpenAI Agents SDK; Claude Agent SDK; Pydantic AI (<a class="xref" data-ch="frameworks-sdks-studios" href="frameworks-sdks-studios.html">Chapter 35</a>)</td></tr>
+<tr><td>Managed agent loop</td><td>Managed Agents API</td><td>AgentCore Harness</td><td>Foundry hosted agents</td><td>Claude Managed Agents (beta)</td></tr>
+<tr><td>Low-code builder</td><td>Agent Studio; Agent Designer in Gemini Enterprise</td><td>Amazon Quick</td><td>Copilot Studio</td><td>Agentforce Builder; SaaS agent studios</td></tr>
+<tr><td>Samples and templates</td><td>Agent Garden; Agent Starter Pack</td><td>AgentCore samples and starter toolkit</td><td>Foundry templates</td><td>Framework example repositories</td></tr>
+<tr><td>Models</td><td>Gemini API; Model Garden (Gemini, partner and open models)</td><td>Bedrock (Nova; Anthropic, Meta, Mistral and others)</td><td>Foundry Models (OpenAI, MAI and partners)</td><td>Anthropic and OpenAI APIs; Hugging Face (<a class="xref" data-ch="data-saas-model-platforms" href="data-saas-model-platforms.html">Chapter 44</a>)</td></tr>
+<tr><td>Tuning and training</td><td>Vertex AI tuning (supervised, preference, reinforcement); Vertex AI training</td><td>Bedrock model customisation; SageMaker AI</td><td>Foundry fine-tuning</td><td>Hugging Face TRL; Unsloth</td></tr>
+<tr><td>Self-hosted inference</td><td>Vertex AI endpoints; GKE with vLLM and GKE Inference Gateway</td><td>SageMaker AI endpoints; EKS</td><td>Foundry managed compute; AKS</td><td>vLLM; SGLang; Ollama (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>)</td></tr>
+<tr><td colspan="5"><b>Tools and data</b></td></tr>
+<tr><td>Tool and MCP gateway</td><td>Agent Gateway; managed MCP servers for Google services</td><td>AgentCore Gateway</td><td>API Management (MCP exposure and passthrough); API Center</td><td>Docker MCP Gateway; agentgateway; your gateway (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>)</td></tr>
+<tr><td>Grounding and retrieval</td><td>Grounding with Google Search; Agent Search; RAG Engine</td><td>Bedrock Knowledge Bases; AgentCore managed Knowledge Base and Web Search</td><td>Azure AI Search; Foundry IQ; grounding with Bing Search</td><td>LlamaIndex; Haystack; vector databases (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>)</td></tr>
+<tr><td>Enterprise connectors</td><td>Integration Connectors; Application Integration</td><td>AgentCore Gateway targets; Amazon AppFlow</td><td>Logic Apps and Power Platform connectors</td><td>MuleSoft; Composio; Arcade</td></tr>
+<tr><td>Agent and UI protocols</td><td>A2A; A2UI</td><td>A2A on AgentCore Runtime; AG-UI</td><td>A2A in Foundry and Copilot Studio</td><td>MCP; A2A; AG-UI (<a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>)</td></tr>
+<tr><td>Agent payments and commerce</td><td>AP2; UCP (protocols)</td><td>AgentCore Payments (x402, Machine Payments Protocol)</td><td>—</td><td>x402</td></tr>
+<tr><td>Marketplace</td><td>Google Cloud Marketplace agents</td><td>AWS Marketplace AI agents and tools</td><td>Microsoft Marketplace</td><td>—</td></tr>
+<tr><td colspan="5"><b>Scale</b></td></tr>
+<tr><td>Managed runtime</td><td>Agent Runtime (runs up to seven days)</td><td>AgentCore Runtime</td><td>Foundry Agent Service</td><td>LangSmith Deployment; containers on any platform (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>)</td></tr>
+<tr><td>Sessions</td><td>Sessions</td><td>Runtime sessions; Memory short-term events</td><td>Foundry conversations</td><td>Framework checkpointers</td></tr>
+<tr><td>Memory</td><td>Memory Bank</td><td>AgentCore Memory</td><td>Foundry memory (preview)</td><td>Mem0; Zep; Letta</td></tr>
+<tr><td>Code and browser sandboxes</td><td>Sandbox</td><td>Code Interpreter; Browser</td><td>Container Apps dynamic sessions</td><td>E2B; Daytona; Browserbase</td></tr>
+<tr><td colspan="5"><b>Govern</b></td></tr>
+<tr><td>Agent identity</td><td>Agent Identity (SPIFFE-based); auth manager for user delegation</td><td>AgentCore Identity</td><td>Entra Agent ID</td><td>SPIFFE and SPIRE (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>)</td></tr>
+<tr><td>Agent registry</td><td>Agent Registry</td><td>AWS Agent Registry</td><td>Agent 365; Foundry Control Plane</td><td>ServiceNow AI Control Tower; your registry of record</td></tr>
+<tr><td>Tool-call policy</td><td>IAM access policies (CEL); semantic governance policies (pre-GA)</td><td>AgentCore Policy (Cedar)</td><td>API Management policy expressions; ACS (open specification)</td><td>OPA; Cedar; Agent Governance Toolkit (<a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a>)</td></tr>
+<tr><td>Prompt and response screening</td><td>Model Armor</td><td>Bedrock Guardrails</td><td>Azure AI Content Safety; Prompt Shields</td><td>NeMo Guardrails; Llama Guard (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>)</td></tr>
+<tr><td>Agent security and anomalies</td><td>Agent Security (SCC AI Protection); Agent Anomaly Detection (private preview)</td><td>GuardDuty; Security Hub</td><td>Microsoft Defender (agent inventory, runtime protection)</td><td>Wiz; Prisma AIRS</td></tr>
+<tr><td>Compliance posture</td><td>Agent Compliance (Compliance Manager, AI Essentials framework)</td><td>AWS Audit Manager; AWS Config</td><td>Purview Compliance Manager</td><td>Credo AI; OneTrust</td></tr>
+<tr><td>Data protection for agents</td><td>VPC Service Controls; Sensitive Data Protection; Model Armor</td><td>Macie; Guardrails PII filters</td><td>Purview DLP; DSPM for AI</td><td>Presidio (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>)</td></tr>
+<tr><td>Tamper-evident decision evidence</td><td>— (Cloud Audit Logs record platform events)</td><td>— (CloudTrail)</td><td>— (Purview Audit)</td><td>Your evidence plane, as in ARB and pm-agent (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>)</td></tr>
+<tr><td>Sign-off bound to configuration</td><td>—</td><td>Versioned configuration bundles</td><td>Versioned guardrail policies</td><td>Your gate and digest (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>)</td></tr>
+<tr><td colspan="5"><b>Optimize</b></td></tr>
+<tr><td>Evaluation</td><td>Agent Evaluation; online monitors</td><td>AgentCore Evaluations</td><td>Foundry evaluations; continuous evaluation</td><td>promptfoo; DeepEval; Ragas; LangSmith; Langfuse (<a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a>)</td></tr>
+<tr><td>Simulation and red teaming</td><td>Simulation</td><td>Batch evaluations (no dedicated user simulator)</td><td>AI Red Teaming Agent; ASSERT</td><td>PyRIT; garak; your red-team corpus</td></tr>
+<tr><td>Observability</td><td>Agent Observability; Cloud Trace</td><td>AgentCore Observability</td><td>Foundry observability; Application Insights</td><td>Langfuse; Phoenix; Datadog LLM Observability (<a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>)</td></tr>
+<tr><td>Optimizer and experiments</td><td>Optimizer; traffic split (preview)</td><td>AgentCore Optimization (recommendations, A/B testing)</td><td>Announced <span class="tag ver">Verify</span></td><td>DSPy; GEPA</td></tr>
+<tr><td colspan="5"><b>Operate (not in any agent platform's grouping)</b></td></tr>
+<tr><td>AI operations agents</td><td>Gemini Cloud Assist</td><td>AWS DevOps Agent</td><td>Azure SRE Agent</td><td>Datadog Bits AI SRE</td></tr>
+<tr><td>Estate-wide agent governance</td><td>—</td><td>—</td><td>Agent 365; Defender</td><td>ServiceNow AI Control Tower (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>)</td></tr>
+<tr><td>Model and agent cost attribution</td><td>Request labels; Apigee token metrics</td><td>Application inference profiles</td><td>API Management token metrics</td><td>LiteLLM; Langfuse (<a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>)</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> Read the two rows of dashes under Govern together. No platform offers tamper-evident decision evidence or a sign-off that goes stale when the approved configuration changes; those are the two things your reference build adds, and the reason a multi-platform estate still needs a thin layer of its own (<a class="xref" data-ch="across-platforms" data-sec="#pattern" href="across-platforms.html#pattern">Chapter 45</a>).</p>
+
+<h2 id="foundation"><span class="n">I.3</span>Foundation services</h2>
+<p><span class="tag gen">Generic</span> The ordinary services an agent system runs on, collected from Part V. Each group links back to its chapter, which explains what to look for when choosing.</p>
+<!--SERVICES:START-->
+<div class="tw"><table><thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead><tbody>
+<tr><td colspan="5"><b><a href="edge-api-design.html#services">Chapter 25 · Edge, request path and API design</a></b></td></tr>
+<tr><td>DNS and global load balancing</td><td>Cloud DNS; global external Application Load Balancer</td><td>Route 53; CloudFront; Application Load Balancer; Global Accelerator</td><td>Azure DNS; Front Door; Application Gateway</td><td>Cloudflare; Akamai; NGINX; Envoy</td></tr>
+<tr><td>WAF and DDoS</td><td>Cloud Armor (WAF rules, rate-based rules, adaptive protection)</td><td>AWS WAF; Shield Advanced</td><td>Front Door WAF; Azure DDoS Protection</td><td>Cloudflare WAF</td></tr>
+<tr><td>API management</td><td>Apigee; API Gateway</td><td>Amazon API Gateway (REST, HTTP and WebSocket APIs)</td><td>Azure API Management</td><td>Kong; Tyk; Gravitee</td></tr>
+<tr><td>AI or model gateway</td><td>Apigee AI capabilities: LLM token policies, semantic caching policies, Model Armor policies, MCP in Apigee</td><td>No first-party general AI gateway; Bedrock's own quotas, tiers and Guardrails, plus AWS guidance for a multi-provider gateway built on LiteLLM <span class="tag ver">Verify</span></td><td>API Management AI gateway: <code>llm-token-limit</code>, <code>llm-emit-token-metric</code>, semantic cache store and lookup, <code>llm-content-safety</code>, backend pools with circuit breaker honouring <code>Retry-After</code>; unified model API and Foundry integration in preview (doc updated 2026-05-29)</td><td>LiteLLM proxy (your builds use LiteLLM as a client); Portkey; Kong AI Gateway; Envoy AI Gateway; Cloudflare AI Gateway</td></tr>
+<tr><td>Agent or tool gateway</td><td>Agent Gateway with Agent Identity, IAM access policies and Model Armor (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Gateway (APIs and Lambda as MCP tools) with AgentCore Policy in Cedar (<a class="xref" data-ch="aws" href="aws.html">Chapter 42</a>)</td><td>API Management MCP server exposure and MCP passthrough; A2A agent APIs (<a class="xref" data-ch="microsoft" href="microsoft.html">Chapter 43</a>)</td><td>Docker MCP Gateway; agentgateway (Linux Foundation) <span class="tag ver">Verify</span>; your own gateways, as in ARB (D53)</td></tr>
+<tr><td>Streaming and real time</td><td>Cloud Run (SSE, WebSockets, HTTP/2 streaming); Pub/Sub for fan-out</td><td>API Gateway WebSocket APIs; ALB; AppSync Events</td><td>Azure Web PubSub; SignalR Service</td><td>Any SSE or WebSocket server; AG-UI event protocol (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>)</td></tr>
+<tr><td>Hosting the run API</td><td>Cloud Run</td><td>Lambda behind API Gateway; ECS on Fargate; App Runner</td><td>Container Apps; App Service; Functions</td><td>Any container platform</td></tr>
+<tr><td colspan="5"><b><a href="communication-durable-execution.html#services">Chapter 26 · Communication and durable execution</a></b></td></tr>
+<tr><td>Work queues</td><td>Pub/Sub (exactly-once delivery for pull subscriptions; ordering keys); Cloud Tasks for rate-limited dispatch to HTTP targets</td><td>SQS standard and FIFO (deduplication window, message groups)</td><td>Service Bus queues (sessions, duplicate detection, dead-lettering); Storage Queues</td><td>RabbitMQ; NATS JetStream</td></tr>
+<tr><td>Pub/sub and event routing</td><td>Pub/Sub topics; Eventarc</td><td>SNS; EventBridge (buses, rules, Pipes)</td><td>Event Grid; Service Bus topics</td><td>CloudEvents as the envelope</td></tr>
+<tr><td>Replayable logs</td><td>Managed Service for Apache Kafka; Pub/Sub seek and snapshots</td><td>Kinesis Data Streams; Amazon MSK</td><td>Event Hubs (Kafka-compatible endpoint)</td><td>Apache Kafka; Redpanda; Confluent</td></tr>
+<tr><td>Durable workflows</td><td>Workflows; Cloud Tasks; Cloud Scheduler</td><td>Step Functions (Standard runs up to a year; Express for short, high-volume); Lambda durable functions, code-first checkpoint and replay with waits of up to a year <span class="tag ver">Verify</span></td><td>Durable Functions; Durable Task Scheduler as the managed backend; Logic Apps Standard with agent workflows</td><td>Temporal (and Temporal Cloud); Restate; DBOS; Inngest</td></tr>
+<tr><td>Durable agent runs</td><td>Agent Runtime with Sessions; long-running agents up to seven days (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>)</td><td>AgentCore Runtime (sessions up to eight hours, isolated per session); Step Functions around it for longer processes</td><td>Foundry Agent Service; Agent Framework workflows with checkpoints, and a Durable Task extension for Agent Framework in preview <span class="tag ver">Verify</span></td><td>LangGraph with a durable checkpointer; Temporal's agent SDK integrations</td></tr>
+<tr><td>Schedules and triggers</td><td>Cloud Scheduler; Eventarc; agent triggers from BigQuery and Pub/Sub</td><td>EventBridge Scheduler; S3 and DynamoDB event sources</td><td>Logic Apps and Functions triggers; Foundry routines</td><td>cron in your orchestrator</td></tr>
+<tr><td>Change capture for the outbox</td><td>Datastream; Spanner change streams; Firestore triggers</td><td>DynamoDB Streams; AWS DMS</td><td>Cosmos DB change feed</td><td>Debezium on the database log</td></tr>
+<tr><td colspan="5"><b><a href="authn-authz.html#services">Chapter 27 · AuthN and AuthZ end to end</a></b></td></tr>
+<tr><td>Workforce and customer sign-in</td><td>Cloud Identity; Identity Platform; Identity-Aware Proxy in front of apps</td><td>IAM Identity Center; Amazon Cognito</td><td>Microsoft Entra ID; Entra External ID</td><td>Okta; Auth0; Ping Identity; Keycloak</td></tr>
+<tr><td>Workload identity</td><td>Service accounts; Workload Identity Federation (CI and other clouds); GKE Workload Identity</td><td>IAM roles; IAM Roles Anywhere; EKS Pod Identity</td><td>Managed identities; workload identity federation</td><td>SPIFFE and SPIRE</td></tr>
+<tr><td>Agent identity</td><td>Agent Identity: per-agent SPIFFE-based identities with IAM grants (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Identity: agent workload identities, inbound authorisation, outbound OAuth</td><td>Entra Agent ID: agent identities as directory objects with sponsors, and Conditional Access for agents <span class="tag ver">Verify</span></td><td>Okta and Auth0 agent identity offerings <span class="tag ver">Verify</span></td></tr>
+<tr><td>On-behalf-of and token brokering</td><td>Agent Identity auth manager for user delegation; Secret Manager for service credentials</td><td>AgentCore Identity: token vault, outbound credential providers, on-behalf-of token exchange, consent portal</td><td>Entra on-behalf-of flow; API Management credential manager</td><td>Auth0 Token Vault; Arcade; Composio <span class="tag ver">Verify</span></td></tr>
+<tr><td>Fine-grained authorisation</td><td>IAM conditions in CEL; IAM deny policies; Agent Policy at Agent Gateway</td><td>Amazon Verified Permissions (Cedar); AgentCore Policy (Cedar)</td><td>Azure RBAC with ABAC conditions; Conditional Access</td><td>OPA; Cedar; OpenFGA; SpiceDB; Cerbos</td></tr>
+<tr><td>Zero-trust access to internal apps</td><td>Identity-Aware Proxy; Chrome Enterprise Premium</td><td>AWS Verified Access</td><td>Entra Private Access; Application Proxy</td><td>Cloudflare Access; Zscaler Private Access</td></tr>
+<tr><td colspan="5"><b><a href="state-data-scale.html#services">Chapter 28 · State, data and scale</a></b></td></tr>
+<tr><td>Relational (checkpoints, ledgers, outbox)</td><td>Cloud SQL; AlloyDB; Spanner (external consistency, global)</td><td>RDS; Aurora; Aurora DSQL (distributed, active-active)</td><td>Azure Database for PostgreSQL; Azure SQL Database</td><td>PostgreSQL; CockroachDB; Neon</td></tr>
+<tr><td>Control state with conditional writes</td><td>Firestore transactions; Spanner read-write transactions</td><td>DynamoDB condition expressions and transactions</td><td>Cosmos DB optimistic concurrency (ETag with If-Match); transactional batch within a partition</td><td>Postgres <code>UPDATE … WHERE remaining &gt;= :n</code>; Redis Lua scripts (not durable by default)</td></tr>
+<tr><td>Caches</td><td>Memorystore for Redis and for Valkey</td><td>ElastiCache (Valkey, Redis OSS); MemoryDB for durability</td><td>Azure Managed Redis</td><td>Redis; Valkey; Momento</td></tr>
+<tr><td>Vector and hybrid search</td><td>Vertex AI Vector Search; AlloyDB AI and pgvector; BigQuery vector search</td><td>S3 Vectors (low-cost, durable vector storage); OpenSearch Service; Aurora with pgvector</td><td>Azure AI Search; Cosmos DB vector search; PostgreSQL with pgvector</td><td>Pinecone; Weaviate; Qdrant; Milvus; Elasticsearch</td></tr>
+<tr><td>Managed retrieval (RAG)</td><td>Vertex AI RAG Engine; Vertex AI Search (Agent Search)</td><td>Bedrock Knowledge Bases (S3 Vectors, OpenSearch, Aurora and others as stores)</td><td>Azure AI Search agentic retrieval; Foundry IQ <span class="tag ver">Verify</span></td><td>LlamaIndex; Haystack; Ragie</td></tr>
+<tr><td>Agent memory services</td><td>Memory Bank (GA) (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>)</td><td>AgentCore Memory (short-term events, long-term extracted records)</td><td>Foundry Agent Service memory <span class="tag ver">Verify</span></td><td>Mem0; Zep; Letta</td></tr>
+<tr><td>Immutable object storage for evidence anchors</td><td>Cloud Storage bucket lock and object retention lock</td><td>S3 Object Lock (governance and compliance modes)</td><td>Blob Storage immutability (time-based retention, legal hold)</td><td>MinIO object lock</td></tr>
+<tr><td>Analytics over runs and evidence</td><td>BigQuery</td><td>Athena; Redshift; S3 Tables (Apache Iceberg)</td><td>Microsoft Fabric; Azure Databricks</td><td>Snowflake; Databricks; DuckDB</td></tr>
+<tr><td colspan="5"><b><a href="reliability.html#services">Chapter 29 · Reliability for LLM systems</a></b></td></tr>
+<tr><td>Rate limits and quotas at the edge</td><td>Cloud Armor rate-based rules; Apigee Quota and SpikeArrest; API Gateway quotas</td><td>API Gateway throttling and usage plans; AWS WAF rate-based rules</td><td>API Management <code>rate-limit-by-key</code>, <code>quota-by-key</code>, <code>llm-token-limit</code></td><td>Envoy global rate limiting; Kong; NGINX</td></tr>
+<tr><td>Model capacity failover</td><td>Vertex AI global endpoint; Provisioned Throughput with spill-over to pay-as-you-go</td><td>Bedrock cross-region inference profiles (geographic and global)</td><td>Azure OpenAI Global and Data Zone deployments; API Management backend pools with priorities and weights</td><td>LiteLLM router fallbacks; Portkey; OpenRouter</td></tr>
+<tr><td>Circuit breakers and outlier detection</td><td>Cloud Service Mesh and load balancer outlier detection</td><td>ECS Service Connect; VPC Lattice (App Mesh reached end of support in September 2026) <span class="tag ver">Verify</span></td><td>API Management backend circuit breaker (honours <code>Retry-After</code>); Dapr resiliency policies on Container Apps</td><td>Envoy; Istio; resilience4j; Polly</td></tr>
+<tr><td>Buffering and back-pressure</td><td>Pub/Sub; Cloud Tasks dispatch rates</td><td>SQS with Lambda maximum concurrency</td><td>Service Bus; KEDA scaling on Container Apps</td><td>KEDA; Kafka consumer lag</td></tr>
+<tr><td>Fault injection</td><td>No first-party fault service; Cloud Service Mesh (Envoy) fault injection</td><td>AWS Fault Injection Service</td><td>Azure Chaos Studio</td><td>Gremlin; Chaos Mesh; LitmusChaos; Toxiproxy</td></tr>
+<tr><td>Resilience posture and provider health</td><td>Personalized Service Health</td><td>AWS Resilience Hub; AWS Health</td><td>Azure Service Health; Advisor reliability recommendations</td><td>Provider status pages via your alerting</td></tr>
+<tr><td colspan="5"><b><a href="deployment-cicd.html#services">Chapter 30 · Deployment and CI/CD for agents</a></b></td></tr>
+<tr><td>CI</td><td>Cloud Build</td><td>CodeBuild; CodePipeline</td><td>Azure Pipelines; GitHub Actions</td><td>GitHub Actions; GitLab CI; Buildkite</td></tr>
+<tr><td>Keyless CI identity</td><td>Workload Identity Federation</td><td>IAM OIDC identity providers</td><td>Entra workload identity federation</td><td>OIDC tokens from the CI system</td></tr>
+<tr><td>Progressive delivery</td><td>Cloud Deploy (canary for Cloud Run and GKE); Cloud Run revisions with traffic splitting</td><td>CodeDeploy; ECS built-in blue/green; Lambda alias traffic shifting</td><td>Container Apps revisions and traffic splitting; App Service deployment slots</td><td>Argo CD and Argo Rollouts; Flux; Flagger</td></tr>
+<tr><td>Infrastructure as code</td><td>Terraform via Infrastructure Manager; Config Connector</td><td>CloudFormation; CDK</td><td>Bicep; Azure Verified Modules</td><td>Terraform and OpenTofu; Pulumi; Crossplane</td></tr>
+<tr><td>Registries and scanning</td><td>Artifact Registry; Artifact Analysis</td><td>ECR; Amazon Inspector (scanning, SBOM export)</td><td>Azure Container Registry; Defender for Containers</td><td>Harbor; Trivy; Grype; Syft</td></tr>
+<tr><td>Signing, provenance and admission</td><td>Binary Authorization; Cloud Build SLSA provenance</td><td>AWS Signer with Notation; ECR image signing</td><td>Notation with Key Vault; Ratify with Azure Policy on AKS</td><td>Sigstore cosign; SLSA generators; Kyverno; OPA Gatekeeper</td></tr>
+<tr><td>Agent deployment path</td><td>ADK deploy to Agent Runtime; Agent Starter Pack templates</td><td>AgentCore starter toolkit and CLI to AgentCore Runtime</td><td>Azure Developer CLI templates to Foundry hosted agents</td><td>LangSmith Deployment; your own container path</td></tr>
+<tr><td>Evaluation as a pipeline step</td><td>Gen AI evaluation service; Agent Evaluation in GEAP</td><td>Bedrock evaluations; AgentCore Evaluations</td><td>Foundry evaluation actions for GitHub and Azure DevOps</td><td>promptfoo; DeepEval; LangSmith and Langfuse experiments; your gate</td></tr>
+<tr><td colspan="5"><b><a href="observability-agentops.html#services">Chapter 31 · Observability, SLOs and AgentOps</a></b></td></tr>
+<tr><td>Metrics, logs and traces</td><td>Cloud Monitoring; Cloud Logging; Cloud Trace (OTLP ingestion); Managed Service for Prometheus</td><td>CloudWatch (metrics, Logs, Application Signals); X-Ray; Managed Service for Prometheus; Managed Grafana</td><td>Azure Monitor; Log Analytics; Application Insights; Managed Prometheus and Managed Grafana</td><td>OpenTelemetry Collector; Prometheus; Grafana (Loki, Tempo); Datadog; Honeycomb</td></tr>
+<tr><td>Agent observability</td><td>GEAP Agent Observability (traces, dashboards for Agent Runtime agents) (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Observability (OpenTelemetry-based, in CloudWatch GenAI observability)</td><td>Foundry observability and Control Plane (tracing via Application Insights, fleet view)</td><td>Langfuse; LangSmith; Arize Phoenix and AX; Datadog LLM Observability; W&amp;B Weave; Braintrust</td></tr>
+<tr><td>Online evaluation of production traffic</td><td>Agent Evaluation online monitors</td><td>AgentCore Evaluations</td><td>Foundry continuous evaluation</td><td>LLM-as-judge in Langfuse, LangSmith, Phoenix or Braintrust</td></tr>
+<tr><td>Audit logs of the platform itself</td><td>Cloud Audit Logs (admin and data access)</td><td>CloudTrail</td><td>Activity Log; Entra audit logs; Purview audit</td><td>SIEM ingestion (Splunk, Sentinel, Chronicle)</td></tr>
+<tr><td>Incidents and on-call</td><td>Cloud Monitoring alerting; Personalized Service Health</td><td>CloudWatch alarms; Incident Manager in Systems Manager</td><td>Azure Monitor alerts; action groups</td><td>PagerDuty; Opsgenie; incident.io; Rootly</td></tr>
+<tr><td>AI operations agents</td><td>Gemini Cloud Assist investigations</td><td>AWS DevOps Agent (GA March 2026)</td><td>Azure SRE Agent (GA)</td><td>Datadog Bits AI SRE; PagerDuty and others</td></tr>
+<tr><td colspan="5"><b><a href="security-multitenancy.html#services">Chapter 32 · Security architecture and multi-tenancy</a></b></td></tr>
+<tr><td>Prompt and response screening</td><td>Model Armor (prompt injection and jailbreak, sensitive data, malicious URLs, responsible-AI filters), inline at Agent Gateway or Apigee</td><td>Bedrock Guardrails (content filters, prompt attack filter, PII, contextual grounding, Automated Reasoning checks); ApplyGuardrail API for any model</td><td>Azure AI Content Safety: Prompt Shields, groundedness detection, protected material; content filters on Foundry deployments</td><td>NVIDIA NeMo Guardrails; Llama Guard; Lakera; Prisma AIRS</td></tr>
+<tr><td>AI posture and threat detection</td><td>Security Command Center AI Protection (inventory of models, agents and data; threat findings) (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>GuardDuty; Security Hub; Amazon Inspector</td><td>Defender for Cloud AI security posture and threat protection for AI services; Purview DSPM for AI</td><td>Wiz; Prisma Cloud; Orca</td></tr>
+<tr><td>Secrets</td><td>Secret Manager</td><td>Secrets Manager; Systems Manager Parameter Store</td><td>Key Vault</td><td>HashiCorp Vault; Infisical</td></tr>
+<tr><td>Keys and signing</td><td>Cloud KMS (incl. Ed25519 signing keys, as ARB uses); Cloud HSM; Cloud External Key Manager</td><td>AWS KMS; CloudHSM; external key store</td><td>Key Vault; Managed HSM</td><td>HashiCorp Vault transit; Sigstore for artefacts</td></tr>
+<tr><td>Perimeters, private access and egress</td><td>VPC Service Controls; Private Service Connect; Secure Web Proxy; Cloud NGFW</td><td>VPC endpoints and PrivateLink; Network Firewall; Route 53 Resolver DNS Firewall</td><td>Private Link; Azure Firewall; network security perimeter</td><td>Cilium network policies; mesh egress gateways</td></tr>
+<tr><td>Sensitive data discovery and DLP</td><td>Sensitive Data Protection</td><td>Amazon Macie; Guardrails PII filters</td><td>Microsoft Purview DLP and Information Protection</td><td>Microsoft Presidio</td></tr>
+<tr><td>Isolated code execution</td><td>GEAP Sandbox; GKE Sandbox (gVisor); Agent Sandbox on GKE (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>)</td><td>AgentCore Code Interpreter and Browser</td><td>Container Apps dynamic sessions</td><td>E2B; Daytona; Modal; Firecracker</td></tr>
+<tr><td>Confidential computing</td><td>Confidential VMs and GKE nodes; Confidential Space</td><td>Nitro Enclaves</td><td>Confidential VMs and containers</td><td>Confidential Containers (CNCF)</td></tr>
+<tr><td>Red-team tooling</td><td>No first-party agent red-teaming service; Model Armor findings feed SCC</td><td>No first-party agent red-teaming service</td><td>AI Red Teaming Agent in Foundry (built on PyRIT)</td><td>PyRIT; garak; promptfoo red teaming; your corpus (ARB's red-team suite)</td></tr>
+<tr><td colspan="5"><b><a href="capacity-cost-regions.html#services">Chapter 33 · Capacity, cost and multi-region</a></b></td></tr>
+<tr><td>Budgets and anomaly alerts</td><td>Cloud Billing budgets (with Pub/Sub for automated responses); cost anomaly detection</td><td>AWS Budgets with budget actions; Cost Anomaly Detection</td><td>Cost Management budgets; anomaly alerts</td><td>Vantage; CloudZero</td></tr>
+<tr><td>Cost data and allocation</td><td>Billing export to BigQuery; labels; FOCUS view</td><td>Data Exports (CUR 2.0 and FOCUS); cost allocation tags; split cost allocation</td><td>Cost Management exports (FOCUS); tags; FinOps toolkit</td><td>FOCUS specification; OpenCost; Kubecost</td></tr>
+<tr><td>Per-agent and per-tenant model cost</td><td>Request labels on Vertex AI calls; Apigee token metrics</td><td>Bedrock application inference profiles with cost allocation tags</td><td>API Management <code>llm-emit-token-metric</code> with dimensions; per-deployment cost views</td><td>LiteLLM spend tracking; Langfuse and Helicone cost per trace</td></tr>
+<tr><td>Quotas</td><td>Cloud Quotas (quota adjuster for automatic increases)</td><td>Service Quotas; Bedrock tokens-per-minute quotas per model and region</td><td>Foundry quota per model, region and deployment type (TPM)</td><td>Your gateway's per-tenant limits</td></tr>
+<tr><td>Commitments</td><td>Committed use discounts; Provisioned Throughput</td><td>Savings Plans; Bedrock Reserved tier</td><td>Reservations and savings plans; Provisioned Throughput Units</td><td>—</td></tr>
+<tr><td>Residency and sovereignty</td><td>Assured Workloads; data residency for Gemini processing; sovereign cloud offerings</td><td>AWS European Sovereign Cloud <span class="tag ver">Verify</span>; geographic inference profiles</td><td>EU Data Boundary; Data Zone deployments; Microsoft Sovereign Cloud</td><td>Regional providers; on-premises open-weight models (<a class="xref" data-ch="data-saas-model-platforms" href="data-saas-model-platforms.html">Chapter 44</a>)</td></tr>
+<tr><td>Backup and recovery</td><td>Backup and DR Service; multi-region Spanner, Firestore and Cloud Storage</td><td>AWS Backup; Elastic Disaster Recovery; Application Recovery Controller</td><td>Azure Backup; Azure Site Recovery</td><td>Velero for Kubernetes state</td></tr>
+<tr><td colspan="5"><b><a href="versioning-release.html#services">Chapter 38 · Versioning, registries and release management</a></b></td></tr>
+<tr><td>Agent versions and traffic</td><td>Agent Runtime revisions and traffic splitting (preview)</td><td>AgentCore Runtime versions and endpoints; Optimization configuration bundles and A/B tests</td><td>Foundry agent versions</td><td>LangSmith Deployment revisions; your router</td></tr>
+<tr><td>Model versions and pins</td><td>Versioned Gemini model ids; reported <code>model_version</code></td><td>Model ids and inference profiles</td><td>Deployments with a model version and an upgrade policy (including no auto-upgrade)</td><td>Provider model ids; LiteLLM model aliases</td></tr>
+<tr><td>Prompt and configuration versions</td><td>Vertex AI prompt management <span class="tag ver">Verify</span></td><td>Bedrock Prompt Management (versions)</td><td>Foundry agent definitions under version</td><td>Langfuse and LangSmith prompt management; Git</td></tr>
+<tr><td>Feature flags and runtime configuration</td><td>— (Firebase Remote Config for apps)</td><td>AWS AppConfig feature flags</td><td>Azure App Configuration feature flags</td><td>OpenFeature; LaunchDarkly; Unleash</td></tr>
+<tr><td>Artifact and model registries</td><td>Artifact Registry; Vertex AI Model Registry</td><td>ECR; SageMaker Model Registry</td><td>Azure Container Registry; Azure Machine Learning registries</td><td>MLflow Model Registry; OCI registries</td></tr>
+<tr><td>Agent and tool registries</td><td>Agent Registry</td><td>AWS Agent Registry</td><td>Agent 365; Foundry Control Plane; API Center for MCP servers</td><td>Your registry of record (ARB CTL-0023)</td></tr>
+<tr><td colspan="5"><b><a href="maintenance-evolution.html#services">Chapter 40 · Maintenance and evolution</a></b></td></tr>
+<tr><td>Model lifecycle notices</td><td>Vertex AI model versions and retirement dates</td><td>Bedrock model lifecycle (Active, Legacy, end of life)</td><td>Foundry model retirements; deployment version-upgrade policy</td><td>Anthropic and OpenAI deprecation pages</td></tr>
+<tr><td>Dependency currency and advisories</td><td>Artifact Analysis; Assured Open Source Software</td><td>Amazon Inspector</td><td>GitHub Advanced Security for Azure DevOps; Defender for Cloud DevOps security</td><td>Dependabot; Renovate; OSV-Scanner</td></tr>
+<tr><td>Drift and quality monitoring</td><td>Agent Evaluation online monitors</td><td>AgentCore Evaluations online</td><td>Foundry continuous evaluation</td><td>Langfuse; Arize; Evidently</td></tr>
+<tr><td>Unused permissions</td><td>IAM role recommendations</td><td>IAM Access Analyzer unused access findings</td><td>Entra access reviews, including for agent identities</td><td>—</td></tr>
+<tr><td>Inventory and orphans</td><td>Agent Registry; Cloud Asset Inventory</td><td>AWS Agent Registry; AWS Config</td><td>Agent 365; Defender orphaned-agent detection; Entra Agent ID sponsors</td><td>ServiceNow AI Control Tower; your registry of record</td></tr>
+<tr><td>Retention and deletion</td><td>Cloud Storage lifecycle rules; Firestore TTL; Memory Bank expiry <span class="tag ver">Verify</span></td><td>S3 Lifecycle; DynamoDB TTL; AgentCore Memory time-to-live</td><td>Blob lifecycle management; Cosmos DB TTL</td><td>—</td></tr>
+</tbody></table></div>
+<!--SERVICES:END-->
+
+<h2 id="beyond"><span class="n">I.4</span>Beyond the three clouds</h2>
+<p><span class="tag gen">Generic</span> Agents also arrive from data platforms (Databricks Agent Bricks with Unity AI Gateway; Snowflake Cortex Agents with Cortex AI Gateway), SaaS platforms (Salesforce Agentforce, ServiceNow AI Agents with AI Control Tower, IBM watsonx Orchestrate) and model providers' own platforms (OpenAI's Frontier and Agents SDK; Anthropic's Claude Agent SDK and Managed Agents). Their equivalents of the rows above are compared in <a class="xref" data-ch="data-saas-model-platforms" data-sec="#summary" href="data-saas-model-platforms.html#summary">Chapter 44</a>, and the hands-on tools for each lifecycle stage in <a class="xref" data-ch="tool-landscape" href="tool-landscape.html">Chapter 46</a>.</p>
+
+<h2 id="current"><span class="n">I.5</span>Keeping it current</h2>
+<p>Service names in this map changed several times in the year before it was written (Google regrouped its Vertex AI agent services as the Gemini Enterprise Agent Platform; Azure AI Foundry became Microsoft Foundry). Re-check names quarterly with the capability map in <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>.</p>
+<div class="panel p-future" data-trigger="Quarterly, or when a platform renames or launches an agent service">
+  <span class="k">Waiting on the builds</span>
+  <p>Re-verify the agent services table against each platform's release notes, remove <span class="tag ver">Verify</span> tags that are confirmed, and add rows for new capability families. When ARB or pm-agent deploys to a second platform, add a column note for which services the build actually uses there.</p>
+</div>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="appendix-register.html"><small>Previous</small>H · Living register</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

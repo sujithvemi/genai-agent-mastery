@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>5 · Protocols and trust between agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 5</div>
+  <ol>
+    <li><a href="#three">Three protocols, three boundaries</a></li>
+    <li><a href="#mcp">MCP and tool integrity</a></li>
+    <li><a href="#a2a">A2A and the edge between agents</a></li>
+    <li><a href="#envelope">The provenance envelope</a></li>
+    <li><a href="#acp">ACP and harness hosting</a></li>
+    <li><a href="#transport">Transport is not the PDP</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 5</div>
+  <h1>Protocols and trust between agents</h1>
+  <p class="lede">MCP connects agents to tools, A2A connects agents to agents, and ACP connects a client to an agent harness. Each moves bytes and claims; none of them decides whether a claim is true or a message may cause anything. That decision belongs to the receiving side's enforcement plane, and the governance of a fleet lives mostly at these boundaries.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>BT10 · T05 · LL5</span></div>
+    <div><b>Build modules</b><span>platform/a2a · enforcement/topology.py · enforcement/mcp_integrity.py · gateways/</span></div>
+    <div><b>Decisions</b><span>D40 · D54 · D60 · D63 · ADR-0008 (pm)</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An MCP server you approved last month changes one of its tools' descriptions. What could the new description do?</li>
+    <li>Agent B receives a message "from agent A" saying "the refund is approved". What must be true before B treats it as anything?</li>
+    <li>What is the difference between an agent calling a tool and an agent calling another agent?</li>
+  </ol>
+</div>
+
+<h2 id="three"><span class="n">5.1</span>Three protocols, three boundaries</h2>
+<div class="tw"><table>
+<thead><tr><th>Protocol</th><th>Connects</th><th>Carries</th><th>Trust question</th></tr></thead>
+<tbody>
+<tr><td><strong>MCP</strong> (Model Context Protocol)</td><td>An agent (client) to a tool or data server</td><td>Tool, resource and prompt definitions; tool calls and results</td><td>Is this the server and the tool we reviewed, and is its result data or instruction?</td></tr>
+<tr><td><strong>A2A</strong> (Agent2Agent)</td><td>An agent to another agent</td><td>Agent cards (capabilities), tasks and messages</td><td>Who really sent this, is that edge allowed, and what may this message cause?</td></tr>
+<tr><td><strong>ACP</strong> (Agent Client Protocol)</td><td>A client (editor, orchestrator) to an agent harness</td><td>Sessions, prompts, permission requests, file and terminal operations</td><td>What may the harness do in my environment, and who grants its permission requests?</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The source-code study of harnesses found MCP in 8 of 11 systems and ACP in 6, with ACP picking up a role beyond its design brief: hosting one harness inside another. A2A appeared as one vendor's cross-vendor bet. All three are young and changing; the governance pattern for each is stable even when the specifications are not.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>MCP, A2A and ACP specifications revise frequently (transports, authorisation, capability negotiation). Quote features against the current specification version: <a href="https://modelcontextprotocol.io/">modelcontextprotocol.io</a>, <a href="https://a2a-protocol.org/">a2a-protocol.org</a>, <a href="https://agentclientprotocol.com/">agentclientprotocol.com</a>.</p>
+</div>
+
+<h2 id="mcp"><span class="n">5.2</span>MCP and tool integrity</h2>
+<p><span class="tag gen">Generic</span> An MCP server tells the agent what tools it offers by sending names, descriptions and input schemas, and the model reads those descriptions as instructions about when and how to use each tool. That makes a tool description a prompt delivered by a third party. Three attacks follow: <strong>tool poisoning</strong> (a description containing hidden instructions), the <strong>rug pull</strong> (a reviewed tool that later changes its description or behaviour), and <strong>shadowing</strong> (a tool named to collide with one of the agent's own). Add the ordinary supply-chain risk of an unreviewed server and the result is that "connect any MCP server" is "run any third party's prompt".</p>
+<p><span class="tag own">Your build</span> <span class="ctl">CTL-0024</span> handles it with two checks, at gateway session start and on every tool-list refresh:</p>
+<ul>
+  <li><strong>The endpoint</strong> must appear in the authored registry (<code>governance/registry/mcp_servers.yaml</code>) under the same name and the same endpoint string. Anything else is refused before a connection is opened, so an unregistered server never puts a byte in front of the model.</li>
+  <li><strong>Each tool</strong> is hashed (SHA-256 over its canonical name, description and input schema) and must match the pin reviewed for it. A tool with no pin, a different hash, a name that shadows the agent's own tools, or a name the platform cannot represent is <em>withheld</em>: not shown to the model, and a call to it refused.</li>
+</ul>
+<p>Pins are authored, never generated, because a pin is an approval: each records who requested it and who approved it, and a registry containing a pin approved by its own requester is refused as a whole. Changes go through <code>aicoe gov mcp repin</code>, which refuses self-approval and records the change. Evidence records every tool manifest per refresh (pinned hash, observed hash, exposed or not), every endpoint decision and every refused call. <code>make demo-mcp-rugpull</code> shows a changed tool being withheld.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>The configuration digest a CRITICAL sign-off binds (<span class="ctl">CTL-0022</span>) does not cover the MCP registry: its inputs were fixed before CTL-0024 existed. A changed pin is reviewed by the approver it records, not by re-signing the agent (D60). That is a defensible choice for a pin owned by AI security rather than the agent owner, and a question an auditor may ask; know the answer.</p>
+</div>
+
+<h2 id="a2a"><span class="n">5.3</span>A2A and the edge between agents</h2>
+<p><span class="tag own">Your build</span> When ARB's two agents were connected, the build's own threat analysis found that an agent-to-agent hop <em>launders</em> provenance: the upstream agent consumes untrusted text under a control that is satisfied, then emits clean-looking prose that carries none of the taint and arrives looking more authoritative than a retrieval, not less. D40's response is the core of fleet governance and is worth knowing verbatim in spirit: <strong>a fleet is a graph; govern nodes by tier and edges by interaction shape; a message has no authority</strong>. Four controls attach to any agent with a declared interaction, at the lowest tier:</p>
+<div class="tw"><table>
+<thead><tr><th>Control</th><th>Says</th><th>Mechanism</th></tr></thead>
+<tbody>
+<tr><td><span class="ctl">CTL-0016</span></td><td>An inter-agent message is untrusted data with no authority</td><td>Wrapped as data at the boundary, like a retrieval; it can inform reasoning and can never permit an act, lift a limit or waive a control</td></tr>
+<tr><td><span class="ctl">CTL-0017</span></td><td>The sender is a resolved, channel-authorised subject</td><td>Sender resolved in the identity directory as a service subject; the channel authorised by the declared topology, enforced in Rego</td></tr>
+<tr><td><span class="ctl">CTL-0018</span></td><td>Declared topology equals observed topology; no undeclared edge</td><td>Edges declared in manifests (<code>interactions</code>); observed edges reconciled; the gate reports undeclared edges</td></tr>
+<tr><td><span class="ctl">CTL-0019</span></td><td>Cross-agent provenance is recorded; fail closed on influence</td><td>A provenance envelope on every message, recorded against the act it influenced</td></tr>
+</tbody></table></div>
+<p>One rider closes a whole class of attack: an approver must be a human subject, so a service subject (another agent) can never approve or satisfy separation of duties. Agent-approves-agent is impossible by construction.</p>
+
+<h2 id="envelope"><span class="n">5.4</span>The provenance envelope</h2>
+<p><span class="tag own">Your build</span> Every cross-agent message carries <code>{sender_subject_id, sender_run_id, upstream_record_hash, payload_digest, attestation}</code>. The <code>upstream_record_hash</code> ties the receiver's evidence chain to the sender's own record, so a refund can be traced to the answer that influenced it across two chains. The envelope carries a <em>digest</em> of the payload, never the text, because putting the text in the provenance record would reopen the evidence-minimisation gap at the fleet boundary. The attestation is a signature with a domain separator (<code>a2a-message</code>), so a signature over one kind of object cannot be replayed as another.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 250" role="img" aria-label="Agent A sends a message to agent B through the A2A channel. The envelope carries sender subject, run id, upstream record hash, payload digest and an attestation. B's plane resolves the sender, checks the edge is declared, wraps the body as data with no authority, and records provenance tied to A's evidence chain. B's own controls decide any act.">
+  <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <rect class="box-strong" x="10" y="70" width="170" height="90" rx="8"/>
+  <text class="tx-b" x="95" y="100" text-anchor="middle">Agent A</text>
+  <text class="tx-s" x="95" y="122" text-anchor="middle">evidence chain A</text>
+  <text class="tx-m" x="95" y="142" text-anchor="middle">record h_A</text>
+  <rect class="box-acc" x="230" y="40" width="250" height="150" rx="8"/>
+  <text class="tx-acc" x="355" y="64" text-anchor="middle">envelope</text>
+  <text class="tx-m" x="248" y="92">sender_subject_id</text>
+  <text class="tx-m" x="248" y="112">sender_run_id</text>
+  <text class="tx-m" x="248" y="132">upstream_record_hash = h_A</text>
+  <text class="tx-m" x="248" y="152">payload_digest (not text)</text>
+  <text class="tx-m" x="248" y="172">attestation (signed)</text>
+  <rect class="box-ok" x="530" y="30" width="360" height="170" rx="8"/>
+  <text class="tx-ok" x="710" y="56" text-anchor="middle">Agent B's plane</text>
+  <text class="tx" x="548" y="84">1 resolve sender → service subject</text>
+  <text class="tx" x="548" y="108">2 edge A→B declared? else refuse</text>
+  <text class="tx" x="548" y="132">3 body wrapped as data, zero authority</text>
+  <text class="tx" x="548" y="156">4 provenance recorded, linked to h_A</text>
+  <text class="tx-s" x="548" y="182">B's own controls decide any act</text>
+  <line class="ln-acc" x1="180" y1="115" x2="226" y2="115" marker-end="url(#a5)"/>
+  <line class="ln-acc" x1="480" y1="115" x2="526" y2="115" marker-end="url(#a5)"/>
+  <text class="tx-s" x="450" y="236" text-anchor="middle">the transport carries claims; the receiving plane resolves them</text>
+</svg>
+</div>
+<figcaption><b>Fig 5.1</b>A governed agent-to-agent hop. Every field of the message is an assertion until the receiver's plane has checked it, and the body never acquires authority.</figcaption>
+</figure>
+
+<h2 id="acp"><span class="n">5.5</span>ACP and harness hosting</h2>
+<p><span class="tag gen">Generic</span> ACP standardises how a client drives an agent harness: open a session, send a prompt, stream progress, and answer the harness's permission requests ("may I edit this file? run this command?"). It was designed for editors embedding coding agents, and it is now also how one harness hosts another. For governance that is the key property: <strong>the permission requests are an interception point</strong>. Whoever answers them controls what the hosted harness may do.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's executor contract (ADR-0008) uses exactly that. A coding agent joins as an executor via ACP; one ACP session is one delegation; the harness's permission requests are mapped onto pm-agent's approval gate, denied by default, and only permissions inside the delegation's constraints can be granted. The executor runs in its own sandbox with its own credentials, never pm-agent's, and its diff or pull request returns as a proposal verified against acceptance criteria. Where an agent lacks ACP, opencode's headless server (REST plus an event stream) is the fallback adapter.</p>
+
+<h2 id="transport"><span class="n">5.6</span>Transport is not the decision point</h2>
+<p><span class="tag own">Your build</span> ARB's A2A seam says it in its first line: <em>transport, not the PDP</em>. The module moves a message and says who claims to have sent it; it decides nothing. A transport that also adjudicated would be the natural place to "fix" provenance laundering by trusting first-party senders, which is exactly backwards. The same rule applies to MCP clients, A2A libraries and ACP hosts: keep them thin and swappable, and put every decision in the enforcement plane behind them, so swapping a transport cannot move a control decision.</p>
+
+<h2 id="alts"><span class="n">5.7</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Tool connections</td><td>Native tools only · any MCP server · allow-listed, pinned MCP servers via a gateway</td><td>Allow-list and pin: reuse without running arbitrary third-party prompts</td></tr>
+<tr><td>Multi-agent composition</td><td>Composed super-agent with one tier · re-score upstream by consumers · edge-scoped controls</td><td>Only edge controls keep tiers stable (D40)</td></tr>
+<tr><td>Cross-agent provenance</td><td>None · payload text in records · digests and chain links</td><td>Digests and links trace influence without leaking content</td></tr>
+<tr><td>Driving external harnesses</td><td>CLI scripting · server API · ACP with mapped permissions</td><td>ACP gives a standard interception point for permissions</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">5.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Tool poisoning, rug pull, shadowing</td><td>Endpoint allow-list; per-tool hash pins; withhold on mismatch</td></tr>
+<tr><td>Provenance laundering across agents</td><td>Messages as data with no authority; provenance envelope</td></tr>
+<tr><td>Spoofed sender</td><td>Resolve to a directory subject; channel authorised by declared topology</td></tr>
+<tr><td>Shadow edges</td><td>Declared versus observed reconciliation; gate reports undeclared edges</td></tr>
+<tr><td>Agent approving agent</td><td>Approvers must be human subjects</td></tr>
+<tr><td>Hosted harness with broad permissions</td><td>Map its permission requests onto your approval gate, deny by default</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">5.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We'd like our agents to use the MCP marketplace."</strong> "Every MCP tool description is a prompt written by a third party. Allow-list the servers, pin each tool's description and schema, and withhold anything that changes until someone reviews it."</li>
+    <li><strong>"Our agents will collaborate."</strong> "Then each message between them is untrusted input with no authority, every connection is declared, and influence is recorded across the hop."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">5.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with BT10, T05, LL5</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The three protocols, what each carries, and the trust question for each.</li>
+    <li><span class="lvl">Recall</span>CTL-0016 to CTL-0019, CTL-0024, and the envelope fields.</li>
+    <li><span class="lvl">Apply</span>Walk <code>make demo-mcp-rugpull</code>: what changes, what is recorded, what the model sees.</li>
+    <li><span class="lvl">Design</span>Govern pm-agent delegating a coding task to Claude Code via ACP: identity, permissions, approvals, evidence, verification.</li>
+    <li><span class="lvl">Trade-off</span>Should a changed MCP pin re-open a CRITICAL agent's sign-off? Argue both ways.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a tool description is a third party's prompt</em> · <em>nodes by tier, edges by shape; a message has no authority (D40)</em> · <em>transport is not the PDP</em> · <em>ACP permission requests as interception point</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">5.11</span>Further reading</h2>
+<ul>
+  <li><b>Specifications.</b> MCP (<a href="https://modelcontextprotocol.io/">modelcontextprotocol.io</a>), including its authorisation section; A2A (<a href="https://a2a-protocol.org/">a2a-protocol.org</a>); ACP (<a href="https://agentclientprotocol.com/">agentclientprotocol.com</a>).</li>
+  <li><b>Security.</b> The OWASP Top 10 for Agentic Applications items on tool misuse and inter-agent trust; Invariant Labs' 2025 write-ups on MCP tool poisoning.</li>
+  <li><b>Your library.</b> The Neural Maze course on MCP ("Kubrick"); AI Engineering from Scratch, phase 13.</li>
+  <li><span class="tag own">Your build</span> <code>platform/a2a/__init__.py</code>, <code>enforcement/topology.py</code>, <code>enforcement/mcp_integrity.py</code>, <code>governance/registry/mcp_servers.yaml</code>, <code>docs/governance/P7_S3_CROSS_AGENT_ESCALATION.md</code>; D40, D60. pm-agent ADR-0008.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="retrieval-grounding.html"><small>Previous</small>4 · Retrieval and grounding</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="orchestration-meta-harness.html"><small>Next</small>6 · Orchestration and the meta-harness</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

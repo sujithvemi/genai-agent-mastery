@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>F · Card bank</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Appendices</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Appendix F</div>
+  <ol>
+    <li><a href="#how">How cards are made</a></li>
+    <li><a href="#bank">The bank</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">APPENDIX F</div>
+  <h1>Card bank</h1>
+  <p class="lede">Every chapter's card candidates in one place, collected at each build, with the rule for turning a candidate into a spaced-repetition card only after you have defended the material.</p>
+  <div class="meta">
+    <div><b>Generated</b><span>at every build from each chapter's Prove it panel</span></div>
+    <div><b>Promote into</b><span>learning/cards/REVIEW.md</span></div>
+  </div>
+</div>
+<h2 id="how"><span class="n">F.1</span>How cards are made</h2>
+<p>Every chapter ends with card candidates: the ideas most worth being able to produce cold. They are candidates, not cards. The Learning OS rule is that only material you have <em>defended</em> (graded B or better in a Defend rep) becomes a card, because a card made from something you only read trains recognition, not recall.</p>
+<ol>
+  <li>Do the chapter's Defend questions out loud or on paper, then grade yourself.</li>
+  <li>For each candidate you can now explain, write a card in <code>learning/cards/REVIEW.md</code>: the front is a scenario, a trade-off or a failure mode, never a definition; the back is the key idea and the gotcha, in your words, with the chapter as source.</li>
+  <li>Review on the deck's schedule (boxes of 1, 3, 7, 21 and 60 days; a pass moves a card up a box, a fail sends it back to box 1).</li>
+</ol>
+<p>An example of a candidate turned into a card:</p>
+<div class="tw"><table>
+<thead><tr><th>Candidate</th><th>Front</th><th>Back</th></tr></thead>
+<tbody>
+<tr><td><em>a fallback model is a different model</em> (<a class="xref" data-ch="design-interview" href="design-interview.html">Chapter 55</a>)</td><td>Peak traffic, the primary model throttles, and an engineer proposes switching to another provider's model "just for today". What do you say?</td><td>A different model is a behaviour change: only a fallback already evaluated and inside the signed-off configuration may serve (model pin and sign-off digest). Otherwise degrade: queue effects, answer reads, never relax the PEP.</td></tr>
+</tbody></table></div>
+
+<h2 id="bank"><span class="n">F.2</span>The bank</h2>
+<!--CARDS:START-->
+<p class="small muted">188 candidates from 53 chapters.</p>
+<div class="tw"><table><thead><tr><th>Chapter</th><th>Card candidates</th></tr></thead><tbody>
+<tr><td><a href="harness-anatomy.html#prove">Chapter 1</a><br><span class="small muted">Anatomy of an agent harness</span></td><td><ul><li>agent = model + harness; the seven subsystems</li><li>attachment strength table</li><li>policy moving from prose to configuration</li></ul></td></tr>
+<tr><td><a href="loop-tools-typed-outputs.html#prove">Chapter 2</a><br><span class="small muted">The loop, tools and typed outputs</span></td><td><ul><li>the model never executes; the harness runs tools</li><li>a schema constrains form, not truth</li><li>D19: two audiences for a refusal</li><li>typed answer or fixed refusal (CTL-0026)</li></ul></td></tr>
+<tr><td><a href="context-memory-state.html#prove">Chapter 3</a><br><span class="small muted">Context, memory and state</span></td><td><ul><li>a rate limit a restart clears…(D38)</li><li>transact closes lost updates, not check-then-act</li><li>memory is untrusted input that arrives later</li></ul></td></tr>
+<tr><td><a href="retrieval-grounding.html#prove">Chapter 4</a><br><span class="small muted">Retrieval and grounding</span></td><td><ul><li>cited ⊆ retrieved this turn</li><li>GAP-15 [KB-0000]</li><li>disclose what you didn't find</li></ul></td></tr>
+<tr><td><a href="protocols-trust.html#prove">Chapter 5</a><br><span class="small muted">Protocols and trust between agents</span></td><td><ul><li>a tool description is a third party's prompt</li><li>nodes by tier, edges by shape; a message has no authority (D40)</li><li>transport is not the PDP</li><li>ACP permission requests as interception point</li></ul></td></tr>
+<tr><td><a href="orchestration-meta-harness.html#prove">Chapter 6</a><br><span class="small muted">Orchestration and the meta-harness</span></td><td><ul><li>workflows vs agents</li><li>a plan is not an authorisation</li><li>executors never get the coordinator's keys; output is a proposal</li></ul></td></tr>
+<tr><td><a href="chassis-seams-tests.html#prove">Chapter 7</a><br><span class="small muted">The chassis: seams, fakes and tests that can fail</span></td><td><ul><li>seam = alter behaviour without editing in that place</li><li>a test that cannot fail is decoration</li><li>D48: two pins, zero code</li></ul></td></tr>
+<tr><td><a href="transformers-tokens.html#prove">Chapter 8</a><br><span class="small muted">Transformers and tokens for architects</span></td><td><ul><li>attention equation and causal mask</li><li>temperature 0 is not determinism</li><li>one token stream, so injection is structural</li><li>reasoning traces are not explanations</li></ul></td></tr>
+<tr><td><a href="inference-serving.html#prove">Chapter 9</a><br><span class="small muted">Inference and serving</span></td><td><ul><li>TTFT ← prompt, TPOT ← bandwidth</li><li>KV bytes per token formula</li><li>a 429 after an effect aborts (D71)</li><li>quantisation changes identity</li></ul></td></tr>
+<tr><td><a href="model-choice-risk.html#prove">Chapter 10</a><br><span class="small muted">Model choice, routing and model risk</span></td><td><ul><li>a silent fallback is an ungated model</li><li>identity_source: request proves only that you asked</li><li>censored calibration</li><li>SR 26-2 excludes GenAI and agents (footnote 3)</li></ul></td></tr>
+<tr><td><a href="governance-when-software-acts.html#prove">Chapter 11</a><br><span class="small muted">What governance must do when software acts</span></td><td><ul><li>five properties of acting systems</li><li>guardrail vs policy decision vs approval vs conformance</li><li>fifteen gaps in four tools</li></ul></td></tr>
+<tr><td><a href="reference-model.html#prove">Chapter 12</a><br><span class="small muted">A reference model: planes, layers, enforcement points</span></td><td><ul><li>three planes and the loop</li><li>control plane never on the hot path; data plane fails closed for writes</li><li>26 of 29 controls bite at run time</li></ul></td></tr>
+<tr><td><a href="control-as-contract.html#prove">Chapter 14</a><br><span class="small muted">The control as a contract</span></td><td><ul><li>six fields and their consumers</li><li>traceable and reachable</li><li>a test needs a falsifier (D56)</li><li>derivable vs declared halves; preventive over detective (D23)</li><li>the posture ladder</li></ul></td></tr>
+<tr><td><a href="lifecycle-gates.html#prove">Chapter 15</a><br><span class="small muted">The lifecycle and its gates</span></td><td><ul><li>met = bound ∧ ran ∧ passed this run (D22, D27)</li><li>sign-off bound to a digest; four failures (D59)</li><li>fail-closed must also say why (D27)</li><li>the pipeline discovers the fleet (D45)</li></ul></td></tr>
+<tr><td><a href="governed-action.html#prove">Chapter 16</a><br><span class="small muted">The governed action</span></td><td><ul><li>the seven steps and the effect line</li><li>Rego fails open on undefined; object.get defaults</li><li>no dead policy (GAP-17, D30)</li><li>record decision before effect; reverse on unrecorded effect (RT-11)</li></ul></td></tr>
+<tr><td><a href="policy-as-code.html#prove">Chapter 17</a><br><span class="small muted">Policy as code</span></td><td><ul><li>Rego undefined → deny rules vanish; object.get defaults (D18)</li><li>parity is falsifiability (D22)</li><li>money in minor units (D17)</li><li>rules · parameters · facts</li></ul></td></tr>
+<tr><td><a href="identity-delegation.html#prove">Chapter 18</a><br><span class="small muted">Identity, delegation and capability</span></td><td><ul><li>believing a claim because it was made (D20)</li><li>resolve, don't compare (D33)</li><li>approval spent once per intent (RT-01)</li><li>don't build a check that cannot fail honestly (D28)</li><li>confused deputy and the intersection</li></ul></td></tr>
+<tr><td><a href="human-oversight.html#prove">Chapter 19</a><br><span class="small muted">Human oversight that holds</span></td><td><ul><li>five conditions for oversight to hold</li><li>show derived facts, not the agent's story</li><li>action_digest + one-time form token</li><li>measure fatigue, never block on it (D31, D43)</li></ul></td></tr>
+<tr><td><a href="guardrails-injection.html#prove">Chapter 20</a><br><span class="small muted">Guardrails, classifiers and injection</span></td><td><ul><li>detector is a tripwire, not the control</li><li>lethal trifecta</li><li>D52: classifiers may only restrict</li><li>taint is a mark; a message has no authority (D40)</li><li>containment by construction</li></ul></td></tr>
+<tr><td><a href="data-boundaries.html#prove">Chapter 21</a><br><span class="small muted">Data boundaries: what agents may see, keep and move</span></td><td><ul><li>see, keep, move, live</li><li>allowlist, not redaction (D25)</li><li>classify by source, not content (D-PM-R1-30)</li><li>check digits in redaction</li><li>erasure via salted hash + detail store</li></ul></td></tr>
+<tr><td><a href="evidence-plane.html#prove">Chapter 22</a><br><span class="small muted">The evidence plane</span></td><td><ul><li>tamper-evident ≠ tamper-proof</li><li>a truncated chain is a valid chain; anchors and their window</li><li>controls live in the writer (D21)</li><li>sign what you wrote, refuse to sign what you found</li></ul></td></tr>
+<tr><td><a href="evals-as-gates.html#prove">Chapter 23</a><br><span class="small muted">Evals as gates</span></td><td><ul><li>pass@k vs pass^k</li><li>scorer needs a falsifier (D56)</li><li>retry on error class, never outcome (D71)</li><li>D74: noise vs bias; A/A nulls, rates not sets</li><li>record the model that answered</li></ul></td></tr>
+<tr><td><a href="proving-controls-fire.html#prove">Chapter 24</a><br><span class="small muted">Proving controls fire</span></td><td><ul><li>a control holds iff the enforced decision is unchanged (D29)</li><li>falsifier loop</li><li>vacuity explicit, precondition tested (D39)</li><li>RT-11</li></ul></td></tr>
+<tr><td><a href="edge-api-design.html#prove">Chapter 25</a><br><span class="small muted">Edge, request path and API design</span></td><td><ul><li>timeouts shrink inwards</li><li>202 + run resource</li><li>same key, same request, same response</li></ul></td></tr>
+<tr><td><a href="communication-durable-execution.html#prove">Chapter 26</a><br><span class="small muted">Communication and durable execution</span></td><td><ul><li>at-least-once + idempotent consumer</li><li>model calls are activities</li><li>evidence-first is an outbox</li></ul></td></tr>
+<tr><td><a href="authn-authz.html#prove">Chapter 27</a><br><span class="small muted">AuthN and AuthZ end to end</span></td><td><ul><li>aud and iss on every service</li><li>authority only narrows</li><li>token exchange, not token pass-through</li></ul></td></tr>
+<tr><td><a href="state-data-scale.html#prove">Chapter 28</a><br><span class="small muted">State, data and scale</span></td><td><ul><li>every limit has a write skew</li><li>never decide from a replica</li><li>systems of record vs derived data</li></ul></td></tr>
+<tr><td><a href="reliability.html#prove">Chapter 29</a><br><span class="small muted">Reliability for LLM systems</span></td><td><ul><li>a timeout says only that you stopped waiting</li><li>a 429 after an effect aborts</li><li>an unreachable budget is not an empty one</li></ul></td></tr>
+<tr><td><a href="deployment-cicd.html#prove">Chapter 30</a><br><span class="small muted">Deployment and CI/CD for agents</span></td><td><ul><li>no keys in CI</li><li>correct behaviour, wrong image</li><li>the gate is a required check</li></ul></td></tr>
+<tr><td><a href="observability-agentops.html#prove">Chapter 31</a><br><span class="small muted">Observability, SLOs and AgentOps</span></td><td><ul><li>spans are the view, evidence is the record</li><li>an invariant is not an SLO</li><li>three kill-switch levers</li></ul></td></tr>
+<tr><td><a href="security-multitenancy.html#prove">Chapter 32</a><br><span class="small muted">Security architecture and multi-tenancy</span></td><td><ul><li>the model's output is untrusted input</li><li>default-deny egress</li><li>tenancy in every store</li></ul></td></tr>
+<tr><td><a href="capacity-cost-regions.html#prove">Chapter 33</a><br><span class="small muted">Capacity, cost and multi-region</span></td><td><ul><li>reserve the base, spill the peak, fill the trough</li><li>cost per successful run</li><li>a fallback model is a different model</li><li>record where inference ran</li></ul></td></tr>
+<tr><td><a href="agent-development-lifecycle.html#prove">Chapter 34</a><br><span class="small muted">The agent development lifecycle</span></td><td><ul><li>golden set before code</li><li>a prompt is a release</li><li>the builder does not rule on semantics</li></ul></td></tr>
+<tr><td><a href="frameworks-sdks-studios.html#prove">Chapter 35</a><br><span class="small muted">Frameworks, SDKs and studios</span></td><td><ul><li>a hook is not a boundary</li><li>hosts hold no tools and no credentials</li><li>default telemetry is egress</li></ul></td></tr>
+<tr><td><a href="tools-integration-sandboxes.html#prove">Chapter 36</a><br><span class="small muted">Tools, integration, sandboxes and computer use</span></td><td><ul><li>a tool description is a prompt</li><li>no ambient credentials in a sandbox</li><li>a payment is a financial write at any size</li></ul></td></tr>
+<tr><td><a href="runtime-sessions-memory.html#prove">Chapter 37</a><br><span class="small muted">Runtimes, sessions and memory services</span></td><td><ul><li>long waits live in a database</li><li>memory never authorises</li><li>a platform identity replaces no control</li></ul></td></tr>
+<tr><td><a href="versioning-release.html#prove">Chapter 38</a><br><span class="small muted">Versioning, registries and release management</span></td><td><ul><li>the release unit has ten layers</li><li>a stale sign-off is no sign-off</li><li>rollback does not undo effects</li></ul></td></tr>
+<tr><td><a href="evaluation-simulation-optimization.html#prove">Chapter 39</a><br><span class="small muted">Evaluation, simulation and optimization</span></td><td><ul><li>pass^k = p^k</li><li>a 92%-agreeing judge can be useless</li><li>optimizer output is a candidate change</li><li>replay on stored outputs</li></ul></td></tr>
+<tr><td><a href="maintenance-evolution.html#prove">Chapter 40</a><br><span class="small muted">Maintenance and evolution</span></td><td><ul><li>an unchanged agent still changes</li><li>a retired model is not a rollback target</li><li>retire, don't delete</li></ul></td></tr>
+<tr><td><a href="google-cloud.html#prove">Chapter 41</a><br><span class="small muted">Google Cloud: Gemini Enterprise Agent Platform</span></td><td><ul><li>GEAP deterministic policy sees destinations, not arguments</li><li>annotations are the server's claim</li><li>Agent Identity: SPIFFE, 24-hour certs, DPoP, no impersonation</li></ul></td></tr>
+<tr><td><a href="aws.html#prove">Chapter 42</a><br><span class="small muted">AWS: Bedrock and AgentCore</span></td><td><ul><li>Cedar on context.input checks the agent's assertion</li><li>Dogwood = Cedar + history</li><li>guardrails screen, policies decide</li></ul></td></tr>
+<tr><td><a href="microsoft.html#prove">Chapter 43</a><br><span class="small muted">Microsoft: Foundry, Copilot Studio and Agent 365</span></td><td><ul><li>maker credentials = everyone sees what the maker sees</li><li>Foundry Control Plane for engineering, Agent 365 for the estate</li><li>ACS checkpoints: input, LLM, state, tool, output</li></ul></td></tr>
+<tr><td><a href="data-saas-model-platforms.html#prove">Chapter 44</a><br><span class="small muted">Data, SaaS and model-provider platforms</span></td><td><ul><li>you cannot add a chokepoint to someone else's runtime</li><li>govern what leaves the boundary</li><li>discovery is not enforcement</li></ul></td></tr>
+<tr><td><a href="across-platforms.html#prove">Chapter 45</a><br><span class="small muted">Across platforms: capability map and governance</span></td><td><ul><li>centralise, federate, normalise, prove</li><li>no platform gives tamper-evident decisions</li><li>build on one, govern across all</li></ul></td></tr>
+<tr><td><a href="tool-landscape.html#prove">Chapter 46</a><br><span class="small muted">The independent tool landscape and build vs buy</span></td><td><ul><li>build the semantics, adopt the engines</li><li>falsifiers before purchase</li><li>open formats are the exit plan</li></ul></td></tr>
+<tr><td><a href="agt-through-your-build.html#prove">Chapter 47</a><br><span class="small muted">Microsoft AGT through your build</span></td><td><ul><li>how a policy language fails matters more than what it expresses</li><li>default deny plus one positive allow</li><li>a revisit trigger, not a date</li><li>parity proves agreement, not coverage</li></ul></td></tr>
+<tr><td><a href="standards-law-crosswalk.html#prove">Chapter 48</a><br><span class="small muted">Standards, law and crosswalk engineering</span></td><td><ul><li>regimes regulate uses, not agents</li><li>four numbers, never one</li><li>[Verified date] or [Verify], never bare</li><li>high-risk Annex III: 2 Dec 2027</li><li>MAP 3.5 is human oversight; MANAGE 2 is not</li></ul></td></tr>
+<tr><td><a href="regulated-industries.html#prove">Chapter 49</a><br><span class="small muted">Regulated industries</span></td><td><ul><li>overlays add and tighten, never remove</li><li>model inside, operational risk outside</li><li>a BAA on every hop, including traces</li><li>reasons from the decision record</li></ul></td></tr>
+<tr><td><a href="aicoe-operating-model.html#prove">Chapter 50</a><br><span class="small muted">The AICoE operating model</span></td><td><ul><li>road, rulebook, assurance</li><li>the tier is derived, not decided</li><li>autonomy is earned per action class and lost on a trigger</li><li>pair every speed KPI with a safety KPI</li></ul></td></tr>
+<tr><td><a href="readiness-first-90-days.html#prove">Chapter 51</a><br><span class="small muted">Readiness and the first 90 days</span></td><td><ul><li>minimum viable governance: seven items</li><li>approvals and kill switch on CRITICAL in the first 30 days</li><li>score on artefacts, not interviews</li><li>name the interim state and its expiry</li></ul></td></tr>
+<tr><td><a href="capstone-a.html#prove">Chapter 52</a><br><span class="small muted">Capstone A: govern a new agent by hand</span></td><td><ul><li>one write carries the story</li><li>facts from the PIP, never the arguments</li><li>approval is a signed grant bound to an action</li></ul></td></tr>
+<tr><td><a href="capstone-b.html#prove">Chapter 53</a><br><span class="small muted">Capstone B: a framework for a client estate</span></td><td><ul><li>B3 is the hinge</li><li>client facts only in the overlay</li><li>the conformance suite is the deliverable that outlives you</li></ul></td></tr>
+<tr><td><a href="design-interview.html#prove">Chapter 55</a><br><span class="small muted">The design interview for governed agents</span></td><td><ul><li>effects first, numbers early</li><li>a fallback model is a different model</li><li>reconstruct from evidence, not traces</li></ul></td></tr>
+</tbody></table></div>
+<!--CARDS:END-->
+
+<nav class="pager" aria-label="Chapters">
+  <a href="appendix-reading.html"><small>Previous</small>E · Reading map and sources</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="appendix-findings.html"><small>Next</small>G · Findings and errata</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

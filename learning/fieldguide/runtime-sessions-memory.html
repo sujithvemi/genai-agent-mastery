@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>37 · Runtimes, sessions and memory services</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 37</div>
+  <ol>
+    <li><a href="#needs">What agents need from a runtime</a></li>
+    <li><a href="#options">Four hosting options</a></li>
+    <li><a href="#managed">Managed agent runtimes compared</a></li>
+    <li><a href="#sessions">Sessions</a></li>
+    <li><a href="#memory">Memory services</a></li>
+    <li><a href="#scale">Scaling and isolation behaviour</a></li>
+    <li><a href="#governs">What a managed runtime governs, and what it does not</a></li>
+    <li><a href="#worked">Worked example: hosting pm-agent</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 37</div>
+  <h1>Runtimes, sessions and memory services</h1>
+  <p class="lede">An agent run can last two seconds or seven days, pause for a human, stream as it works and run code it wrote. Ordinary web hosting assumes none of that. Every major platform now sells a managed agent runtime with sessions and memory attached. This chapter explains what agents need from a runtime, how the managed runtimes compare with containers and Kubernetes, how session and memory services work, and the line between what a managed runtime governs and what remains yours.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS · TECH</span></div>
+    <div><b>Reps</b><span>SD-05 · SD-08 · TC-14 · TC-15</span></div>
+    <div><b>Build links</b><span>pm platform/runtime (Postgres checkpointer) · platform/memory · ARB platform/state (Firestore, GAP-20) · design/pm-agent-at-scale.md</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A run waits two days for an approver. What should be holding its state during the wait: a process, a request or a database?</li>
+    <li>An agent's memory says "this customer is approved for refunds up to $5,000". Should the refund policy read that?</li>
+    <li>Your managed runtime gives every agent its own cryptographic identity. Which of your Part IV controls does that replace?</li>
+  </ol>
+</div>
+
+<h2 id="needs"><span class="n">37.1</span>What agents need from a runtime</h2>
+<p><span class="tag gen">Generic</span> Compared with a typical stateless web service, an agent needs:</p>
+<ul>
+  <li><strong>Long and variable run times</strong>, from seconds to days, without holding a request open.</li>
+  <li><strong>Durable state</strong> across turns, crashes, deployments and approval waits (<a class="xref" data-ch="communication-durable-execution" href="communication-durable-execution.html">Chapter 26</a>).</li>
+  <li><strong>Streaming</strong> of progress and partial output (server-sent events or WebSockets).</li>
+  <li><strong>Per-session isolation</strong> when the agent runs code or browses.</li>
+  <li><strong>Identity per agent</strong>, not a shared service account (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>).</li>
+  <li><strong>Egress control</strong>: which models, tools and hosts the agent may reach.</li>
+  <li><strong>Versions and traffic splitting</strong> for safe release (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>).</li>
+  <li><strong>Scheduling and events</strong> for background agents triggered by time, queues or data changes.</li>
+</ul>
+
+<h2 id="options"><span class="n">37.2</span>Four hosting options</h2>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Examples</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td>Serverless containers</td><td>Cloud Run, AWS Fargate and App Runner, Azure Container Apps</td><td>Simple, scales to zero, any framework; you own the architecture</td><td>Request time limits; you build sessions, memory, durability and identity</td></tr>
+<tr><td>Kubernetes</td><td>GKE, EKS, AKS</td><td>Full control: node isolation, sandboxes, GPUs, sidecars, custom networking</td><td>Operational weight</td></tr>
+<tr><td>Managed agent runtime</td><td>GEAP Agent Runtime, AgentCore Runtime and Harness, Foundry Agent Service hosted agents, Claude Managed Agents</td><td>Sessions, memory, identity, sandboxes and observability included; long runs supported</td><td>Platform coupling; your controls attach only at its seams</td></tr>
+<tr><td>Durable workflow engine plus workers</td><td>Temporal, AWS Step Functions, Google Workflows, Azure Durable Functions</td><td>Guaranteed progress and retries for long, multi-step processes</td><td>Another system to run; agent steps must be idempotent</td></tr>
+</tbody></table></div>
+<p>These combine: a managed runtime for the agent, a workflow engine for the business process around it, and containers for the tools.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 310" role="img" aria-label="How the hosting options combine. A durable workflow engine runs the business process: intake, the agent task, an approval that can wait for days, the effect with an idempotency key, and close with the evidence sealed. The agent task runs on a managed agent runtime that provides sessions, memory, agent identity, observability and a sandbox. Tools and executors run as serverless containers for tools and MCP servers, Kubernetes or microVMs for code sandboxes, and SaaS and APIs. Your seams sit across all three layers: the tool gateway, PEP and PDP, evidence, the release gate and the registry.">
+<defs><marker id="f37" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="10" width="740" height="88" rx="8" style="fill:none"/>
+<text class="tx-s" x="736" y="28" text-anchor="end">Durable workflow: the business process</text>
+<rect class="box" x="10" y="112" width="740" height="88" rx="8" style="fill:none"/>
+<text class="tx-s" x="736" y="130" text-anchor="end">Managed agent runtime: the agent task</text>
+<rect class="box" x="10" y="214" width="740" height="88" rx="8" style="fill:none"/>
+<text class="tx-s" x="736" y="232" text-anchor="end">Tools and executors</text>
+<rect class="box" x="25" y="34" width="130" height="52" rx="6"/>
+<text class="tx-b" x="90" y="55" text-anchor="middle">Intake</text>
+<text class="tx-s" x="90" y="73" text-anchor="middle">activity</text>
+<line class="ln" x1="155" y1="60" x2="168" y2="60" marker-end="url(#f37)"/>
+<rect class="box-acc" x="170" y="34" width="130" height="52" rx="6"/>
+<text class="tx-acc" x="235" y="55" text-anchor="middle">Agent task</text>
+<text class="tx-s" x="235" y="73" text-anchor="middle">on the runtime</text>
+<line class="ln" x1="300" y1="60" x2="313" y2="60" marker-end="url(#f37)"/>
+<rect class="box" x="315" y="34" width="130" height="52" rx="6"/>
+<text class="tx-b" x="380" y="55" text-anchor="middle">Approval</text>
+<text class="tx-s" x="380" y="73" text-anchor="middle">signal · days</text>
+<line class="ln" x1="445" y1="60" x2="458" y2="60" marker-end="url(#f37)"/>
+<rect class="box" x="460" y="34" width="130" height="52" rx="6"/>
+<text class="tx-b" x="525" y="55" text-anchor="middle">Effect</text>
+<text class="tx-s" x="525" y="73" text-anchor="middle">idempotency key</text>
+<line class="ln" x1="590" y1="60" x2="603" y2="60" marker-end="url(#f37)"/>
+<rect class="box" x="605" y="34" width="130" height="52" rx="6"/>
+<text class="tx-b" x="670" y="55" text-anchor="middle">Close</text>
+<text class="tx-s" x="670" y="73" text-anchor="middle">evidence sealed</text>
+<rect class="box" x="25" y="140" width="130" height="40" rx="6"/>
+<text class="tx-b" x="90" y="165" text-anchor="middle">sessions</text>
+<rect class="box" x="170" y="140" width="130" height="40" rx="6"/>
+<text class="tx-b" x="235" y="165" text-anchor="middle">memory</text>
+<rect class="box" x="315" y="140" width="130" height="40" rx="6"/>
+<text class="tx-b" x="380" y="165" text-anchor="middle">agent identity</text>
+<rect class="box" x="460" y="140" width="130" height="40" rx="6"/>
+<text class="tx-b" x="525" y="165" text-anchor="middle">observability</text>
+<rect class="box" x="605" y="140" width="130" height="40" rx="6"/>
+<text class="tx-b" x="670" y="165" text-anchor="middle">sandbox</text>
+<line class="ln-acc" x1="235" y1="86" x2="235" y2="138" style="stroke-dasharray:3 4"/>
+<rect class="box" x="25" y="240" width="275" height="52" rx="6"/>
+<text class="tx-b" x="162.5" y="261" text-anchor="middle">Serverless containers</text>
+<text class="tx-s" x="162.5" y="279" text-anchor="middle">tools and MCP servers</text>
+<rect class="box" x="315" y="240" width="275" height="52" rx="6"/>
+<text class="tx-b" x="452.5" y="261" text-anchor="middle">Kubernetes or microVMs</text>
+<text class="tx-s" x="452.5" y="279" text-anchor="middle">code and browser sandboxes</text>
+<rect class="box" x="605" y="240" width="130" height="52" rx="6"/>
+<text class="tx-b" x="670" y="261" text-anchor="middle">SaaS and APIs</text>
+<text class="tx-s" x="670" y="279" text-anchor="middle">via connectors</text>
+<line class="ln" x1="380" y1="180" x2="380" y2="238" marker-end="url(#f37)"/>
+<text class="tx-s" x="388" y="214">through the tool gateway</text>
+<rect class="box-ok" x="770" y="10" width="120" height="292" rx="8"/>
+<text class="tx-ok" x="830" y="40" text-anchor="middle">Your seams</text>
+<text class="tx" x="830" y="86" text-anchor="middle">tool gateway</text>
+<text class="tx" x="830" y="130" text-anchor="middle">PEP + PDP</text>
+<text class="tx" x="830" y="174" text-anchor="middle">evidence</text>
+<text class="tx" x="830" y="218" text-anchor="middle">release gate</text>
+<text class="tx" x="830" y="262" text-anchor="middle">registry</text>
+</svg>
+</div>
+<figcaption><b>Fig 37.1</b>The hosting options combine rather than compete. A workflow engine owns the business process and its waits, a managed runtime runs the agent task, containers and sandboxes run the tools, and your seams cut across all three, so changing any layer does not move a control.</figcaption>
+</figure>
+
+
+<h2 id="managed"><span class="n">37.3</span>Managed agent runtimes compared</h2>
+<p>As of October 2026 <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Aspect</th><th>GEAP Agent Runtime</th><th>AgentCore Runtime and Harness</th><th>Foundry Agent Service (hosted agents)</th><th>Claude Managed Agents</th></tr></thead>
+<tbody>
+<tr><td>Frameworks</td><td>ADK first; others and custom containers</td><td>Any (ADK, LangGraph, CrewAI, LlamaIndex, OpenAI Agents SDK, Strands); Harness for declared agents</td><td>Any framework; Responses API and Invocations protocol</td><td>Anthropic's harness</td></tr>
+<tr><td>Long runs</td><td>Long-running operations up to 7 days; sub-second cold starts</td><td>Long-running asynchronous agents</td><td>Sandboxed sessions with state and file system; scheduled Routines (preview)</td><td>Sessions as durable event logs; hours of autonomous work</td></tr>
+<tr><td>Isolation</td><td>Agent Sandbox for code, shell and computer use</td><td>Session isolation; Harness sessions in isolated microVMs with file system and shell</td><td>Sandboxed sessions</td><td>Sandboxed containers; credentials kept out</td></tr>
+<tr><td>Sessions and memory</td><td>Sessions; Memory Bank</td><td>AgentCore Memory (short and long term)</td><td>Memory (preview): procedural, user, session</td><td>Session event log</td></tr>
+<tr><td>Identity</td><td>Agent Identity (SPIFFE-based, per agent)</td><td>AgentCore Identity (works with existing identity providers)</td><td>Entra Agent ID</td><td>Scoped permissions; OAuth vault and proxy for MCP</td></tr>
+<tr><td>Release</td><td>Revisions and traffic splitting (preview)</td><td>Optimization A/B testing; configuration bundles</td><td>Agent versions</td><td><span class="tag ver">Verify</span></td></tr>
+<tr><td>Status</td><td>Renamed from Agent Engine, April 2026</td><td>GA October 2025; Harness GA June 2026</td><td>Hosted agents expected GA July 2026 <span class="tag ver">Verify</span></td><td>Public beta (April 2026); $0.08 per session-hour plus tokens</td></tr>
+</tbody></table></div>
+
+<h2 id="sessions"><span class="n">37.4</span>Sessions</h2>
+<p><span class="tag gen">Generic</span> A session is the record of one conversation or run: the event log (messages, tool calls, results) plus working state. Every framework has a session abstraction (ADK's session service, LangGraph's checkpointer, the OpenAI Agents SDK's sessions), and the managed runtimes offer hosted versions. Design decisions:</p>
+<ul>
+  <li><strong>Session identity.</strong> Map sessions to business records (a case number, a ticket) so they can be found, audited and deleted. GEAP Sessions accepts your own session ids for this reason.</li>
+  <li><strong>Where state lives.</strong> In a store the runtime can lose without losing the run: pm-agent checkpoints its planning graph in Postgres (P4-S0), so an approval wait survives restarts. The first prediction question's answer is a database, never a held request or a live process.</li>
+  <li><strong>Size and lifetime.</strong> Sessions grow with every turn; compaction and summarisation are context engineering (<a class="xref" data-ch="context-memory-state" href="context-memory-state.html">Chapter 3</a>), and a time-to-live is a data-retention decision (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</li>
+  <li><strong>Who can read a session.</strong> A session contains everything the user and the tools said. Its access control is the user's, not the developer's.</li>
+</ul>
+
+<h2 id="memory"><span class="n">37.5</span>Memory services</h2>
+<p><span class="tag gen">Generic</span> Long-term memory services extract durable facts from sessions and retrieve them later: user preferences, facts about entities, summaries of past work, and sometimes procedures. GEAP Memory Bank (generation from streamed events, revision history, memory profiles), AgentCore Memory (strategies including episodic memory, namespaces, time-to-live) and Foundry's memory (procedural, user and session) all follow this pattern, as do open-source options such as Mem0, Zep and Graphiti <span class="tag ver">Verify</span>.</p>
+<p>The second prediction question shows the central risk. Memory is written by a model from conversations that may include injected or mistaken content. A remembered "approved up to $5,000" is a claim, not a fact. Four rules follow, and your builds implement them (<a class="xref" data-ch="context-memory-state" data-sec="#memory" href="context-memory-state.html#memory">Chapter 3</a>):</p>
+<ol>
+  <li><strong>Memory is a hint unless verified.</strong> No policy decision reads memory; the PIP re-reads trusted systems.</li>
+  <li><strong>Scope it.</strong> Per user and per tenant by default; shared agent memory is a deliberate, reviewed exception.</li>
+  <li><strong>Protect its integrity.</strong> pm-agent's governed memory is redacted, scoped, expiring and MAC-verified, so a tampered entry is detected.</li>
+  <li><strong>Make it erasable.</strong> Every memory traces to its source session and subject, so a deletion request can find it.</li>
+</ol>
+
+<h2 id="scale"><span class="n">37.6</span>Scaling and isolation behaviour</h2>
+<ul>
+  <li><strong>Concurrency is bounded by model quota before compute.</strong> An instance can hold hundreds of waiting agent turns; the provider's tokens per minute run out first (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+  <li><strong>Timeouts.</strong> Serverless request limits (Cloud Run allows up to 60 minutes per request) suit turns of seconds to minutes. Anything longer is asynchronous: accept, checkpoint, resume on an event.</li>
+  <li><strong>Cold starts</strong> matter for interactive agents; managed runtimes advertise sub-second starts, containers can keep a minimum number of warm instances.</li>
+  <li><strong>Idempotent resumption.</strong> A resumed run must not repeat an effect it already made. Effects carry idempotency keys, and evidence records which step completed (<a class="xref" data-ch="reliability" href="reliability.html">Chapter 29</a>).</li>
+  <li><strong>Cost models differ</strong>: per vCPU-second (containers), per session-hour (Claude Managed Agents), per request and memory (functions), plus tokens everywhere. Long waits are cheap only if nothing is running during them.</li>
+</ul>
+
+<h2 id="governs"><span class="n">37.7</span>What a managed runtime governs, and what it does not</h2>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Managed runtimes typically provide</th><th>Still yours</th></tr></thead>
+<tbody>
+<tr><td>Agent identity</td><td>A per-agent identity with short-lived, bound credentials (GEAP Agent Identity uses SPIFFE ids and 24-hour certificates; Entra Agent ID; AgentCore Identity)</td><td>Resolving the human principal and deciding what the agent may do for them</td></tr>
+<tr><td>Tool access</td><td>Gateway policies: which agent may call which tool or MCP server</td><td>Decisions on trusted business facts (refund ≤ order total), value limits on trusted counters</td></tr>
+<tr><td>Content safety</td><td>Prompt-injection and data-leak screening at the gateway (Model Armor, Bedrock Guardrails, Content Safety)</td><td>How screening composes with policy: it may only restrict (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>)</td></tr>
+<tr><td>Isolation</td><td>Sandboxes for code and browsers</td><td>Egress rules, data allowed in and out</td></tr>
+<tr><td>Logs and traces</td><td>Platform logs, OpenTelemetry traces</td><td>Tamper-evident decision evidence tied to sign-off and catalog (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>)</td></tr>
+<tr><td>Release</td><td>Versions, traffic splitting</td><td>The gate that decides a version may take traffic</td></tr>
+</tbody></table></div>
+<p>The third prediction question: a platform identity replaces none of your controls. It makes CTL-0008-style subject resolution easier and makes per-agent least privilege possible, but deciding what an action may do on whose behalf is still the PDP's job. "Platforms supply enforcement points; the rulebook is yours."</p>
+
+<h2 id="worked"><span class="n">37.8</span>Worked example: hosting pm-agent</h2>
+<p><span class="tag own">pm-agent</span> The design scenario in <code>design/pm-agent-at-scale.md</code> assumes about 5,000 users in 20 tenants, a peak of about 50 concurrent planning runs, each 20 seconds to 2 minutes with 5–30 model and tool calls, and Jira writes that need a distinct human approver. pm-agent's own deployment notes start on Cloud Run with Cloud SQL Postgres and defer GKE until sandboxed executors need node-level isolation. <span class="tag asm">Assumption</span> A defensible plan:</p>
+<ol>
+  <li><strong>Run API on Cloud Run</strong>: accept a run, return its id, stream progress by server-sent events (<a class="xref" data-ch="edge-api-design" href="edge-api-design.html">Chapter 25</a>). Runs of two minutes fit comfortably inside request limits.</li>
+  <li><strong>State in Postgres</strong>: the existing checkpointer; an approval wait is a checkpoint plus an event, resumed by a worker when the approver signs.</li>
+  <li><strong>Identity</strong>: workload identity for the service, and per-tenant, on-behalf-of Jira credentials held outside the agent.</li>
+  <li><strong>Executors</strong> (coding agents and other harnesses) in isolated sandboxes, which is the point at which GKE or a managed sandbox earns its cost (<a class="xref" data-ch="orchestration-meta-harness" href="orchestration-meta-harness.html">Chapter 6</a>).</li>
+  <li><strong>Alternative</strong>: GEAP Agent Runtime would supply sessions, memory and per-agent identity, at the cost of fitting pm-agent's LangGraph runtime and Postgres checkpoints to the platform's model. Record the choice and the rejected alternative in the design log.</li>
+</ol>
+
+<h2 id="fail"><span class="n">37.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Holding a request open for a long run</td><td>Asynchronous run API with checkpoints</td></tr>
+<tr><td>State in process memory</td><td>External checkpoint store; tested resume</td></tr>
+<tr><td>Memory read as fact</td><td>Memory is a hint; PIP reads trusted systems</td></tr>
+<tr><td>Cross-user memory</td><td>Scope by user and tenant; tests with two principals</td></tr>
+<tr><td>Repeated effect after resume</td><td>Idempotency keys and step evidence</td></tr>
+<tr><td>"The platform governs it"</td><td>Map platform controls to your catalog; fill the gaps</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">37.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Should we use the cloud's agent runtime or our Kubernetes platform?"</strong> "The managed runtime buys sessions, memory, identity and sandboxes on day one. Kubernetes buys control. Most clients should start managed and keep the agent portable behind their own gateways and seams."</li>
+    <li><strong>"Can we turn on long-term memory?"</strong> "Yes, scoped per user, erasable, and never read by a policy decision. Memory makes the agent more helpful; it must never make it more authorised."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">37.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-05, SD-08</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Eight things an agent needs from a runtime.</li>
+    <li><span class="lvl">Recall</span>The four memory rules and the pm-agent mechanism for each.</li>
+    <li><span class="lvl">Apply</span>Write section 5 of <code>design/pm-agent-at-scale.md</code> (state and horizontal scale) using this chapter.</li>
+    <li><span class="lvl">Design</span>Host a 7-day research agent that runs code and browses: runtime, sandbox, state, identity, evidence.</li>
+    <li><span class="lvl">Trade-off</span>GEAP Agent Runtime against Cloud Run plus your own Postgres sessions, for pm-agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>long waits live in a database</em> · <em>memory never authorises</em> · <em>a platform identity replaces no control</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">37.12</span>Further reading</h2>
+<ul>
+  <li><b>Platform documentation.</b> GEAP Agent Runtime, Sessions and Memory Bank; AgentCore Runtime, Harness and Memory; Microsoft Foundry Agent Service hosted agents; Anthropic Claude Managed Agents.</li>
+  <li><b>Books.</b> Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite> 2nd ed. (2026), chapters on storage, transactions and stream processing, for what a session store and a checkpointer must guarantee.</li>
+  <li><b>Your library.</b> Neural Maze, "Building Agent Memory with Knowledge Graphs" (Graphiti and Neo4j); Hussein Nasser's PostgreSQL playlist for the checkpointer rep.</li>
+  <li><span class="tag own">Your builds</span> pm-agent <code>platform/runtime/langgraph_orchestrator.py</code>, <code>platform/memory/</code>, <code>docs/design/05_deployment-and-evaluation.md</code>; ARB <code>platform/state/</code> (Firestore binding, GAP-20).</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="tools-integration-sandboxes.html"><small>Previous</small>36 · Tools, integration, sandboxes and computer use</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="versioning-release.html"><small>Next</small>38 · Versioning, registries and release management</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

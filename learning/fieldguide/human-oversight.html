@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>19 · Human oversight that holds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 19</div>
+  <ol>
+    <li><a href="#loop">A human in the loop is not a control</a></li>
+    <li><a href="#when">When to ask</a></li>
+    <li><a href="#flow">The approval path</a></li>
+    <li><a href="#sees">What the approver sees</a></li>
+    <li><a href="#binds">What a click binds to</a></li>
+    <li><a href="#boundary">The console is a trust boundary</a></li>
+    <li><a href="#friction">Friction</a></li>
+    <li><a href="#measure">Measuring fatigue</a></li>
+    <li><a href="#pause">Pause, resume, stop, reverse</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 19</div>
+  <h1>Human oversight that holds</h1>
+  <p class="lede">Human approval is the control everyone reaches for first and the one most often hollow. It holds only when it is asked where the stakes justify it, shows the approver what the system derived rather than what the agent claimed, binds the click to one exact act, cannot be given by the requester under any spelling, and is watched for the moment people stop reading.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · Trace</span></div>
+    <div><b>Reps</b><span>R21 · BT11</span></div>
+    <div><b>Build modules</b><span>enforcement/tokens.py · fatigue_signals.py · approval_ui/ · pm platform/approval</span></div>
+    <div><b>Decisions</b><span>D31 · D35 · D37 · D43 · D47 · D-PM-P4-d/e/k/l · ADR-0005</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An approver signs 60 refund approvals between 9:00 and 9:30. What would you want the system to do, and what must it not do?</li>
+    <li>The approval page shows the agent's summary of the refund. What could go wrong?</li>
+    <li>An agent proposes ten Jira changes. Should the human approve them one by one or as a batch?</li>
+  </ol>
+</div>
+
+<h2 id="loop"><span class="n">19.1</span>A human in the loop is not a control</h2>
+<p><span class="tag gen">Generic</span> Decades of research on automation say the same thing: people supervising a mostly-correct automated system stop checking it. Lisanne Bainbridge called it one of the ironies of automation (1983); Parasuraman and Riley described the misuse that follows from over-trust (1997). OWASP's agentic threat list names the agent version, overwhelming the human in the loop, as its own threat class. The EU AI Act's article on human oversight asks for oversight that is <em>effective</em>: people able to understand the system's capacities and limits, notice anomalies, avoid automation bias, interpret the output, and override or stop it.</p>
+<p>So "a person approves" is a design choice with a failure mode, not a control by itself. It becomes one when five conditions hold, and the rest of the chapter is those five:</p>
+<ol>
+  <li>It is asked only where the stakes justify a human's attention.</li>
+  <li>The approver sees what the enforcement plane derived, not what the agent said.</li>
+  <li>The approval is bound to one exact act and spent once.</li>
+  <li>The approver is a different human from the requester, by identity, not by spelling.</li>
+  <li>The quality of approving is measured, and friction is applied where volume threatens it.</li>
+</ol>
+
+<h2 id="when"><span class="n">19.2</span>When to ask</h2>
+<p><span class="tag own">Your build</span> In ARB's catalog, approval on writes (<span class="ctl">CTL-0004</span>) and separation of duties (<span class="ctl">CTL-0005</span>) have <code>min_tier: HIGH</code> and <code>applies_when: action_class ≥ reversible-write</code>. Reads never need approval; writes by low and medium-risk agents do not by default; at CRITICAL the treatment hardens: approval is mandatory and signed, oversight is real-time, and neither control can be waived.</p>
+<p><span class="tag gen">Generic</span> Inside that envelope, thresholds decide which writes need a person: value above a limit, volume above a rate, an irreversible class of act, a first occurrence for this customer or this agent, an anomaly score. A good threshold makes approvals rare enough to be read. If an approver handles more than a few dozen a day, the threshold is wrong or the agent should not be acting autonomously at all.</p>
+<p><span class="tag own">pm-agent</span> pm-agent raised a subtle question about attribution (D-PM-P4-e): when an approval is missing, which control refused? Its answer was by tier: below HIGH the refusal cites <span class="ctl">GBL-SOD-01</span>, at HIGH and above <span class="ctl">CTL-0005</span>, and self-approval always cites <span class="ctl">GBL-SOD-01</span>. Citing a control the agent is not governed by would misreport the evidence. The PEP learns the tier from the tiering engine over the manifest, not from a literal.</p>
+
+<h2 id="flow"><span class="n">19.3</span>The approval path</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="The approval path. 1 the agent proposes a write; the PEP parks it as a pending request with an action digest over request id, order, amount, currency and requester. 2 the console shows the derived payload with a one-time form token. 3 the approver decides; the console checks pending, token, digest and approver not requester as subjects. 4 the approval service applies the fatigue dials and mints an Ed25519 token over order, amount and currency. 5 on resume the PEP verifies signature, scope, nonce and separation of duties, then executes. 6 evidence records the decision with dwell time, window position and approver kind.">
+  <defs><marker id="a19" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <g>
+    <rect class="box" x="10" y="30" width="200" height="110" rx="6"/>
+    <text class="tx-acc" x="22" y="52">1 · PEP parks</text>
+    <text class="tx" x="22" y="76">pending request</text>
+    <text class="tx-s" x="22" y="98">action_digest = SHA-256</text>
+    <text class="tx-s" x="22" y="116">{request, order, amount,</text>
+    <text class="tx-s" x="22" y="132">currency, requester}</text>
+
+    <rect class="box" x="240" y="30" width="200" height="110" rx="6"/>
+    <text class="tx-acc" x="252" y="52">2 · Console shows</text>
+    <text class="tx" x="252" y="76">derived payload</text>
+    <text class="tx-s" x="252" y="98">not the agent's words</text>
+    <text class="tx-s" x="252" y="116">fresh one-time form token</text>
+    <text class="tx-s" x="252" y="132">first shown → requested_at</text>
+
+    <rect class="box-acc" x="470" y="30" width="200" height="110" rx="6"/>
+    <text class="tx-acc" x="482" y="52">3 · Human decides</text>
+    <text class="tx" x="482" y="76">console checks</text>
+    <text class="tx-s" x="482" y="98">pending · token unused, fresh</text>
+    <text class="tx-s" x="482" y="116">digest matches</text>
+    <text class="tx-s" x="482" y="132">approver ≠ requester (subjects)</text>
+
+    <rect class="box" x="700" y="30" width="190" height="110" rx="6"/>
+    <text class="tx-acc" x="712" y="52">4 · Mint</text>
+    <text class="tx" x="712" y="76">fatigue dials</text>
+    <text class="tx-s" x="712" y="98">rate · batch cap · sampling</text>
+    <text class="tx-s" x="712" y="116">Ed25519 over order,</text>
+    <text class="tx-s" x="712" y="132">amount, currency, nonce</text>
+  </g>
+  <g>
+    <line class="ln" x1="210" y1="85" x2="236" y2="85" marker-end="url(#a19)"/>
+    <line class="ln" x1="440" y1="85" x2="466" y2="85" marker-end="url(#a19)"/>
+    <line class="ln" x1="670" y1="85" x2="696" y2="85" marker-end="url(#a19)"/>
+    <polyline class="ln" points="795,140 795,185 560,185 560,196" marker-end="url(#a19)"/>
+  </g>
+  <rect class="box-ok" x="380" y="200" width="360" height="110" rx="6"/>
+  <text class="tx-ok" x="392" y="222">5 · PEP verifies on resume, then executes</text>
+  <text class="tx-s" x="392" y="246">signature · expiry · scope matches this call</text>
+  <text class="tx-s" x="392" y="264">nonce unspent for another intent · approver human</text>
+  <text class="tx-s" x="392" y="282">approver subject ≠ executor subject</text>
+  <rect class="box" x="10" y="200" width="330" height="110" rx="6"/>
+  <text class="tx-acc" x="22" y="222">6 · Evidence</text>
+  <text class="tx-s" x="22" y="246">decision before effect · approver subject</text>
+  <text class="tx-s" x="22" y="264">dwell seconds · window position · share</text>
+  <text class="tx-s" x="22" y="282">approver_kind: human | scripted</text>
+  <line class="ln" x1="380" y1="255" x2="344" y2="255" marker-end="url(#a19)"/>
+</svg>
+</div>
+<figcaption><b>Fig 19.1</b>ARB's approval path since E4. The click is bound to a digest of the exact act; the token is minted only after four console checks and the fatigue dials; the PEP re-verifies everything at the moment of the act.</figcaption>
+</figure>
+
+<h2 id="sees"><span class="n">19.4</span>What the approver sees</h2>
+<p><span class="tag own">Your build</span> The console shows "what the enforcement plane derived, never what the agent said": the order, the canonical minor-unit amount, the order's own currency, who is asking, and where this sign-off falls in the approver's fatigue window. The distinction matters because an agent's summary of an act is model output, and model output can be steered. If the approval page renders "Refund $50 for damaged item" because the agent wrote that, an injected instruction can make a $500 refund look like a $50 one. Show the facts the PEP will decide on, from trusted state.</p>
+<p><span class="tag own">pm-agent</span> pm-agent adds provenance to what the approver sees (ADR-0005). Each proposed action records whether it rests on the request, on a structured field, or only on free text such as a ticket comment. Actions whose only basis is free text go into a "suggested by a comment" lane: excluded from batch approval by default, approved per item only by explicit opt-in, with the provenance shown. That turns the residual injection risk (an attacker influencing which eligible action is suggested) into something the human can see and decide on.</p>
+
+<h2 id="binds"><span class="n">19.5</span>What a click binds to</h2>
+<p><span class="tag own">Your build</span> Every pending request has an <code>action_digest</code>: SHA-256 over its canonical request id, order, amount in minor units, currency and requester. Each time the page is shown it carries a fresh one-time form token issued for that request and that digest. A decision is accepted only when the request is still pending, the form token was issued by this console for this request and is unused and not stale, the digest posted back is the request's digest and the one the token was issued for, and the approver is not the requester compared as directory subjects. Only then does the approval service mint the signed token, with <code>requested_at</code> set to when the page was first shown.</p>
+<p>Each check closes a specific attack: replaying an old decision, approving from a stale page, substituting a different payload into the form, approving one's own request. Then the PEP's checks on resume (<a class="xref" data-ch="identity-delegation" data-sec="#approval" href="identity-delegation.html#approval">Chapter 18</a>) close the rest: the token's scope must match the call, its nonce is spent once per intent, and the approver must be a human subject distinct from the executor.</p>
+<p><span class="tag own">pm-agent</span> For batches, pm-agent approves a plan as one intent with itemised evidence (D-PM-P4-l): <code>apply_plan</code> creates at most ten issues per run, the approval request carries every item and the count, and the intent hash binds every operation, so adding an eleventh item or changing one invalidates the approval.</p>
+
+<h2 id="boundary"><span class="n">19.6</span>The console is a trust boundary</h2>
+<p><span class="tag own">Your build</span> The server module's docstring states the threat plainly: a page that can mint an approval is the most valuable thing in the build to an attacker, because the approval control trusts whatever it signs. So the transport is treated as a trust boundary and red-teamed as one (<code>tests/redteam/test_s9_approval_ui.py</code>):</p>
+<ul>
+  <li><strong>Loopback only</strong>, and every request's <code>Host</code> must name the server's own address and port, which defeats DNS rebinding.</li>
+  <li><strong>One session from a one-time launch link</strong>, which sets an <code>HttpOnly; SameSite=Strict</code> cookie and burns the link.</li>
+  <li><strong>CSRF defence</strong>: a decision is a POST carrying the session cookie, an <code>Origin</code> equal to the server's (a missing Origin is refused, not assumed), a form-encoded body and the one-time form token.</li>
+  <li><strong>Clickjacking and injection</strong>: <code>frame-ancestors 'none'</code>, <code>X-Frame-Options: DENY</code>, <code>default-src 'none'</code> with no script at all, every value escaped, <code>no-store</code>.</li>
+</ul>
+<p>The transport decides nothing; it carries one click to the console and renders what comes back. In a production estate the approval surface is usually a ticketing system, a chat card or a custom app, and every one of these properties still applies.</p>
+<div class="panel p-note">
+  <span class="k">Honest limit</span>
+  <p><code>approver_kind</code> is declared, not detected. The console is started for one approver and one kind, <code>human</code> or <code>scripted</code>; every record carries it, and scripted dwell is never reported as human dwell. Nothing in software can prove a person was at the keyboard, and the build says so rather than implying otherwise.</p>
+</div>
+
+<h2 id="friction"><span class="n">19.7</span>Friction</h2>
+<p><span class="tag own">Your build</span> D31 ruled that approval fatigue has a testable half (friction a harness can exercise) and an untestable half (whether the human read it). D35 built the first as four dials on the approval service, all keyed to the approver's directory subject so that respelling cannot reset a counter. The values ratified for this archetype (D37), a low-volume refund agent with one accountable approver:</p>
+<div class="tw"><table>
+<thead><tr><th>Dial</th><th>Value</th><th>Breaks</th></tr></thead>
+<tbody>
+<tr><td>Rolling rate limit per subject</td><td>20 per hour</td><td>Clearing a queue at speed; past the cap a sign-off does not count until the window drains (a cooling-off, not a ban)</td></tr>
+<tr><td>Cooling-off between sign-offs</td><td>0 (built and tested, disabled here)</td><td>Rapid-fire approving, for deployments that need it</td></tr>
+<tr><td>Batch cap of unspent approvals</td><td>10</td><td>Pre-signing a stack of approvals</td></tr>
+<tr><td>Sampled second review</td><td>After 10 in the window, every 3rd</td><td>Sustained volume: a sampled approval authorises nothing until a second, distinct approver (not the executor) signs the same order, amount and currency</td></tr>
+</tbody></table></div>
+<p>A friction refusal is reported as an unverified approval with a reason naming the rule, so the existing <span class="ctl">CTL-0004</span> deny path answers and the evidence says which rule fired and where in the window the approver was. The params comment states that these are proportionate placeholders for this archetype, and that a higher-volume deployment authors its own; a second-trust-domain approval console is the stronger option.</p>
+
+<h2 id="measure"><span class="n">19.8</span>Measuring fatigue</h2>
+<p><span class="tag own">Your build</span> D43 built the measurement half, and its most important property is what it refuses to do. Two signals are emitted on every approval through the observability plane: <strong>dwell time</strong> (from the page first shown to the sign-off) and <strong>window share</strong> (this approver's fraction of all approvals in the window). An anomaly rule flags a collapsed dwell time or a spike in share to a human review queue. It never denies, throttles or blocks a write: turning an unmeasurable human factor into a control is what D31 forbade.</p>
+<p>D43 is also precise about what it measures. Window share is stated as a <em>proxy</em> for an approval-to-request ratio, because the approval service has no record of a request that was shown and never approved; there is no denominator for the literal ratio. The thresholds are off in the reference build (D47): its harness models no reading time, so a dwell threshold would flag everything. A deployment sets the dwell floor from a physical reading time (two to three seconds, review-only) and the share threshold from the observed distribution.</p>
+<div class="panel p-future" data-trigger="real approvers use the console (GTM showcase, a pilot) and dwell data accumulates">
+  <span class="k">Waiting on the builds</span>
+  <p>Every fatigue number in this chapter is a placeholder ratified for a synthetic archetype. When real approvers use the console, add the observed dwell distribution and window shares, the thresholds chosen from them, and what the review queue actually caught. That is the evidence the second half of D31 was waiting for.</p>
+</div>
+
+<h2 id="pause"><span class="n">19.9</span>Pause, resume, stop and reverse</h2>
+<p><span class="tag own">pm-agent</span> An approval means the agent's run must stop and wait, possibly for hours, without holding resources or losing state. pm-agent does this with LangGraph's interrupt and a checkpointer (in-memory in CI, Postgres behind the same seam, exercised for real at P5 close): the graph parks before any write, its state is checkpointed, and a human decision resumes it. Two properties are tested, and both matter more than the mechanism:</p>
+<ul>
+  <li><strong>A cancel while parked ends the run with no write.</strong> If cancelling did nothing, the approval would be advisory.</li>
+  <li><strong>Real-time oversight is demonstrated, not asserted.</strong> At CRITICAL, the gate requires a live check that every write parks for a synchronous human approval before the effect, that a cancel while pending ends the run with no write, and that only a human's grant executes (D-PM-P4-d, -k). A treatment flag the gate never checked would be decoration.</li>
+</ul>
+<p><span class="tag gen">Generic</span> Oversight also needs the ability to <strong>stop</strong> the agent (a kill switch per agent and per fleet, exercised, <a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>) and to <strong>reverse</strong> what it did where the act allows it. ARB's compensation on an unverifiable receipt or an unrecorded effect (<a class="xref" data-ch="governed-action" data-sec="#path" href="governed-action.html#path">Chapter 16</a>) is the automated half; the human half is a runbook and the evidence to drive it.</p>
+
+<h2 id="alts"><span class="n">19.10</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Pattern</th><th>Good for</th><th>Cost</th><th>Watch for</th></tr></thead>
+<tbody>
+<tr><td>Approve every act</td><td>Pilots; very low volume; irreversible acts</td><td>Human time; latency</td><td>Fatigue sets in fast; the agent becomes a form-filler</td></tr>
+<tr><td>Approve above thresholds</td><td>Most production agents</td><td>Threshold design and maintenance</td><td>Splitting one large act into many small ones (needs rate and value budgets, <span class="ctl">CTL-0007</span>)</td></tr>
+<tr><td>Approve a batch as one intent</td><td>Planning agents proposing several related changes</td><td>Itemised display; digest over all items</td><td>One bad item hidden in a long list; keep batches capped and flag free-text-only items</td></tr>
+<tr><td>Two-person rule</td><td>The highest-value or most sensitive acts</td><td>Two approvers' time</td><td>Collusion; both approvers from the same chain of command</td></tr>
+<tr><td>Sampled post-hoc review</td><td>High-volume, reversible acts</td><td>Review capacity; reversal path</td><td>Only works when acts can be undone and samples are acted on</td></tr>
+<tr><td>Policy only, with monitoring</td><td>Low-risk acts within tight limits</td><td>Good limits and alerting</td><td>Drift in what "low risk" covers</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">19.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Mechanism</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Rubber-stamping</td><td>Volume, trust, boredom</td><td>Thresholds; friction dials; dwell and share measurement; sampled second review</td></tr>
+<tr><td>Approving the agent's story</td><td>The page shows model-written text</td><td>Show derived facts; show provenance; keep free-text-only actions out of batches</td></tr>
+<tr><td>Replayable approval</td><td>A token reused for another act or amount</td><td>Digest-bound, scoped, single-use per intent</td></tr>
+<tr><td>Self-approval</td><td>Requester approves under an alias or variant spelling, or a service account approves</td><td>Resolve both to subjects; approvers must be human</td></tr>
+<tr><td>Hijacked console</td><td>CSRF, rebinding, clickjacking, payload substitution</td><td>Treat the console as a trust boundary and red-team it</td></tr>
+<tr><td>Cancel that does nothing</td><td>The run continues after a decline or timeout</td><td>Test that cancel while parked ends with no write</td></tr>
+<tr><td>Measuring as controlling</td><td>An unvalidated fatigue score starts blocking writes</td><td>Signals flag to review, never deny, until validated (D31, D43)</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">19.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We have a human in the loop for every action."</strong> Ask how many approvals each approver handles a day, how long they look at each, and whether anyone has ever measured either. Then ask what the page shows: facts from systems of record, or the agent's summary.</li>
+    <li><strong>"Is our approval process compliant with the EU AI Act's oversight article?"</strong> "The article asks for effective oversight: understand, notice anomalies, avoid automation bias, override, stop. A design that shows derived facts, binds approvals to the exact act, prevents self-approval, measures approval quality and can stop and reverse the agent is a strong answer. Confirm the legal reading with counsel."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">19.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R21 and BT11</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>List the four console checks before a token is minted and the PEP's checks on resume.</li>
+    <li><span class="lvl">Recall</span>Name the four friction dials, their ratified values, and what each breaks.</li>
+    <li><span class="lvl">Apply</span>Explain why D43's anomaly rule never denies, and what would have to be true before it could.</li>
+    <li><span class="lvl">Design</span>Design approval for pm-agent proposing 25 Jira changes from a sprint review: thresholds, batching, provenance lanes, the cap, and what the approver sees.</li>
+    <li><span class="lvl">Trade-off</span>Approve-above-threshold versus sampled post-hoc review for a refund agent at 5,000 refunds a day.</li>
+  </ol>
+  <p class="small">Card candidates: <em>five conditions for oversight to hold</em> · <em>show derived facts, not the agent's story</em> · <em>action_digest + one-time form token</em> · <em>measure fatigue, never block on it (D31, D43)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">19.14</span>Further reading</h2>
+<ul>
+  <li><b>Papers.</b> Lisanne Bainbridge, "Ironies of Automation" (Automatica, 1983); Raja Parasuraman and Victor Riley, "Humans and Automation: Use, Misuse, Disuse, Abuse" (Human Factors, 1997). Both are short and explain most approval failures you will meet.</li>
+  <li><b>Law and frameworks.</b> EU AI Act, Article 14 (human oversight) <span class="tag ver">Verify</span> against the consolidated text; NIST AI RMF MAP 3.5 and MANAGE 4.1; OWASP Top 10 for Agentic Applications, the human-in-the-loop threat.</li>
+  <li><span class="tag own">Your build</span> <code>src/aicoe/approval_ui/{console,server}.py</code> docstrings, <code>enforcement/tokens.py</code>, <code>enforcement/fatigue_signals.py</code>, <code>governance/policies/params.yaml</code> (<code>approval.fatigue</code>, <code>fatigue_signals</code>), <code>tests/redteam/test_s9_approval_ui.py</code>, <code>tests/test_approval_fatigue.py</code>; DECISIONS D31, D35, D37, D43, D47. pm-agent: <code>platform/approval</code>, <code>platform/runtime</code>, D-PM-P4-d, -e, -k, -l, ADR-0005.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="identity-delegation.html"><small>Previous</small>18 · Identity, delegation and capability</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="guardrails-injection.html"><small>Next</small>20 · Guardrails, classifiers and injection</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,575 @@
+{
+ "parts": [
+  {
+   "id": "p1",
+   "roman": "I",
+   "name": "The agent as a system",
+   "desc": "What an agent is mechanically: the harness, the loop, context and memory, retrieval, the protocols between agents, orchestration, and the software chassis that makes all of it testable."
+  },
+  {
+   "id": "p2",
+   "roman": "II",
+   "name": "The model layer",
+   "desc": "The part none of your code teaches. Enough depth to reason about latency, capacity, cost and model risk as an architect, and to read the papers behind the serving stack."
+  },
+  {
+   "id": "p3",
+   "roman": "III",
+   "name": "The rulebook",
+   "desc": "Governance design: what governance must do when software acts, a reference model, fleet-first tiering, the control as a contract, and the lifecycle with its gates."
+  },
+  {
+   "id": "p4",
+   "roman": "IV",
+   "name": "The referee",
+   "desc": "Enforcement engineering, chapter by chapter through a working enforcement plane: the governed path, policy, identity, oversight, guardrails, data boundaries, evidence, evals and conformance."
+  },
+  {
+   "id": "p5",
+   "roman": "V",
+   "name": "The system around the agent",
+   "desc": "Ordinary system design decides production value. Each chapter ends by pointing at the section of design/pm-agent-at-scale.md it feeds."
+  },
+  {
+   "id": "p6",
+   "roman": "VI",
+   "name": "The agent lifecycle",
+   "desc": "Building, shipping, running, improving and retiring agents as products: the development lifecycle, frameworks and studios, tools and sandboxes, runtimes and memory, versioning and release, evaluation and optimization, and maintenance."
+  },
+  {
+   "id": "p7",
+   "roman": "VII",
+   "name": "Platforms and tools",
+   "desc": "The managed services an enterprise actually buys, platform by platform (Google Cloud, AWS, Microsoft, and the data, SaaS and model-provider platforms), one capability map across them, and the independent tool market."
+  },
+  {
+   "id": "p8",
+   "roman": "VIII",
+   "name": "Frameworks and law",
+   "desc": "External frameworks read through a working build, standards and law turned into an engineered crosswalk, and the overlays regulated industries add."
+  },
+  {
+   "id": "p9",
+   "roman": "IX",
+   "name": "The operating model",
+   "desc": "People, decision rights and process at the depth an AICoE lead needs, and how to start from low maturity."
+  },
+  {
+   "id": "p10",
+   "roman": "X",
+   "name": "Practice",
+   "desc": "Turning knowledge into proof: the two capstones, defending your builds under questioning, and the design interview."
+  },
+  {
+   "id": "pa",
+   "roman": "",
+   "name": "Appendices",
+   "desc": "Reference material: glossary, the control catalog, patterns, decisions, reading map, cards, findings made while writing, and the living register of what comes next."
+  }
+ ],
+ "chapters": [
+  {
+   "n": "1",
+   "part": "p1",
+   "slug": "harness-anatomy",
+   "title": "Anatomy of an agent harness",
+   "syn": "The seven subsystems every harness shares, the autonomy ladder, and where governance attaches in ADK, LangGraph and your chassis.",
+   "meta": "OWN · LL10 · BT03"
+  },
+  {
+   "n": "2",
+   "part": "p1",
+   "slug": "loop-tools-typed-outputs",
+   "title": "The loop, tools and typed outputs",
+   "syn": "Tool schemas, the tool-calling protocol, constrained decoding and structured outputs, and the typed answer contract as a governance device.",
+   "meta": "OWN · BT02 · CTL-0010, CTL-0026"
+  },
+  {
+   "n": "3",
+   "part": "p1",
+   "slug": "context-memory-state",
+   "title": "Context, memory and state",
+   "syn": "Context as a budget, session state vs durable memory, and governed memory that is scoped, redacted and MAC-verified.",
+   "meta": "OWN · BT11 · pm-agent P5-4"
+  },
+  {
+   "n": "4",
+   "part": "p1",
+   "slug": "retrieval-grounding",
+   "title": "Retrieval and grounding",
+   "syn": "RAG as a pipeline, permission-aware retrieval, citation verification, and why the first live agent fabricated a knowledge-base id.",
+   "meta": "OWN · CTL-0014, CTL-0015"
+  },
+  {
+   "n": "5",
+   "part": "p1",
+   "slug": "protocols-trust",
+   "title": "Protocols and trust between agents",
+   "syn": "MCP, A2A and ACP: what each carries, where trust is established, tool-description integrity, and the cross-agent provenance envelope.",
+   "meta": "OWN · BT10 · CTL-0016–0019, CTL-0024"
+  },
+  {
+   "n": "6",
+   "part": "p1",
+   "slug": "orchestration-meta-harness",
+   "title": "Orchestration and the meta-harness",
+   "syn": "Single agent, planner-router-worker, multi-agent graphs, durable runs, and the meta-harness that delegates typed, approved work to other executors.",
+   "meta": "OWN · LL4, LL10"
+  },
+  {
+   "n": "7",
+   "part": "p1",
+   "slug": "chassis-seams-tests",
+   "title": "The chassis: seams, fakes and tests that can fail",
+   "syn": "Ports and adapters with Python Protocols, fakes and static conformance, the import firewall, portability as a tested claim, the zero-code framework swap, and falsifiers that prove a test can fail.",
+   "meta": "OWN · LL1 · BT2 · R03"
+  },
+  {
+   "n": "8",
+   "part": "p2",
+   "slug": "transformers-tokens",
+   "title": "Transformers and tokens for architects",
+   "syn": "Tokenisation, embeddings, attention and the decoder stack, and the limits they hand to your system design.",
+   "meta": "MODEL · Raschka"
+  },
+  {
+   "n": "9",
+   "part": "p2",
+   "slug": "inference-serving",
+   "title": "Inference and serving",
+   "syn": "Prefill and decode, the KV cache, continuous batching, paged attention, speculative decoding, quantisation, and what quotas really constrain.",
+   "meta": "MODEL · TC-04"
+  },
+  {
+   "n": "10",
+   "part": "p2",
+   "slug": "model-choice-risk",
+   "title": "Model choice, routing and model risk",
+   "syn": "Frontier vs small models, routing and caching economics, pinning and provenance, and model risk management for generative systems.",
+   "meta": "MODEL · SD-11 · CTL-0020, CTL-0021"
+  },
+  {
+   "n": "11",
+   "part": "p3",
+   "slug": "governance-when-software-acts",
+   "title": "What governance must do when software acts",
+   "syn": "Why agents change the risk, what carries over from AI governance and what is new, and the vocabulary at engineering resolution.",
+   "meta": "FRAMEWORKS"
+  },
+  {
+   "n": "12",
+   "part": "p3",
+   "slug": "reference-model",
+   "title": "A reference model: planes, layers, enforcement points",
+   "syn": "Five planes, ten layers and four kinds of enforcement point; how to use the model for assessment, architecture and roadmaps.",
+   "meta": "FRAMEWORKS · Capstone B"
+  },
+  {
+   "n": "13",
+   "part": "p3",
+   "slug": "risk-tiering",
+   "title": "Fleet-first risk tiering",
+   "syn": "Five ordinal axes, highest-wins banding, the derivation rule, two agents through one catalog, and why a fleet is a graph.",
+   "meta": "OWN · R04 · D14, D39, D40"
+  },
+  {
+   "n": "14",
+   "part": "p3",
+   "slug": "control-as-contract",
+   "title": "The control as a contract",
+   "syn": "Objective, trigger, owner, evidence, test and exception; the posture ladder from unguarded to verified; derivable and declared halves.",
+   "meta": "OWN · R04 · D16, D22, D23"
+  },
+  {
+   "n": "15",
+   "part": "p3",
+   "slug": "lifecycle-gates",
+   "title": "The lifecycle and its gates",
+   "syn": "Fail-closed promotion, generated conformance as the gate's input, the fast lane, change as a risk event, and sign-off bound to a digest.",
+   "meta": "OWN · R04 · D27, CTL-0022"
+  },
+  {
+   "n": "16",
+   "part": "p4",
+   "slug": "governed-action",
+   "title": "The governed action",
+   "syn": "PEP, PDP, PIP and PAP; complete mediation; the seven-step path; why fail-closed takes work; no dead policy; where the PEP should live.",
+   "meta": "OWN · R01, R09 · D17, D30, D53"
+  },
+  {
+   "n": "17",
+   "part": "p4",
+   "slug": "policy-as-code",
+   "title": "Policy as code",
+   "syn": "Rego, Cedar and AGT policy on the same cases; parity testing; the refusal ladder; bundles, decision logs and versioning.",
+   "meta": "OWN · R09 · BT06, BT07 · GF-5"
+  },
+  {
+   "n": "18",
+   "part": "p4",
+   "slug": "identity-delegation",
+   "title": "Identity, delegation and capability",
+   "syn": "Agent identities, resolved subjects, on-behalf-of and token exchange, capability tokens, and signing from HMAC to Ed25519 to Cloud KMS.",
+   "meta": "OWN · SD-04 · CTL-0008, D20, D33"
+  },
+  {
+   "n": "19",
+   "part": "p4",
+   "slug": "human-oversight",
+   "title": "Human oversight that holds",
+   "syn": "Signed approvals bound to one action, separation of duties, approval friction and fatigue signals, interrupt and resume.",
+   "meta": "OWN · CTL-0004, CTL-0005 · D35, D43"
+  },
+  {
+   "n": "20",
+   "part": "p4",
+   "slug": "guardrails-injection",
+   "title": "Guardrails, classifiers and injection",
+   "syn": "Why phrase lists lose, data-channel separation, monotone-restrictive classifiers, structural plan guards and containment by construction.",
+   "meta": "OWN · CTL-0014, CTL-0025 · D52, ADR-0005"
+  },
+  {
+   "n": "21",
+   "part": "p4",
+   "slug": "data-boundaries",
+   "title": "Data boundaries: what agents may see, keep and move",
+   "syn": "Classification and labels, permission-aware retrieval, egress and DLP, memory scope and erasure, residency and retention.",
+   "meta": "OWN · CTL-0009 · SD-06, SD-10"
+  },
+  {
+   "n": "22",
+   "part": "p4",
+   "slug": "evidence-plane",
+   "title": "The evidence plane",
+   "syn": "An allowlisted open log, the detail store, hash chains, signatures and anchors, sealing, and what an auditor can verify from a fresh process.",
+   "meta": "OWN · R08 · BT08 · D21, D25, D28, D34"
+  },
+  {
+   "n": "23",
+   "part": "p4",
+   "slug": "evals-as-gates",
+   "title": "Evals as gates",
+   "syn": "Golden sets, rubrics, committed baselines and blocking comparisons, live runs and honest retries, and the fairness gate measured and held.",
+   "meta": "OWN · SD-09 · D74, D-PM-P5-o"
+  },
+  {
+   "n": "24",
+   "part": "p4",
+   "slug": "proving-controls-fire",
+   "title": "Proving controls fire",
+   "syn": "Generated conformance, positive per-agent checks, falsifiers, anti-vacuity, red-team corpora and the posture ladder as a release criterion.",
+   "meta": "OWN · D27, D29, D30, D56"
+  },
+  {
+   "n": "25",
+   "part": "p5",
+   "slug": "edge-api-design",
+   "title": "Edge, request path and API design",
+   "syn": "DNS to service, load balancers and gateways, and run APIs for agents: 202 and poll, streaming, idempotency keys, errors and versioning.",
+   "meta": "SD-01, SD-02 · R05 · BT05"
+  },
+  {
+   "n": "26",
+   "part": "p5",
+   "slug": "communication-durable-execution",
+   "title": "Communication and durable execution",
+   "syn": "Sync vs async, queues, pub/sub and logs, at-least-once with idempotent consumers, the outbox, and durable workflows for long agent runs.",
+   "meta": "SD-03 · TC-11"
+  },
+  {
+   "n": "27",
+   "part": "p5",
+   "slug": "authn-authz",
+   "title": "AuthN and AuthZ end to end",
+   "syn": "OIDC and JWTs, sessions vs tokens, service identity and workload identity federation, mTLS, and where RBAC and ABAC decisions belong.",
+   "meta": "SD-04 · TC-09"
+  },
+  {
+   "n": "28",
+   "part": "p5",
+   "slug": "state-data-scale",
+   "title": "State, data and scale",
+   "syn": "Stateless workers, where agent state lives, partitioning and replication, transactions, caching tiers, and append-only evidence storage.",
+   "meta": "SD-05, SD-06 · DDIA"
+  },
+  {
+   "n": "29",
+   "part": "p5",
+   "slug": "reliability",
+   "title": "Reliability for LLM systems",
+   "syn": "Timeouts, retries that respect effects, circuit breakers, bulkheads, rate limits, backpressure, load shedding and graceful degradation.",
+   "meta": "SD-07 · stability patterns"
+  },
+  {
+   "n": "30",
+   "part": "p5",
+   "slug": "deployment-cicd",
+   "title": "Deployment and CI/CD for agents",
+   "syn": "Cloud Run vs GKE vs managed agent runtimes, infrastructure as code, keyless pipelines, environments and promotion, and the deployment unit for an agent.",
+   "meta": "SD-08 · M1 · BT12, BT13"
+  },
+  {
+   "n": "31",
+   "part": "p5",
+   "slug": "observability-agentops",
+   "title": "Observability, SLOs and AgentOps",
+   "syn": "Traces joined to evidence, OTel GenAI conventions, SLIs and error budgets for agents, alerts, incidents, runbooks and the kill switch.",
+   "meta": "SD-09 · BT09 · T01"
+  },
+  {
+   "n": "32",
+   "part": "p5",
+   "slug": "security-multitenancy",
+   "title": "Security architecture and multi-tenancy",
+   "syn": "Threat modelling agents, segmentation and egress, secrets and keys, tenant isolation of data, cache and memory, and the supply chain.",
+   "meta": "SD-10 · OWASP Agentic"
+  },
+  {
+   "n": "33",
+   "part": "p5",
+   "slug": "capacity-cost-regions",
+   "title": "Capacity, cost and multi-region",
+   "syn": "Back-of-envelope for agents, tokens and quotas as the real bottleneck, cost per task, and RPO, RTO and residency across regions.",
+   "meta": "SD-11, SD-12"
+  },
+  {
+   "n": "34",
+   "part": "p6",
+   "slug": "agent-development-lifecycle",
+   "title": "The agent development lifecycle",
+   "syn": "From use-case intake to retirement: phases, roles and artefacts, the agent as a product, the inner development loop, prompts and configuration as code, and where the gates sit in a delivery flow.",
+   "meta": "ADLC · LL1 · GEAP Build"
+  },
+  {
+   "n": "35",
+   "part": "p6",
+   "slug": "frameworks-sdks-studios",
+   "title": "Frameworks, SDKs and studios",
+   "syn": "ADK, LangGraph, OpenAI Agents SDK, Claude Agent SDK, Microsoft Agent Framework, Strands, CrewAI, Pydantic AI and the low-code studios: what each assumes, how to choose, and how to keep the choice reversible.",
+   "meta": "TECH · LANDSCAPE · L-21"
+  },
+  {
+   "n": "36",
+   "part": "p6",
+   "slug": "tools-integration-sandboxes",
+   "title": "Tools, integration, sandboxes and computer use",
+   "syn": "API management and connectors, MCP servers as a managed fleet, code-execution sandboxes, browser and computer use, agent UI protocols, and agent payments.",
+   "meta": "TC-03 · GEAP Build/Scale"
+  },
+  {
+   "n": "37",
+   "part": "p6",
+   "slug": "runtime-sessions-memory",
+   "title": "Runtimes, sessions and memory services",
+   "syn": "Managed agent runtimes against containers, session services, memory banks, scaling and isolation behaviour, and what each managed service does and does not govern.",
+   "meta": "GEAP Scale · AgentCore · Foundry"
+  },
+  {
+   "n": "38",
+   "part": "p6",
+   "slug": "versioning-release",
+   "title": "Versioning, registries and release management",
+   "syn": "Versioning agents, prompts, tools, models, policies and eval sets as one release; agent registries and catalogs; canary, shadow, A/B and rollback.",
+   "meta": "BT12, BT13 · D57, D59"
+  },
+  {
+   "n": "39",
+   "part": "p6",
+   "slug": "evaluation-simulation-optimization",
+   "title": "Evaluation, simulation and optimization",
+   "syn": "Offline and online evaluation, user simulation, judges and their calibration, prompt and agent optimizers, tuning and distillation, and cost and latency optimization.",
+   "meta": "GEAP Optimize · T03"
+  },
+  {
+   "n": "40",
+   "part": "p6",
+   "slug": "maintenance-evolution",
+   "title": "Maintenance and evolution",
+   "syn": "Behaviour and data drift, model deprecations and retirements, framework and dependency upgrades, knowledge and memory hygiene, recertification, and retiring an agent.",
+   "meta": "D48 · D50 · lifecycle"
+  },
+  {
+   "n": "41",
+   "part": "p7",
+   "slug": "google-cloud",
+   "title": "Google Cloud: Gemini Enterprise Agent Platform",
+   "syn": "Build, Scale, Govern and Optimize service by service, Gemini Enterprise for end users, where GEAP leads and lags, and the reference build's live GCP bindings.",
+   "meta": "OWN · Trace E4 · BT14 · GF-4"
+  },
+  {
+   "n": "42",
+   "part": "p7",
+   "slug": "aws",
+   "title": "AWS: Bedrock and AgentCore",
+   "syn": "Bedrock models, guardrails, knowledge bases and agents; AgentCore runtime, memory, gateway, identity, sandboxes, observability, policy and evaluations; Strands and the AWS estate around them.",
+   "meta": "GF-4"
+  },
+  {
+   "n": "43",
+   "part": "p7",
+   "slug": "microsoft",
+   "title": "Microsoft: Foundry, Copilot Studio and Agent 365",
+   "syn": "Foundry and its Agent Service, Microsoft Agent Framework, Copilot Studio, Entra Agent ID, Agent 365, Purview and Defender for AI, and API Management as an AI gateway.",
+   "meta": "GF-4 · GF-1"
+  },
+  {
+   "n": "44",
+   "part": "p7",
+   "slug": "data-saas-model-platforms",
+   "title": "Data, SaaS and model-provider platforms",
+   "syn": "Databricks, Snowflake, Salesforce Agentforce, ServiceNow, IBM watsonx, OpenAI and Anthropic, and the SaaS problem: governing agents whose runtime you cannot instrument.",
+   "meta": "GF-4"
+  },
+  {
+   "n": "45",
+   "part": "p7",
+   "slug": "across-platforms",
+   "title": "Across platforms: capability map and governance",
+   "syn": "One capability map across clouds and vendors, where each leads and lags, centralised rules with federated enforcement, normalised evidence, and portability.",
+   "meta": "Capstone B3"
+  },
+  {
+   "n": "46",
+   "part": "p7",
+   "slug": "tool-landscape",
+   "title": "The independent tool landscape and build vs buy",
+   "syn": "Gateways, observability, evals, guardrails, policy engines, identity, memory, sandboxes and open-source harnesses, with a method for build vs buy.",
+   "meta": "TECH · LANDSCAPE"
+  },
+  {
+   "n": "47",
+   "part": "p8",
+   "slug": "agt-through-your-build",
+   "title": "Microsoft AGT through your build",
+   "syn": "The toolkit's model, the parity spike, its gaps, why it was not adopted, and where it fits behind your seams.",
+   "meta": "GF-1 · R25 · BT16 · D63"
+  },
+  {
+   "n": "48",
+   "part": "p8",
+   "slug": "standards-law-crosswalk",
+   "title": "Standards, law and crosswalk engineering",
+   "syn": "OWASP Agentic, NIST AI RMF, ISO/IEC 42001, the EU AI Act and Singapore's agentic framework, with crosswalks as code and honest Verify cells.",
+   "meta": "GF-2, GF-3, GF-6 · D44, D55"
+  },
+  {
+   "n": "49",
+   "part": "p8",
+   "slug": "regulated-industries",
+   "title": "Regulated industries",
+   "syn": "Banking model risk, insurance, healthcare and the public sector, and how an overlay changes the catalog, the tiers and the evidence.",
+   "meta": "Capstone B4"
+  },
+  {
+   "n": "50",
+   "part": "p9",
+   "slug": "aicoe-operating-model",
+   "title": "The AICoE operating model",
+   "syn": "Structures, decision rights, earned autonomy, roles and sizing, the weekly rhythm, and KPIs that show governance enabling delivery.",
+   "meta": "D45"
+  },
+  {
+   "n": "51",
+   "part": "p9",
+   "slug": "readiness-first-90-days",
+   "title": "Readiness and the first 90 days",
+   "syn": "Assessment dimensions, minimum viable governance, interim vs target state, and sequencing a programme from low maturity.",
+   "meta": "Capstone B6"
+  },
+  {
+   "n": "52",
+   "part": "p10",
+   "slug": "capstone-a",
+   "title": "Capstone A: govern a new agent by hand",
+   "syn": "A0–A6 with checkpoints, the keyless pipeline rebuild, and the two-page defence note.",
+   "meta": "GF-L2"
+  },
+  {
+   "n": "53",
+   "part": "p10",
+   "slug": "capstone-b",
+   "title": "Capstone B: a framework for a client estate",
+   "syn": "Inventory, catalog cut, enforcement-point map, crosswalk, evidence, operating model and the toolkit.",
+   "meta": "GF-L3"
+  },
+  {
+   "n": "54",
+   "part": "p10",
+   "slug": "defending-your-builds",
+   "title": "Defending your builds",
+   "syn": "The questions a GTM team, a client CISO, an auditor and an interviewer will ask about both builds, with evidence-backed answers and honest limits.",
+   "meta": "PROVE · T1_SELF_REVIEW"
+  },
+  {
+   "n": "55",
+   "part": "p10",
+   "slug": "design-interview",
+   "title": "The design interview for governed agents",
+   "syn": "Requirements, capacity, API, design, deep dives and trade-offs, worked on three twist scenarios.",
+   "meta": "PROVE"
+  },
+  {
+   "n": "A",
+   "part": "pa",
+   "slug": "appendix-glossary",
+   "title": "Glossary",
+   "syn": "Every term of art in the book, with the chapter that defines it."
+  },
+  {
+   "n": "B",
+   "part": "pa",
+   "slug": "appendix-control-catalog",
+   "title": "Control catalog reference",
+   "syn": "Every control and invariant in the reference build: trigger, tier, scope, enforcement point, test and crosswalk."
+  },
+  {
+   "n": "C",
+   "part": "pa",
+   "slug": "appendix-patterns",
+   "title": "Patterns catalog",
+   "syn": "The recurring design patterns of the book in one place, each with its problem, mechanism and where it appears."
+  },
+  {
+   "n": "D",
+   "part": "pa",
+   "slug": "appendix-decisions",
+   "title": "Decision index",
+   "syn": "The build decisions worth knowing cold, grouped by theme, each with its one-line principle."
+  },
+  {
+   "n": "E",
+   "part": "pa",
+   "slug": "appendix-reading",
+   "title": "Reading map and sources",
+   "syn": "The books, papers, specifications and your own library, mapped to chapters, with what to read and what to skip."
+  },
+  {
+   "n": "F",
+   "part": "pa",
+   "slug": "appendix-cards",
+   "title": "Card bank",
+   "syn": "Candidate review cards per chapter, to promote into cards/REVIEW.md once defended."
+  },
+  {
+   "n": "G",
+   "part": "pa",
+   "slug": "appendix-findings",
+   "title": "Findings and errata",
+   "syn": "Inconsistencies, latent bugs and stale statements found in the builds and the learning system while writing this book, with suggested fixes."
+  },
+  {
+   "n": "H",
+   "part": "pa",
+   "slug": "appendix-register",
+   "title": "Living register",
+   "syn": "What this book is waiting for: items each chapter will revise when the builds grow, platform facts to re-verify, and directions for future editions."
+  },
+  {
+   "n": "I",
+   "part": "pa",
+   "slug": "appendix-service-map",
+   "title": "Service map across platforms",
+   "syn": "Agent platform services and the foundation services around them, by concern, across Google Cloud, AWS, Microsoft and independent options."
+  }
+ ]
+}

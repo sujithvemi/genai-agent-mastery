@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>16 · The governed action</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 16</div>
+  <ol>
+    <li><a href="#instruction">An instruction is not a control</a></li>
+    <li><a href="#roles">PEP, PDP, PIP, PAP</a></li>
+    <li><a href="#mediation">Complete mediation</a></li>
+    <li><a href="#path">The governed path</a></li>
+    <li><a href="#pdp">Fail-closed takes work</a></li>
+    <li><a href="#pip">Facts, not claims</a></li>
+    <li><a href="#after">After the effect</a></li>
+    <li><a href="#trace">Traces from evidence</a></li>
+    <li><a href="#where">Where the PEP lives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">Client translation</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 16</div>
+  <h1>The governed action</h1>
+  <p class="lede">What happens, in order, between a model deciding to call a tool and that call changing a business system, and which parts of that path make governance a mechanism instead of a hope.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · Trace</span></div>
+    <div><b>Reps</b><span>R01 · R09 · BT06 · Capstone A3</span></div>
+    <div><b>Build modules</b><span>chokepoint.py · enforcement/plane.py · pip.py · tool_call.rego</span></div>
+    <div><b>Decisions</b><span>D17 · D23 · D26 · D30 · D53</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first · write your answers before reading on</span>
+  <ol>
+    <li>List, in order, every check you think should happen between "the model emits a refund tool call" and "money moves". Mark each as before or after the effect.</li>
+    <li>The policy engine is unreachable for two seconds. Should the agent's call proceed? What about a read-only call?</li>
+    <li>The action succeeded but the audit write failed. What should the system do?</li>
+  </ol>
+</div>
+
+<h2 id="instruction"><span class="n">16.1</span>An instruction is not a control</h2>
+<p><span class="tag own">Your build</span> The most useful single observation in ARB came from its first live run (P1). The ungoverned customer-service agent, running on a local model, called <code>get_order</code> to check the order, received the answer, and then issued the refund anyway. It performed the check and ignored the result. The comment that opens <code>pip.py</code> records the lesson in one line: <strong>performing the check is not the control; acting on it is</strong>.</p>
+<p><span class="tag gen">Generic</span> That is the whole case for this chapter. A system prompt saying "never refund more than was paid" is a request to a probabilistic component. It will be honoured most of the time, and "most of the time" is not a property you can put in front of an auditor or a regulator. A control is a deterministic mechanism on the only path to the effect, which refuses the bad action whatever the model wants, plus a test that proves it refuses. Everything else in Part IV (policy, identity, approval, guardrails, evidence) plugs into the mechanism described here.</p>
+
+<h2 id="roles"><span class="n">16.2</span>Four roles: PEP, PDP, PIP, PAP</h2>
+<p><span class="tag gen">Generic</span> The vocabulary comes from attribute-based access control (XACML, and NIST SP 800-162). It is worth using exactly, because vendors, auditors and your own builds all map onto it, and because separating the roles is what lets you change one without touching the others.</p>
+<div class="tw"><table>
+<thead><tr><th>Role</th><th>Job</th><th>Must never</th><th>In ARB</th></tr></thead>
+<tbody>
+<tr><td><strong>PEP</strong> · enforcement point</td><td>Sits on the path; intercepts the call; asks for a decision; enforces it; records it</td><td>Contain business rules; be bypassable</td><td><code>chokepoint.py</code> (<code>ToolChokepoint</code>) plus the runtime hooks in <code>enforcement/plane.py</code></td></tr>
+<tr><td><strong>PDP</strong> · decision point</td><td>Evaluates policy against facts; returns allow/deny with reasons</td><td>Fetch its own facts; have side effects</td><td><code>governance/policies/rego/tool_call.rego</code> via the <code>PolicyEngine</code> seam (OPA/Rego by default; Cedar for parity)</td></tr>
+<tr><td><strong>PIP</strong> · information point</td><td>Assembles the facts the policy reads, from trusted sources</td><td>Decide anything; trust the caller's account</td><td><code>enforcement/pip.py</code> (<code>PolicyInformationPoint</code>)</td></tr>
+<tr><td><strong>PAP</strong> · administration point</td><td>Where policy is authored, reviewed, versioned</td><td>Live only in code reviewers can't read</td><td>Root <code>governance/</code>: catalog YAML, params, Rego, authored by you (ADR-0001)</td></tr>
+</tbody></table></div>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 380" role="img" aria-label="The agent harness sends a tool call to the PEP, the ToolChokepoint. The PEP asks the PIP to build facts; the PIP re-reads trusted state such as orders, directory, approvals and counters, and hands an input document to the PDP, the Rego bundle, which was authored in the PAP, the governance folder. The PDP returns allow and violations to the PEP. Only on allow does the PEP execute the tool against the business system. The PEP writes a decision record before the effect and an action record after it to the evidence plane.">
+  <defs>
+    <marker id="a15" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <marker id="a15a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker>
+    <marker id="a15o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-ok"/></marker>
+  </defs>
+
+  <rect class="box" x="20" y="150" width="140" height="70" rx="6"/>
+  <text class="tx-b" x="90" y="180" text-anchor="middle">Agent harness</text>
+  <text class="tx-s" x="90" y="200" text-anchor="middle">model proposes a call</text>
+  <line class="ln" x1="160" y1="185" x2="216" y2="185" marker-end="url(#a15)"/>
+  <text class="tx-s" x="188" y="175" text-anchor="middle">tool call</text>
+
+  <rect class="box-acc" x="220" y="130" width="200" height="110" rx="8"/>
+  <text class="tx-acc" x="320" y="154" text-anchor="middle">PEP</text>
+  <text class="tx-b" x="320" y="176" text-anchor="middle">ToolChokepoint</text>
+  <text class="tx-m" x="320" y="198" text-anchor="middle">chokepoint.py + plane</text>
+  <text class="tx-s" x="320" y="222" text-anchor="middle">every side effect passes</text>
+
+  <rect class="box-strong" x="480" y="40" width="200" height="70" rx="6"/>
+  <text class="tx-acc" x="580" y="62" text-anchor="middle">PDP</text>
+  <text class="tx-b" x="580" y="82" text-anchor="middle">Rego bundle</text>
+  <text class="tx-m" x="580" y="100" text-anchor="middle">tool_call.rego</text>
+
+  <rect class="box" x="740" y="40" width="150" height="70" rx="6"/>
+  <text class="tx-acc" x="815" y="62" text-anchor="middle">PAP</text>
+  <text class="tx" x="815" y="82" text-anchor="middle">governance/</text>
+  <text class="tx-s" x="815" y="100" text-anchor="middle">authored by you</text>
+  <line class="ln" x1="740" y1="75" x2="684" y2="75" marker-end="url(#a15)"/>
+  <text class="tx-s" x="712" y="68" text-anchor="middle">bundle</text>
+
+  <rect class="box-strong" x="480" y="150" width="200" height="70" rx="6"/>
+  <text class="tx-acc" x="580" y="172" text-anchor="middle">PIP</text>
+  <text class="tx-b" x="580" y="192" text-anchor="middle">PolicyInformationPoint</text>
+  <text class="tx-m" x="580" y="210" text-anchor="middle">pip.py</text>
+
+  <rect class="box" x="740" y="140" width="150" height="90" rx="6"/>
+  <text class="tx-b" x="815" y="164" text-anchor="middle">Trusted state</text>
+  <text class="tx-s" x="815" y="184" text-anchor="middle">orders · directory</text>
+  <text class="tx-s" x="815" y="202" text-anchor="middle">approvals · counters</text>
+  <line class="ln" x1="740" y1="185" x2="684" y2="185" marker-end="url(#a15)"/>
+  <text class="tx-s" x="712" y="178" text-anchor="middle">re-read</text>
+
+  <line class="ln" x1="420" y1="185" x2="476" y2="185" marker-end="url(#a15)"/>
+  <text class="tx-s" x="448" y="178" text-anchor="middle">facts?</text>
+  <line class="ln" x1="580" y1="150" x2="580" y2="114" marker-end="url(#a15)"/>
+  <text class="tx-s" x="588" y="136">input doc</text>
+
+  <polyline class="ln-acc" points="480,75 320,75 320,126" marker-end="url(#a15a)"/>
+  <text class="tx-acc" x="400" y="67" text-anchor="middle">{allow, violations[]}</text>
+
+  <rect class="box-ok" x="480" y="272" width="200" height="60" rx="6"/>
+  <text class="tx-b" x="580" y="298" text-anchor="middle">Tool · business system</text>
+  <text class="tx-s" x="580" y="316" text-anchor="middle">payments · CRM · Jira</text>
+  <polyline class="ln-ok" points="380,240 380,302 476,302" marker-end="url(#a15o)"/>
+  <text class="tx-ok" x="428" y="294" text-anchor="middle">only if allow</text>
+
+  <rect class="box" x="20" y="272" width="240" height="60" rx="6"/>
+  <text class="tx-b" x="140" y="298" text-anchor="middle">Evidence plane</text>
+  <text class="tx-s" x="140" y="316" text-anchor="middle">hash-chained · signed · redacted</text>
+  <polyline class="ln" points="260,240 260,256 140,256 140,268" marker-end="url(#a15)"/>
+  <text class="tx-s" x="20" y="358">① decision record before the effect · ② action record after</text>
+</svg>
+</div>
+<figcaption><b>Fig 16.1</b>The four roles in ARB. The agent never talks to the business system; the PEP does, and only after the PDP has decided on facts the PIP read from trusted state, not from the agent's own account of the world.</figcaption>
+</figure>
+
+<h2 id="mediation"><span class="n">16.3</span>Complete mediation</h2>
+<p><span class="tag gen">Generic</span> A PEP is only as good as the claim that nothing goes around it. Saltzer and Schroeder named this <em>complete mediation</em> in 1975: every access to every object must be checked. For agents, the practical version is "every side effect passes one chokepoint", and the engineering question is how you make that true rather than intended.</p>
+<p><span class="tag own">Your build</span> ARB uses four mechanisms, and you should be able to name all four:</p>
+<ol>
+  <li><strong>The agent only holds governed tools.</strong> Tools are constructed through <code>build_toolset(policy=…)</code>, so the agent's tool functions are thin calls to <code>chokepoint.call(name, …)</code>. The agent has no client object for the payments system to misuse.</li>
+  <li><strong>An unknown tool is a policy denial, not an exception.</strong> If the model invents a tool name, the chokepoint does not raise a Python error that some caller might catch and retry around; it records a denial under <span class="ctl">GBL-DENY-01</span>.</li>
+  <li><strong>Vendor code cannot leak past the seams.</strong> The import-firewall tests check that framework and vendor SDKs are imported only inside their adapters, so no module can reach a raw client.</li>
+  <li><strong>Out-of-process hosts go through gateways.</strong> Agents built on other frameworks (the OpenAI Agents SDK and LangGraph hosts under <code>hosts/</code>) cannot import the chokepoint. E3 put a governed model gateway and tool gateway in front of them (<code>src/aicoe/gateways/</code>, D53), both driving the same enforcement plane, and <code>gateways/equivalence.py</code> compares the decision signature of the in-process and gateway paths so "same governance" is a test, not a claim.</li>
+</ol>
+<p>P3 is the proof that the seam was placed right: it added the entire enforcement plane by changing <code>chokepoint.py</code> and nothing under <code>agents/</code>. Governance arrived behind a seam the walking skeleton already had.</p>
+
+<h2 id="path"><span class="n">16.4</span>The governed path, step by step</h2>
+<p><span class="tag own">Your build</span> When the policy object is the full enforcement plane (it implements both <code>PolicyEngine</code> and <code>RuntimePep</code>), the chokepoint runs seven steps. Learn them in order; R01 has you trace a real call through each one.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 940 260" role="img" aria-label="Seven steps. Before the effect: 1 resolve tool, 2 pre-call checks, 3 record decision; any failure refuses and nothing executes. 4 execute, or replay an idempotent result. After the effect: 5 post-call output contract, 6 demote output to data, 7 record action; a failed contract or failed action record compensates by reversing the effect.">
+  <defs>
+    <marker id="b15" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <marker id="b15n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-no"/></marker>
+  </defs>
+  <!-- boxes: x = 10 + i*132, w=118 -->
+  <g>
+    <rect class="box-strong" x="10" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="22" y="50">1</text>
+    <text class="tx-b" x="22" y="72">Resolve tool</text>
+    <text class="tx-s" x="22" y="92">unknown name</text>
+    <text class="tx-s" x="22" y="108">= GBL-DENY-01</text>
+
+    <rect class="box-strong" x="142" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="154" y="50">2</text>
+    <text class="tx-b" x="154" y="72">Pre-call</text>
+    <text class="tx-s" x="154" y="92">identity · policy</text>
+    <text class="tx-s" x="154" y="108">guards · quota</text>
+    <text class="tx-s" x="154" y="124">idempotency</text>
+
+    <rect class="box-strong" x="274" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="286" y="50">3</text>
+    <text class="tx-b" x="286" y="72">Record</text>
+    <text class="tx-b" x="286" y="88">decision</text>
+    <text class="tx-s" x="286" y="108">GBL-EVID-01</text>
+
+    <rect class="box-ok" x="414" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-ok" x="426" y="50">4</text>
+    <text class="tx-b" x="426" y="72">Execute</text>
+    <text class="tx-s" x="426" y="92">or replay the</text>
+    <text class="tx-s" x="426" y="108">first receipt</text>
+
+    <rect class="box-strong" x="546" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="558" y="50">5</text>
+    <text class="tx-b" x="558" y="72">Post-call</text>
+    <text class="tx-s" x="558" y="92">output contract</text>
+    <text class="tx-s" x="558" y="108">CTL-0010</text>
+
+    <rect class="box-strong" x="678" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="690" y="50">6</text>
+    <text class="tx-b" x="690" y="72">Demote</text>
+    <text class="tx-b" x="690" y="88">output</text>
+    <text class="tx-s" x="690" y="108">to data · CTL-0014</text>
+
+    <rect class="box-strong" x="810" y="30" width="118" height="100" rx="6"/>
+    <text class="tx-acc" x="822" y="50">7</text>
+    <text class="tx-b" x="822" y="72">Record</text>
+    <text class="tx-b" x="822" y="88">action</text>
+    <text class="tx-s" x="822" y="108">GBL-EVID-01</text>
+  </g>
+  <g>
+    <line class="ln" x1="128" y1="80" x2="140" y2="80" marker-end="url(#b15)"/>
+    <line class="ln" x1="260" y1="80" x2="272" y2="80" marker-end="url(#b15)"/>
+    <line class="ln" x1="392" y1="80" x2="412" y2="80" marker-end="url(#b15)"/>
+    <line class="ln" x1="532" y1="80" x2="544" y2="80" marker-end="url(#b15)"/>
+    <line class="ln" x1="664" y1="80" x2="676" y2="80" marker-end="url(#b15)"/>
+    <line class="ln" x1="796" y1="80" x2="808" y2="80" marker-end="url(#b15)"/>
+  </g>
+  <line class="ln-acc" x1="403" y1="12" x2="403" y2="236" stroke-dasharray="5 4"/>
+  <text class="tx-acc" x="397" y="16" text-anchor="end">before the effect</text>
+  <text class="tx-acc" x="409" y="16">after</text>
+
+  <line class="ln-no" x1="69" y1="130" x2="69" y2="176" marker-end="url(#b15n)"/>
+  <line class="ln-no" x1="201" y1="130" x2="201" y2="176" marker-end="url(#b15n)"/>
+  <line class="ln-no" x1="333" y1="130" x2="333" y2="176" marker-end="url(#b15n)"/>
+  <rect class="box-no" x="10" y="180" width="382" height="46" rx="6"/>
+  <text class="tx-no" x="201" y="200" text-anchor="middle">Refuse · denial evidence · nothing executed</text>
+  <text class="tx-s" x="201" y="217" text-anchor="middle">a failed decision write also refuses</text>
+
+  <line class="ln-no" x1="605" y1="130" x2="605" y2="176" marker-end="url(#b15n)"/>
+  <line class="ln-no" x1="869" y1="130" x2="869" y2="176" marker-end="url(#b15n)"/>
+  <rect class="box-no" x="546" y="180" width="382" height="46" rx="6"/>
+  <text class="tx-no" x="737" y="200" text-anchor="middle">Compensate · reverse the effect</text>
+  <text class="tx-s" x="737" y="217" text-anchor="middle">never leave an unverified or unrecorded effect</text>
+</svg>
+</div>
+<figcaption><b>Fig 16.2</b>The seven steps of <code>ToolChokepoint</code> under the enforcement plane. Left of the dashed line, every failure refuses before anything happens. Right of it, the effect has happened, so a failure can only be compensated.</figcaption>
+</figure>
+
+<p>Two invariants hold the path together, and the red team showed that the second one depends on the first.</p>
+<ul>
+  <li><strong>Record the decision before the effect</strong> (step 3). If the decision record cannot be written, the call is refused. There is no such thing in this system as an action whose authorisation was not recorded first.</li>
+  <li><strong>No action without evidence</strong> (step 7, <span class="ctl">GBL-EVID-01</span>). If the action record cannot be written after the effect, the effect is <em>reversed</em>, rather than left standing unrecorded. This was added in P5-S4 after red-team finding RT-11 showed the guarantee had been resting on step 3 alone.</li>
+</ul>
+<p>Step 4's "or replay" is idempotency (<span class="ctl">CTL-0006</span>): a second identical write inside the dedup window returns the first receipt without executing again. Retries, network timeouts and models that call the same tool twice are normal, so a write path without idempotency eventually double-refunds someone.</p>
+
+<h2 id="pdp"><span class="n">16.5</span>The PDP: fail-closed takes work</h2>
+<p><span class="tag own">Your build</span> <code>default allow := false</code> looks like fail-closed. It is not enough, and the header of <code>tool_call.rego</code> explains why in a paragraph worth memorising. In Rego an undefined term makes its whole rule body undefined. A deny rule that reads a missing field, even only to build its reason string, silently stops firing. So a bundle written the obvious way fails <em>open</em> on exactly the malformed request you most want refused.</p>
+<p>The fix is a discipline: every fact the bundle reads is pulled through <code>object.get</code> with an explicitly conservative default. If the PIP did not say the tool is registered, assume it is not; if it did not say the principal is verified, assume it is not; if it did not say the agent is read-only, assume it can write; if it did not supply a quota, assume the principal is already at it. There is a test for the empty request.</p>
+<pre><code>default allow := false
+allow if count(violations) == 0
+
+decision := {"allow": allow, "violations": [v | some v in violations]}
+
+tool_registered := object.get(tool, "registered", false)   # absent ⇒ deny</code></pre>
+<p>Three further choices from D17 are easy to miss and each one prevents a real class of bug:</p>
+<ul>
+  <li><strong>One entrypoint.</strong> The bundle exposes a single object, <code>data.aicoe.toolcall.decision</code>, returning <code>{allow, violations[]}</code> where each violation names the control that refused. Callers never query partial rules, and every refusal is attributable to a control id.</li>
+  <li><strong>An authored refusal ladder.</strong> Several controls often fire on one call. All go into evidence; which one is the headline is <code>violation_precedence</code> in <code>params.yaml</code> (deny-by-default and verified identity first, then separation of duties and approval, then injection, input, preconditions, money and quota). The first reason a human reads is the most fundamental one, and OPA and Cedar report the same one.</li>
+  <li><strong>Money in integer minor units.</strong> Rego and Cedar evaluate JSON numbers as doubles, where <code>34.95 * 100</code> is <code>3494.9999999999995</code>. A "refund at most the order total" rule over floats occasionally lies. The PIP converts the amount from its decimal string once; every rule compares integers.</li>
+</ul>
+<div class="panel p-note">
+  <span class="k">Binding choice</span>
+  <p>ARB embeds Rego in-process through <code>regopy</code> (Microsoft's <code>rego-cpp</code>), behind a <code>RegoEvaluator</code> protocol, so a clean clone reproduces the governance story with no OPA binary or server. D17 is explicit that a production deployment would likely run the OPA server for bundle distribution and decision logs, swapping one adapter. <code>rego-cpp</code> is a second implementation of Rego, not OPA; the build uses only features verified on both. <a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a> compares Rego, Cedar and AGT's policy YAML in depth.</p>
+</div>
+
+<h2 id="pip"><span class="n">16.6</span>The PIP: facts, not claims</h2>
+<p><span class="tag own">Your build</span> The PIP decides nothing. It turns a request into the document the policy evaluates, and its one rule is that a fact comes from trusted state, never from the agent's account. For a refund it re-reads the order itself instead of trusting that the model looked (the P1 lesson), resolves the currency from the order, normalises money, and attaches identity, quota, approval and guardrail state.</p>
+<p>Naming carries the discipline. Where the PIP must record something a caller merely asserted, the field says so: in the cross-agent claim the sender's own statement is <code>sender_asserted</code>, the resolved directory subject is <code>sender_subject</code>, and no rule decides on the asserted one. That is <span class="ctl">CTL-0017</span> in a single naming convention: an asserted sender is not a sender until it resolves.</p>
+<h3>No dead policy</h3>
+<p>GAP-17 is the most instructive failure in the build. A Rego rule for the currency control was correct, traced cleanly to the control's authored trigger, loaded, and would have been counted as enforcement by any reviewer. It could never fire: it read <code>input.arguments.stated_currency</code>, and <code>issue_refund(order_id, amount, reason)</code> had no currency parameter, so nothing could ever produce that fact. The red team attacked it and could not reach it.</p>
+<p>D30's ruling is the sentence to remember: <strong>a rule that cannot fire is not a control; it is a comment the linter can't see</strong>. <code>tests/test_no_dead_policy.py</code> closes the class, not the instance. It parses the set of facts the bundle reads through <code>object.get</code>, derives the set the PIP actually produces by driving real calls through a real plane, and fails if any read has no producer. Neither list is hand-maintained, and an idiom the parser doesn't understand fails the test rather than being skipped.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>D23 adds a subtle distinction you'll reuse with clients: many controls have a <strong>derivable half</strong> the system computes from trusted state (the currency is the order's currency; an unresolvable order denies) and a <strong>declared half</strong> that needs the caller to assert something (the caller states a currency, so a disagreement can be caught). The derivable half removes the hazard; the declared half only adds detection. Build the derivable half first.</p>
+</div>
+
+<h2 id="after"><span class="n">16.7</span>After the effect</h2>
+<p><span class="tag own">Your build</span> Three hooks run after a call returns, and each answers a different question.</p>
+<div class="tw"><table>
+<thead><tr><th>Hook</th><th>Question</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code>after_call</code></td><td>Did the effect happen the way it was authorised?</td><td>Checks the write's output contract (<span class="ctl">CTL-0010</span>): the refund receipt must verify. If not, attempt a compensating action and refuse to report the effect as done.</td></tr>
+<tr><td><code>transform_result</code></td><td>Can what came back steer the agent?</td><td>Demotes untrusted tool output to fenced data (<span class="ctl">CTL-0014</span>) and records what retrieval returned, which the output guardrail later checks citations against (<span class="ctl">CTL-0015</span>).</td></tr>
+<tr><td>action record</td><td>Can we prove it later?</td><td>Writes the <code>tool_call</code> event; if that fails, reverse the effect (<a class="sref" href="#path">16.4</a>).</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The general principle: any data that enters the context from a tool, a document or another agent is input from an untrusted party, however internal the source. Demotion makes that structural. The model still sees the text, but as data in a fence, and no control decision reads it as an instruction. <a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a> takes this further into containment by construction.</p>
+
+<h2 id="trace"><span class="n">16.8</span>Traces derived from evidence</h2>
+<p><span class="tag own">Your build</span> Observability and audit are easy to build as two sources of truth that drift apart. ARB avoids that by deriving the span from the evidence (P4-S2, D26). Every call opens a real OpenTelemetry span; once the action record is written, the chokepoint copies onto the span exactly the fields an auditor already has (control id, tier, allow or deny, latency, the record's <code>content_ref</code>), run through the same redaction function and the same redaction policy the evidence writer uses. A span never carries arguments or results at all.</p>
+<p>Two consequences follow. "No raw PII in traces" becomes the same guarantee as "no raw PII in the open evidence log", not a second one to keep in sync. And because the span lives entirely inside the call's try/except, a failed exporter fails the <em>trace</em>, never the <em>decision</em>. Langfuse attaches behind that OTel seam; the default tracer exports nowhere.</p>
+
+<h2 id="where"><span class="n">16.9</span>Where the PEP lives</h2>
+<p><span class="tag gen">Generic</span> "Put a checkpoint on the path" leaves the hardest architecture question open: which path, at which layer. The options are not exclusive; mature estates layer them.</p>
+<div class="tw"><table>
+<thead><tr><th>Placement</th><th>Sees</th><th>Strengths</th><th>Weaknesses</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>In-process library (ARB chokepoint)</td><td>Tool name, args, agent identity, run context, the turn's retrieval</td><td>Richest context; lowest latency; can demote outputs and bind approvals to exact args</td><td>Only covers agents built on your chassis; trust depends on the process not being subverted</td><td>Agents you build</td></tr>
+<tr><td>Tool / MCP gateway (ARB E3 gateways)</td><td>Tool calls over the wire, caller's credential</td><td>Framework-neutral; one enforcement point for many hosts; can pin tool descriptions (<span class="ctl">CTL-0024</span>)</td><td>Less turn context unless the harness forwards it; extra hop</td><td>Agents on frameworks you don't control; shared MCP servers</td></tr>
+<tr><td>Model gateway</td><td>Prompts and completions</td><td>Screening, budgets, model pinning (<span class="ctl">CTL-0020/0021</span>), provenance of which model answered</td><td>Sees intent, not effects; cannot stop a tool call on its own</td><td>Always, as a complement</td></tr>
+<tr><td>Platform-native gateway <span class="tag ver">Verify</span></td><td>Whatever the platform routes (e.g. Google's Agent Gateway, AWS AgentCore Gateway)</td><td>Managed; integrates with platform identity and registry</td><td>Policy expressiveness and evidence format are the vendor's; check each feature's release status</td><td>Agents hosted on that platform</td></tr>
+<tr><td>In front of the system of record</td><td>API calls to the CRM/ERP, whoever makes them</td><td>Catches every caller, including agents you can't instrument (SaaS agents)</td><td>No agent context; coarse decisions</td><td>Last line, and the main line for SaaS agents</td></tr>
+</tbody></table></div>
+<p><span class="tag asm">Assumption</span> My recommended default for a client estate: in-process PEP for agents built on the client's chassis, a gateway for everything else that calls tools, a model gateway for all model traffic, and the system of record's own permissions scoped to each agent's identity as the floor. Then make the layers prove they agree, the way <code>equivalence.py</code> does for ARB's two paths.</p>
+
+<div class="panel p-future" data-trigger="pm-agent R1 closes, or ARB E6 binds a real organisation">
+  <span class="k">Waiting on the builds</span>
+  <p>pm-agent's PEP (<code>platform/pep/</code>, with a per-chokepoint capability so the tool registry cannot be invoked around it, D-PM-P3-b) and ARB's chokepoint evolved separately after the fork. Once pm-agent's R1 lands, add a side-by-side of the two step orders and the two complete-mediation mechanisms. When E6 binds a real GCP organisation, replace the placement table's "platform-native gateway" row with what was actually deployed.</p>
+</div>
+
+<h2 id="fail"><span class="n">16.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Mechanism</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Fail-open on malformed input</td><td>Undefined fields silently disable deny rules</td><td>Conservative <code>object.get</code> defaults; test the empty request</td></tr>
+<tr><td>Bypass</td><td>Agent code holds a raw client; a second framework calls tools directly</td><td>Governed toolset only; import firewall; gateways plus network egress control for out-of-process hosts</td></tr>
+<tr><td>Time-of-check to time-of-use</td><td>Approval granted for one refund is replayed for another amount</td><td>Bind approvals to the exact action and arguments (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>); re-read facts at decision time</td></tr>
+<tr><td>Dead policy</td><td>A rule reads a fact nothing produces</td><td>Derived reachability test (<a class="sref" href="#pip">16.6</a>)</td></tr>
+<tr><td>PDP or state unavailable</td><td>Policy engine, directory or state store times out</td><td>Fail closed for writes. ARB refuses a contended state transaction as <code>StateUnavailableError</code>. Degrade to read-only rather than to allow; decide explicitly whether reads may proceed</td></tr>
+<tr><td>Policy drift</td><td>Production runs a bundle nobody reviewed</td><td>Bundle and configuration digests in evidence; sign-off bound to the digest (<span class="ctl">CTL-0022</span>)</td></tr>
+<tr><td>Double effect</td><td>Retries execute the write twice</td><td>Idempotency keys and replay (<span class="ctl">CTL-0006</span>); retry only attempts that had no effect</td></tr>
+<tr><td>Unrecorded effect</td><td>Evidence store down after the write</td><td>Compensate (<a class="sref" href="#path">16.4</a>); never "log later"</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">16.11</span>Client translation</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <p>The client story is three checkpoints on the agent's path (screen the input, check the action against policy, ask a person when the stakes are high) and one sentence: an instruction is not a control. The questions that follow are architectural:</p>
+  <ul>
+    <li><strong>"Our platform has guardrails. Isn't that this?"</strong> Guardrails screen content; a PEP authorises actions on facts from trusted state. You need both, and they fail differently: a guardrail can be fooled by phrasing; a policy on "refund ≤ order total, read from the order system" cannot.</li>
+    <li><strong>"Where do we put the checkpoint across Copilot Studio, Agentforce and our custom agents?"</strong> Layer it: native controls where the platform offers them, a gateway in front of shared tools and systems of record, an in-process PEP for what you build, and one evidence standard across all of them.</li>
+    <li><strong>"What if the policy engine is down?"</strong> Writes stop; reads may continue by explicit decision. Saying this calmly, with the reason, is a credibility moment.</li>
+  </ul>
+</div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Platform gateway features (Google Agent Gateway, AWS AgentCore Gateway and Policy, Microsoft's agent controls) change release status often. Confirm what is generally available, in which regions, before naming any of them as a client's enforcement point.</p>
+</div>
+
+<h2 id="prove"><span class="n">16.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold, then check · pairs with R01 (trace the golden path) and R09 (policy)</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name the four roles and the ARB file for each. Name the seven steps of the governed path and which side of the effect each sits on.</li>
+    <li><span class="lvl">Recall</span>Why is <code>default allow := false</code> not sufficient in Rego? Show the one-line pattern that fixes it.</li>
+    <li><span class="lvl">Apply</span>Trace a refund of 34.95 on an order of 34.95 through the PIP and PDP. Where would a float comparison have gone wrong, and which component prevents it?</li>
+    <li><span class="lvl">Apply</span>The action record write fails after the payment succeeded. Walk through what happens, which control requires it, and which red-team finding added it.</li>
+    <li><span class="lvl">Design</span>pm-agent will create Jira issues through an MCP server you don't own. Design the enforcement points: what runs in-process, what in a gateway, what at Jira's permissions. What does each one see?</li>
+    <li><span class="lvl">Trade-off</span>Make the case for running OPA as a server instead of embedding <code>rego-cpp</code>. What do you gain in production, and what does the build lose?</li>
+    <li><span class="lvl">Defend</span>"Your chokepoint is a single point of failure." Answer it.</li>
+  </ol>
+  <p class="small">Card candidates: <em>the seven steps and the effect line</em> · <em>Rego fails open on undefined; object.get defaults</em> · <em>no dead policy (GAP-17, D30)</em> · <em>record decision before effect; reverse on unrecorded effect (RT-11)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">16.13</span>Further reading</h2>
+<ul>
+  <li><span class="tag own">Your build</span> Module docstrings first, code second: <code>src/aicoe/chokepoint.py</code>, <code>enforcement/plane.py</code> (<code>before_call</code>, <code>after_call</code>, <code>transform_result</code>), <code>enforcement/pip.py</code>, <code>governance/policies/rego/tool_call.rego</code> header, <code>tests/test_no_dead_policy.py</code>, <code>gateways/equivalence.py</code>. Decisions D17, D23, D25, D26, D30, D53.</li>
+  <li><span class="tag own">Your build</span> pm-agent's PEP lives in <code>platform/pep/</code> (about 1,000 lines). After R01, diff its step order against ARB's seven and note what differs.</li>
+  <li><span class="tag gen">Generic</span> NIST SP 800-162 (ABAC) for the PEP/PDP/PIP vocabulary; Saltzer and Schroeder, "The Protection of Information in Computer Systems" (1975), for complete mediation and fail-safe defaults; the OPA documentation on policy performance and decision logs.</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite> (3rd ed., Wiley, 2020), the chapters on access control and on security policy models, for the lineage of the reference monitor that the PEP is. Michael Nygard, <cite>Release It!</cite> (2nd ed., Pragmatic Bookshelf, 2018), on fail-fast and steady state, for the availability side of failing closed.</li>
+  <li>Hands-on: BT06 (Rego) and BT07 (Cedar) in the technology track.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="lifecycle-gates.html"><small>Previous</small>15 · The lifecycle and its gates</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="policy-as-code.html"><small>Next</small>17 · Policy as code</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

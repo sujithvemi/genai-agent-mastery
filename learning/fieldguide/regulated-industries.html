@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>49 · Regulated industries</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VIII · Frameworks and law</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 49</div>
+  <ol>
+    <li><a href="#overlay">What an overlay is</a></li>
+    <li><a href="#banking">Banking and capital markets</a></li>
+    <li><a href="#insurance">Insurance</a></li>
+    <li><a href="#health">Healthcare and life sciences</a></li>
+    <li><a href="#public">Public sector</a></li>
+    <li><a href="#weights">Where each overlay weighs most</a></li>
+    <li><a href="#thirdparty">Third parties: the common thread</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VIII · CHAPTER 49</div>
+  <h1>Regulated industries</h1>
+  <p class="lede">Banking, insurance, healthcare and the public sector each add rules on top of general AI law. This chapter turns them into engineering: an overlay that adds controls, sets tier floors, fixes evidence retention and names regulated roles, applied to a generic core. It covers what changed in 2026, including new US model risk guidance and Singapore's final AI risk guidelines, and the common thread that runs through every sector: accountability for the third parties an agent depends on.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · CLIENT</span></div>
+    <div><b>Reps</b><span>Capstone B4, B7</span></div>
+    <div><b>Build links</b><span>ARB tiering axes and CRITICAL treatment; D74 (fairness held)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (not legal advice)</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your bank client's model risk policy covers "models". Is an agent built on a vendor LLM a model, and who validates it?</li>
+    <li>A healthcare client's agent writes patient context into traces sent to an observability vendor. What has to be true about that vendor?</li>
+    <li>What should a sector overlay be allowed to change in your catalog, and what should it never change?</li>
+  </ol>
+</div>
+
+<h2 id="overlay"><span class="n">49.1</span>What an overlay is</h2>
+<p><span class="tag gen">Generic</span> Sector regulation does not need a new governance framework. It needs an <strong>overlay</strong>: a versioned layer on the generic core that changes four things and nothing else.</p>
+<ul>
+  <li><strong>The catalog.</strong> Adds controls the sector requires (independent validation, fair-lending testing, adverse-action reasons, PHI minimisation) or tightens a core control's trigger and treatment.</li>
+  <li><strong>The tiering.</strong> Adds tier floors for regulated uses ("any agent that informs a credit decision is at least HIGH") or new axis values.</li>
+  <li><strong>The evidence.</strong> Sets retention, immutability, content restrictions and who may read it.</li>
+  <li><strong>The operating model.</strong> Names regulated roles (a model risk function, a senior manager, a clinical safety officer), notification duties and review cadences.</li>
+</ul>
+<p>Two rules keep overlays safe. They <em>add and tighten</em>; they never remove a core control or loosen a core threshold. And the resolved rulebook records which layer each rule came from, so a change to the overlay re-derives every agent it touches, exactly as a manifest change does in your build (<a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a>).</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="Core plus overlays. A generic core (catalog, tiering, evidence plane, gate, PEP, registry) is extended by a sector overlay (added controls, tier floors, retention, validation roles) and a client overlay (policies, thresholds, owners). They resolve into one rulebook per agent with provenance per rule, applied to agents such as a retail credit agent with a HIGH floor, a claims triage agent with fairness controls, and an internal IT agent on the core only. Overlays add and tighten; they never remove a core control.">
+<defs><marker id="o49" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="10" y="200" width="300" height="96" rx="6"/>
+<text class="tx-b" x="160" y="234.5" text-anchor="middle">Generic core</text>
+<text class="tx-s" x="160" y="252.5" text-anchor="middle">catalog · tiering · evidence plane</text>
+<text class="tx-s" x="160" y="270.5" text-anchor="middle">gate · PEP · registry</text>
+<rect class="box-acc" x="10" y="104" width="300" height="80" rx="6"/>
+<text class="tx-acc" x="160" y="130.5" text-anchor="middle">Sector overlay</text>
+<text class="tx-s" x="160" y="148.5" text-anchor="middle">added controls · tier floors</text>
+<text class="tx-s" x="160" y="166.5" text-anchor="middle">retention · validation roles</text>
+<rect class="box" x="10" y="14" width="300" height="74" rx="6"/>
+<text class="tx-b" x="160" y="46.5" text-anchor="middle">Client overlay</text>
+<text class="tx-s" x="160" y="64.5" text-anchor="middle">policies · thresholds · owners</text>
+<line class="ln" x1="310" y1="248" x2="420" y2="160" marker-end="url(#o49)"/>
+<line class="ln" x1="310" y1="144" x2="420" y2="150" marker-end="url(#o49)"/>
+<line class="ln" x1="310" y1="51" x2="420" y2="140" marker-end="url(#o49)"/>
+<rect class="box-ok" x="422" y="104" width="220" height="96" rx="6"/>
+<text class="tx-ok" x="532" y="138.5" text-anchor="middle">Resolved rulebook</text>
+<text class="tx-s" x="532" y="156.5" text-anchor="middle">one catalog per agent</text>
+<text class="tx-s" x="532" y="174.5" text-anchor="middle">with provenance per rule</text>
+<line class="ln" x1="642" y1="152" x2="690" y2="152" marker-end="url(#o49)"/>
+<rect class="box" x="692" y="40" width="198" height="64" rx="6"/>
+<text class="tx-b" x="791" y="67.5" text-anchor="middle">Agent A</text>
+<text class="tx-s" x="791" y="85.5" text-anchor="middle">retail credit · HIGH floor</text>
+<rect class="box" x="692" y="120" width="198" height="64" rx="6"/>
+<text class="tx-b" x="791" y="147.5" text-anchor="middle">Agent B</text>
+<text class="tx-s" x="791" y="165.5" text-anchor="middle">claims triage · fairness</text>
+<rect class="box" x="692" y="200" width="198" height="64" rx="6"/>
+<text class="tx-b" x="791" y="227.5" text-anchor="middle">Agent C</text>
+<text class="tx-s" x="791" y="245.5" text-anchor="middle">internal IT · core only</text>
+<line class="ln" x1="690" y1="152" x2="690" y2="72"/>
+<line class="ln" x1="690" y1="152" x2="690" y2="232"/>
+<text class="tx-s" x="450" y="318" text-anchor="middle">Overlays add and tighten; they never remove a core control.</text>
+</svg>
+</div>
+<figcaption><b>Fig 49.1</b>Regulation enters as overlays on a generic core. The resolved rulebook records which layer each rule came from, so an auditor can see why a control applies and a change to the sector overlay re-derives every affected agent.</figcaption>
+</figure>
+<p><span class="tag own">Your build</span> ARB's tiering already has the hooks: five axes (data sensitivity, action class, exposure, autonomy, blast radius), highest-wins banding, and a CRITICAL treatment that makes approval controls non-waivable (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>). A regulated value such as <code>sensitive/regulated</code> data already lifts an agent to HIGH. What the build does not have is a sector layer; Capstone B asks you to package one (<a class="xref" data-ch="capstone-b" href="capstone-b.html">Chapter 53</a>).</p>
+<p>A sector overlay as data might look like this. <span class="tag asm">Illustrative</span> The ids, uses and numbers are examples, not a client's rules:</p>
+<pre><code>overlay: banking-us
+extends: core@2026.10
+tier_floors:
+  - when: "use_case in ['credit_decision', 'credit_limit_change']"
+    min_tier: HIGH
+controls_added:
+  - id: BNK-0001
+    title: Adverse-action reasons derived from the decision record
+    applies_when: "use_case == 'credit_decision' and action_class != 'read-only'"
+  - id: BNK-0002
+    title: Independent validation before first deployment and after material change
+    applies_when: "tier in ['HIGH', 'CRITICAL']"
+evidence:
+  retention_years: 7
+  immutable_storage: required
+roles:
+  validator: model_risk_management   # second line, independent of the builders</code></pre>
+
+<h2 id="banking"><span class="n">49.2</span>Banking and capital markets</h2>
+<p><span class="tag gen">Generic</span> Banks already govern models, and the first question is whether an agent is one. The answer changed in 2026.</p>
+<div class="tw"><table>
+<thead><tr><th>Jurisdiction</th><th>Rule</th><th>What it says that matters for agents</th></tr></thead>
+<tbody>
+<tr><td>United States</td><td>Revised model risk management guidance from the Federal Reserve, OCC and FDIC, 17 April 2026 (Fed SR 26-2, OCC Bulletin 2026-13), rescinding SR 11-7 and OCC 2011-12</td><td>Risk-based rather than prescriptive: no mandatory annual validation; validation frequency follows materiality and change; vendor models need understanding plus ongoing monitoring. Generative and agentic AI are carved out as "novel and rapidly evolving", to be governed under broader risk management, with a request for information on AI model risk to follow</td></tr>
+<tr><td>United Kingdom</td><td>PRA SS1/23, model risk management principles for banks (effective 17 May 2024)</td><td>A broad model definition that includes AI; model inventory and tiering; independent validation; a senior manager accountable for the framework</td></tr>
+<tr><td>European Union</td><td>EU AI Act Annex III (creditworthiness of natural persons, from 2 December 2027); DORA (applies from 17 January 2025)</td><td>Credit-scoring agents are high-risk. DORA governs ICT risk, incident reporting and the register of ICT third-party arrangements, which now includes model and agent platform providers</td></tr>
+<tr><td>Singapore</td><td>MAS Guidelines on AI Risk Management, finalised 7 October 2026, effective 7 October 2027 with later sections from October 2028</td><td>Board oversight, an AI inventory, materiality assessment per use, lifecycle controls, and accountability for third-party AI. MAS will consult on further agentic AI guidance in 2027</td></tr>
+<tr><td>Canada</td><td>OSFI Guideline E-23, model risk management (revised; effective 1 May 2027) <span class="tag ver">Verify</span></td><td>Explicitly covers AI and machine-learning models, including vendor models, across the model lifecycle</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The practical answer to the first prediction question: treat the <em>model inside</em> the agent as a model (inventory entry, validation evidence, monitoring) and the <em>agent's actions</em> as operational risk (controls, resilience, third-party management). The two map cleanly onto things your build already produces:</p>
+<div class="tw"><table>
+<thead><tr><th>Model risk expectation</th><th>Where it comes from in your design</th></tr></thead>
+<tbody>
+<tr><td>Model inventory with tier and owner</td><td>The registry of record and the model pin per agent (<span class="ctl">CTL-0021</span>, <span class="ctl">CTL-0023</span>; <a class="xref" data-ch="model-choice-risk" data-sec="#mrm" href="model-choice-risk.html#mrm">Chapter 10</a>)</td></tr>
+<tr><td>Validation before use and after material change</td><td>Evaluation gates and red-team results bound to the sign-off digest (<a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a>, <span class="ctl">CTL-0022</span>)</td></tr>
+<tr><td>Effective challenge by someone independent</td><td>A reviewer outside the build team signs; separation of duties is enforced, not assumed</td></tr>
+<tr><td>Ongoing monitoring and outcome analysis</td><td>Online evaluation, drift monitors and control-decision rates (<a class="xref" data-ch="observability-agentops" data-sec="#slos" href="observability-agentops.html#slos">Chapter 31</a>)</td></tr>
+<tr><td>Vendor model understanding</td><td>Model cards, the provider's change notices, your own evaluation on your tasks, identity checks on the served model</td></tr>
+</tbody></table></div>
+<p>Two banking specifics change the catalog. In the US, a credit denial needs specific reasons (Regulation B adverse-action notices), which an agent can only give if the reasons come from a decision record, not from a model's after-the-fact explanation. And broker-dealer record-keeping (SEC Rule 17a-4) is one of the reasons cloud object stores offer compliance-mode retention locks, the same mechanism your evidence anchors use (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</p>
+
+<h2 id="insurance"><span class="n">49.3</span>Insurance</h2>
+<p><span class="tag gen">Generic</span> Insurance regulators focus on unfair discrimination, explainability of decisions and the data used.</p>
+<ul>
+  <li><strong>EU AI Act.</strong> AI used for risk assessment and pricing in life and health insurance is in Annex III, so high-risk from 2 December 2027. EIOPA has published an opinion on AI governance and risk management for insurers <span class="tag ver">Verify</span>.</li>
+  <li><strong>United States.</strong> The NAIC Model Bulletin on the Use of AI Systems by Insurers (December 2023), adopted by many states <span class="tag ver">Verify</span> the current count, expects a written AI programme, governance, risk management, third-party oversight and testing for unfair discrimination. Colorado's law on insurers' use of external consumer data adds testing and reporting duties.</li>
+</ul>
+<p>Agent use cases (first notice of loss, claims triage, underwriting assistance) mostly read and recommend. The catalog changes come from the decisions they influence: a claims-payment agent is a financial write (CRITICAL by your banding), and any agent whose recommendations differ by group needs the fairness testing your build has found hard to make conclusive. ARB's fairness control <span class="ctl">CTL-0027</span> is held, not ratified, because the measured criterion could not separate noise from bias on the available data (D74). That is the honest state of the art, and an insurer should hear it plainly.</p>
+
+<h2 id="health"><span class="n">49.4</span>Healthcare and life sciences</h2>
+<p><span class="tag gen">Generic</span> Two regimes dominate: privacy of health data and safety of clinical decisions.</p>
+<ul>
+  <li><strong>HIPAA (US).</strong> Protected health information may flow only to covered entities and business associates under a business associate agreement (BAA), in the minimum necessary amount, with audit controls. For an agent, every service in the data path is in scope: the model provider, the vector store, the observability vendor that receives traces, the MCP servers. HIPAA requires its documentation to be kept for six years; many organisations apply the same period to audit records <span class="tag asm">Assumption</span>.</li>
+  <li><strong>Medical device regulation.</strong> Software that informs clinical decisions can be a medical device. In the US, the FDA's guidance on clinical decision support distinguishes non-device support (a clinician can independently review the basis) from device functions, and its guidance on AI-enabled device software, including predetermined change control plans, sets lifecycle expectations <span class="tag ver">Verify</span> current versions. In the EU, the Medical Device Regulation applies, and AI that is a safety component of a device falls under the AI Act's Annex I timeline (2 August 2028).</li>
+</ul>
+<p>The overlay is the heaviest of the four: autonomy capped at "suggests" for anything clinical, a clinician as the decider with the basis shown (which is also what keeps support outside the device definition), PHI kept out of prompts, caches and traces wherever possible (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>), and a BAA, or no PHI, on every hop. A clinical safety case, the healthcare analogue of a sign-off, records hazards and their mitigations.</p>
+
+<h2 id="public"><span class="n">49.5</span>Public sector</h2>
+<p><span class="tag gen">Generic</span> Governments add transparency to the public, rights of appeal and records law.</p>
+<ul>
+  <li><strong>United States.</strong> OMB memorandum M-25-21 (April 2025) requires agencies to apply minimum risk-management practices to "high-impact" AI (pre-deployment testing, impact assessment, ongoing monitoring, human oversight and remedies) or stop using it <span class="tag ver">Verify</span> its current status and deadlines. Cloud services used by agencies need FedRAMP authorisation, so check each agent service, not just the cloud.</li>
+  <li><strong>United Kingdom.</strong> The Algorithmic Transparency Recording Standard is mandatory for central government departments: a public record of each algorithmic tool, its purpose, data and human oversight.</li>
+  <li><strong>European Union.</strong> Access to essential public services and benefits is an Annex III area; public bodies deploying high-risk AI must carry out a fundamental rights impact assessment (Article 27); high-risk systems already used by public authorities have until 2 August 2030.</li>
+</ul>
+<p>Public records and freedom-of-information laws reach agent conversations and decisions, which turns evidence retention from a choice into an obligation, and sovereignty requirements often decide the platform (<a class="xref" data-ch="capacity-cost-regions" data-sec="#regions" href="capacity-cost-regions.html#regions">Chapter 33</a>).</p>
+
+<h2 id="weights"><span class="n">49.6</span>Where each overlay weighs most</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 316" role="img" aria-label="Overlay weight by sector, the author&#x27;s assessment. Banking: heavy catalog (validation, fair lending), tiering (credit uses HIGH or above), evidence (retention, WORM) at the highest weight, oversight (effective challenge), third parties (DORA, vendor models) and explanations (adverse-action reasons). Insurance: moderate catalog (unfair discrimination), heavy tiering (pricing, claims), moderate evidence and oversight, heavy third parties (external data) and explanations. Healthcare: heavy catalog (PHI, clinical safety), highest weight on tiering (clinical agents suggest only), oversight (clinician decides) and third parties (a BAA on every hop), heavy evidence (PHI out of traces), moderate explanations. Public sector: moderate catalog (impact assessment), heavy tiering, evidence (public records), oversight (appeal and redress), third parties (authorised clouds), and highest weight on public transparency.">
+<text class="tx-s" x="10" y="24" text-anchor="start">Overlay weight by sector (author's assessment)</text>
+<text class="tx-b" x="219" y="50" text-anchor="middle">Catalog</text>
+<text class="tx-b" x="341" y="50" text-anchor="middle">Tiering</text>
+<text class="tx-b" x="463" y="50" text-anchor="middle">Evidence</text>
+<text class="tx-b" x="585" y="50" text-anchor="middle">Oversight</text>
+<text class="tx-b" x="707" y="50" text-anchor="middle">Third parties</text>
+<text class="tx-b" x="829" y="50" text-anchor="middle">Explanations</text>
+<text class="tx-b" x="10" y="95" text-anchor="start">Banking</text>
+<rect class="fill-high" x="160" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="219" y="86" text-anchor="middle">validation</text>
+<text class="tx-inv" x="219" y="102" text-anchor="middle">fair lending</text>
+<rect class="fill-high" x="282" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="341" y="86" text-anchor="middle">credit uses</text>
+<text class="tx-inv" x="341" y="102" text-anchor="middle">HIGH or above</text>
+<rect class="fill-crit" x="404" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="463" y="86" text-anchor="middle">retention</text>
+<text class="tx-inv" x="463" y="102" text-anchor="middle">WORM</text>
+<rect class="fill-high" x="526" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="585" y="86" text-anchor="middle">effective</text>
+<text class="tx-inv" x="585" y="102" text-anchor="middle">challenge</text>
+<rect class="fill-high" x="648" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="707" y="86" text-anchor="middle">DORA</text>
+<text class="tx-inv" x="707" y="102" text-anchor="middle">vendor models</text>
+<rect class="fill-high" x="770" y="62" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="829" y="86" text-anchor="middle">adverse-action</text>
+<text class="tx-inv" x="829" y="102" text-anchor="middle">reasons</text>
+<text class="tx-b" x="10" y="157" text-anchor="start">Insurance</text>
+<rect class="fill-med" x="160" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="219" y="148" text-anchor="middle">unfair</text>
+<text class="tx-inv" x="219" y="164" text-anchor="middle">discrimination</text>
+<rect class="fill-high" x="282" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="341" y="148" text-anchor="middle">pricing</text>
+<text class="tx-inv" x="341" y="164" text-anchor="middle">claims</text>
+<rect class="fill-med" x="404" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="463" y="148" text-anchor="middle">testing</text>
+<text class="tx-inv" x="463" y="164" text-anchor="middle">records</text>
+<rect class="fill-med" x="526" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="585" y="148" text-anchor="middle">claims</text>
+<text class="tx-inv" x="585" y="164" text-anchor="middle">review</text>
+<rect class="fill-high" x="648" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="707" y="148" text-anchor="middle">external</text>
+<text class="tx-inv" x="707" y="164" text-anchor="middle">data</text>
+<rect class="fill-high" x="770" y="124" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="829" y="148" text-anchor="middle">decision</text>
+<text class="tx-inv" x="829" y="164" text-anchor="middle">reasons</text>
+<text class="tx-b" x="10" y="219" text-anchor="start">Healthcare</text>
+<rect class="fill-high" x="160" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="219" y="210" text-anchor="middle">PHI</text>
+<text class="tx-inv" x="219" y="226" text-anchor="middle">clinical safety</text>
+<rect class="fill-crit" x="282" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="341" y="210" text-anchor="middle">clinical:</text>
+<text class="tx-inv" x="341" y="226" text-anchor="middle">suggest only</text>
+<rect class="fill-high" x="404" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="463" y="210" text-anchor="middle">PHI out of</text>
+<text class="tx-inv" x="463" y="226" text-anchor="middle">traces</text>
+<rect class="fill-crit" x="526" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="585" y="210" text-anchor="middle">clinician</text>
+<text class="tx-inv" x="585" y="226" text-anchor="middle">decides</text>
+<rect class="fill-crit" x="648" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="707" y="210" text-anchor="middle">a BAA on</text>
+<text class="tx-inv" x="707" y="226" text-anchor="middle">every hop</text>
+<rect class="fill-med" x="770" y="186" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="829" y="210" text-anchor="middle">source</text>
+<text class="tx-inv" x="829" y="226" text-anchor="middle">transparency</text>
+<text class="tx-b" x="10" y="281" text-anchor="start">Public sector</text>
+<rect class="fill-med" x="160" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="219" y="272" text-anchor="middle">impact</text>
+<text class="tx-inv" x="219" y="288" text-anchor="middle">assessment</text>
+<rect class="fill-high" x="282" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="341" y="272" text-anchor="middle">rights</text>
+<text class="tx-inv" x="341" y="288" text-anchor="middle">benefits</text>
+<rect class="fill-high" x="404" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="463" y="272" text-anchor="middle">public</text>
+<text class="tx-inv" x="463" y="288" text-anchor="middle">records</text>
+<rect class="fill-high" x="526" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="585" y="272" text-anchor="middle">appeal and</text>
+<text class="tx-inv" x="585" y="288" text-anchor="middle">redress</text>
+<rect class="fill-high" x="648" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="707" y="272" text-anchor="middle">authorised</text>
+<text class="tx-inv" x="707" y="288" text-anchor="middle">clouds</text>
+<rect class="fill-crit" x="770" y="248" width="118" height="56" rx="5"/>
+<text class="tx-inv" x="829" y="272" text-anchor="middle">public</text>
+<text class="tx-inv" x="829" y="288" text-anchor="middle">transparency</text>
+</svg>
+</div>
+<figcaption><b>Fig 49.2</b>Where each sector's overlay weighs most. <span class="tag asm">Assumption</span> The weights are the author's reading of the rules below; use the grid to plan where design effort goes, not as a compliance assessment.</figcaption>
+</figure>
+
+<h2 id="thirdparty"><span class="n">49.7</span>Third parties: the common thread</h2>
+<p><span class="tag gen">Generic</span> Every sector now holds the firm accountable for AI it buys: MAS's guidelines say so directly, DORA requires a register and exit plans, the US banking guidance expects understanding and monitoring of vendor models, HIPAA requires BAAs. An agent multiplies third parties.</p>
+<div class="tw"><table>
+<thead><tr><th>Third party</th><th>What to obtain</th></tr></thead>
+<tbody>
+<tr><td>Model provider</td><td>Data use and retention terms; regions; change and retirement notices; model documentation; incident notification</td></tr>
+<tr><td>Agent platform</td><td>Which features are GA; where data rests; audit logs; exit and portability (<a class="xref" data-ch="across-platforms" data-sec="#portable" href="across-platforms.html#portable">Chapter 45</a>)</td></tr>
+<tr><td>Observability and evaluation vendors</td><td>What content they receive; retention; region; whether they train on it; the same contractual terms as the model provider</td></tr>
+<tr><td>MCP servers and connectors</td><td>Ownership, review and pinning (<span class="ctl">CTL-0024</span>); the credentials they hold</td></tr>
+<tr><td>SaaS agents</td><td>Inventory feeds; decision logs; the controls they enforce and the ones you must add at your gateway (<a class="xref" data-ch="data-saas-model-platforms" href="data-saas-model-platforms.html">Chapter 44</a>)</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">49.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>How it shows up</th><th>Guard</th></tr></thead>
+<tbody>
+<tr><td>A parallel framework per regulation</td><td>Three catalogs disagree on what a control means</td><td>One core, overlays that add and tighten, provenance per rule</td></tr>
+<tr><td>Overlay that loosens</td><td>A sector waiver quietly removes a core approval</td><td>Overlays may not remove core controls; a test enforces it</td></tr>
+<tr><td>The agent is "not a model", so nobody validates it</td><td>No inventory entry, no validation evidence</td><td>Inventory the model inside; govern the actions as operational risk</td></tr>
+<tr><td>PHI in traces</td><td>A tracing vendor without a BAA receives patient data</td><td>Redaction at the source; BAA coverage on every hop</td></tr>
+<tr><td>Explanations generated after the fact</td><td>An adverse-action reason the decision did not use</td><td>Reasons derived from the decision record</td></tr>
+<tr><td>Fairness claimed without power</td><td>"No bias found" on a sample too small to find it</td><td>State the test's power; hold the control, as D74 did</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">49.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Does our model risk team need to validate every agent?"</strong> "They should inventory the model inside each one and validate in proportion to materiality. The agent's actions are governed by controls we can show firing. For anything that informs a credit decision, we would expect independent review before it goes live."</li>
+    <li><strong>"Can we use this agent with patient data?"</strong> "Only if every service the data touches is covered by a business associate agreement, including the tracing tools, and the agent only suggests while a clinician decides. Otherwise we design it so that patient data never reaches those services."</li>
+    <li><strong>"Do we need a separate framework for each regulator?"</strong> "No. One core rulebook, plus an overlay per sector that adds controls and tightens thresholds. Each rule records where it came from, so you can show any regulator the part that answers them."</li>
+  </ul>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Sector rules moved quickly in 2026: US model risk guidance was replaced in April, MAS finalised its AI guidelines in October, and US federal AI policy changed status during the year. Check the current text, its effective date and its scope (bank size thresholds, which entities, which uses) before naming any rule in a client document. This chapter is not legal advice.</p>
+</div>
+
+<div class="panel p-future" data-trigger="A regulated-industry pursuit, or the US agencies' AI model risk request for information, or MAS's 2027 agentic consultation">
+  <span class="k">Waiting on the builds</span>
+  <p>Neither build has a sector overlay. When a pursuit needs one, build the banking overlay as data on ARB's catalog (Capstone B4 and B7) and replace the illustrative YAML here with it. Update the banking section when the US agencies publish their AI model risk follow-up and when MAS consults on agentic AI.</p>
+</div>
+
+<h2 id="prove"><span class="n">49.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · Capstone B4</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four things an overlay may change, and the two rules that keep it safe.</li>
+    <li><span class="lvl">Recall</span>What the April 2026 US model risk guidance says about generative and agentic AI.</li>
+    <li><span class="lvl">Apply</span>Write the overlay rules for a bank's credit-limit agent: tier floor, added controls, evidence retention and the validator role.</li>
+    <li><span class="lvl">Apply</span>List every third party in a healthcare agent's data path and what each must sign.</li>
+    <li><span class="lvl">Design</span>A single catalog serving a client with banking (US, UK) and insurance (EU) agents, with overlays and provenance.</li>
+    <li><span class="lvl">Trade-off</span>A clinical documentation agent: keep it out of the medical device definition, or accept device regulation for more autonomy?</li>
+  </ol>
+  <p class="small">Card candidates: <em>overlays add and tighten, never remove</em> · <em>model inside, operational risk outside</em> · <em>a BAA on every hop, including traces</em> · <em>reasons from the decision record</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">49.11</span>Further reading</h2>
+<ul>
+  <li><b>Banking.</b> Federal Reserve SR 26-2 and OCC Bulletin 2026-13 (April 2026); PRA SS1/23; Regulation (EU) 2022/2554 (DORA); MAS Guidelines on AI Risk Management (October 2026); OSFI Guideline E-23.</li>
+  <li><b>Insurance.</b> NAIC Model Bulletin on the Use of AI Systems by Insurers; EIOPA opinion on AI governance and risk management.</li>
+  <li><b>Healthcare.</b> HHS HIPAA Security Rule guidance; FDA guidance on clinical decision support software and on AI-enabled device software functions.</li>
+  <li><b>Public sector.</b> OMB M-25-21; the UK Algorithmic Transparency Recording Standard; EU AI Act Article 27.</li>
+  <li><span class="tag own">Your build</span> <code>governance/taxonomy/axes.yaml</code> and <code>tiers.yaml</code>; DECISIONS D74 (fairness held); <a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a> for the crosswalk mechanics an overlay plugs into.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="standards-law-crosswalk.html"><small>Previous</small>48 · Standards, law and crosswalk engineering</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="aicoe-operating-model.html"><small>Next</small>50 · The AICoE operating model</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

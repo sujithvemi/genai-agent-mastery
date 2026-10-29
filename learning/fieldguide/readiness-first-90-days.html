@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>51 · Readiness and the first 90 days</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IX · The operating model</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 51</div>
+  <ol>
+    <li><a href="#why">Start from where they are</a></li>
+    <li><a href="#assess">Assessment dimensions</a></li>
+    <li><a href="#mvg">Minimum viable governance</a></li>
+    <li><a href="#states">Interim state and target state</a></li>
+    <li><a href="#plan">Sequencing the first 90 days</a></li>
+    <li><a href="#shadow">Starting from shadow AI and SaaS agents</a></li>
+    <li><a href="#no">What to say no to, for now</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IX · CHAPTER 51</div>
+  <h1>Readiness and the first 90 days</h1>
+  <p class="lede">How to start a governance programme from low maturity: assess on ten dimensions using artefacts rather than interviews, build the seven controls every later control depends on, separate an interim state you can reach in 90 days from a target state you plan for, and sequence the first three months so the riskiest agents are safe in the first thirty.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>CLIENT</span></div>
+    <div><b>Reps</b><span>Capstone B6</span></div>
+    <div><b>Build links</b><span>ARB posture arc (BUILD_STORY); CTL-0023; GBL-DENY-01, GBL-EVID-01</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A client has 30 agents in production and no inventory. What is the first control you put in place, and why that one?</li>
+    <li>Which of these is wrong to do in the first 90 days: write a 50-control catalog, put a gateway in front of payments, certify to ISO/IEC 42001, choose one agent platform for everything?</li>
+    <li>What would you show the board at day 90 to prove progress?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">51.1</span>Start from where they are</h2>
+<p><span class="tag gen">Generic</span> Most clients do not start with a blank page. They start with agents already running: pilots that became production, assistants with tool access, SaaS agents switched on by a business team, scripts calling models with a service account. The first job is not to design the target state; it is to find out what is running, decide what must change this month, and build the minimum that makes every later control possible.</p>
+<p><span class="tag own">Your build</span> ARB's own history is a usable maturity scale. Its build story moved from <em>unguarded</em> to <em>specified</em>, <em>enforced</em>, <em>verified</em>, <em>portable</em>, <em>fleet</em> and finally <em>operable and defensible</em>. A client estate climbs the same ladder, more slowly and unevenly; the four levels below compress it.</p>
+
+<h2 id="assess"><span class="n">51.2</span>Assessment dimensions</h2>
+<div class="tw"><table>
+<thead><tr><th>Dimension</th><th>Ask</th><th>Good sign</th><th>Red flag</th></tr></thead>
+<tbody>
+<tr><td>Ownership</td><td>Who is accountable for each agent and each control?</td><td>Named owners in a system of record</td><td>"The vendor handles it"</td></tr>
+<tr><td>Inventory</td><td>How many agents run today, on which platforms, with which tools?</td><td>A number with a reconciliation date</td><td>A range, or a spreadsheet from last quarter</td></tr>
+<tr><td>Tiering</td><td>How do you decide how much control an agent needs?</td><td>A rule anyone can apply the same way</td><td>Case-by-case judgement in a committee</td></tr>
+<tr><td>Enforcement</td><td>What stops an agent exceeding its limits at run time?</td><td>A chokepoint or gateway that decides on trusted facts</td><td>Instructions in the prompt</td></tr>
+<tr><td>Identity</td><td>Whose authority does each agent act with?</td><td>Per-agent identity; delegated, narrowed user authority</td><td>A shared service account or a maker's personal credentials</td></tr>
+<tr><td>Data</td><td>What data reaches models, memories, caches and traces?</td><td>Classified flows; minimisation; residency decided</td><td>Nobody has looked at the traces</td></tr>
+<tr><td>Evaluation</td><td>How do you know an agent still works after a change?</td><td>Golden sets and a gate before release</td><td>Manual spot checks</td></tr>
+<tr><td>Evidence</td><td>Can you show what an agent did last Tuesday and why?</td><td>Complete, tamper-evident decision records</td><td>Application logs with 30-day retention</td></tr>
+<tr><td>Delivery</td><td>How does an agent reach production?</td><td>A pipeline with required checks and keyless identity</td><td>Deployed from a laptop</td></tr>
+<tr><td>Operating model</td><td>Who decides changes, waivers and promotions?</td><td>A board with written rulings</td><td>Email threads</td></tr>
+</tbody></table></div>
+<p>Score each from 1 to 4: <strong>ad hoc</strong> (nobody knows), <strong>specified</strong> (rules exist on paper), <strong>enforced</strong> (a mechanism applies them), <strong>proven</strong> (tested, measured and auditable). Score on evidence, not on interviews: ask to see the inventory, the gateway configuration, last week's decision records.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 420" role="img" aria-label="A readiness radar for an illustrative client across ten dimensions: ownership, inventory, tiering, enforcement, identity, data, evaluation, evidence, delivery and operating model, each scored from 1 (ad hoc) to 4 (proven). Today most dimensions sit at 1 or 2. The day-90 target lifts ownership, inventory, tiering, evidence and the operating model to 3, and enforcement and evaluation to 2, leaving identity, data and delivery where they are.">
+<polygon points="300.0,170.0 323.5,177.6 338.0,197.6 338.0,222.4 323.5,242.4 300.0,250.0 276.5,242.4 262.0,222.4 262.0,197.6 276.5,177.6" class="ln" style="fill:none;opacity:.5"/>
+<polygon points="300.0,130.0 347.0,145.3 376.1,185.3 376.1,234.7 347.0,274.7 300.0,290.0 253.0,274.7 223.9,234.7 223.9,185.3 253.0,145.3" class="ln" style="fill:none;opacity:.5"/>
+<polygon points="300.0,90.0 370.5,112.9 414.1,172.9 414.1,247.1 370.5,307.1 300.0,330.0 229.5,307.1 185.9,247.1 185.9,172.9 229.5,112.9" class="ln" style="fill:none;opacity:.5"/>
+<polygon points="300.0,50.0 394.0,80.6 452.2,160.6 452.2,259.4 394.0,339.4 300.0,370.0 206.0,339.4 147.8,259.4 147.8,160.6 206.0,80.6" class="ln" style="fill:none;opacity:.5"/>
+<line class="ln" x1="300" y1="210" x2="300" y2="50"/>
+<text class="tx-s" x="300" y="32" text-anchor="middle">Ownership</text>
+<line class="ln" x1="300" y1="210" x2="394.046" y2="80.5573"/>
+<text class="tx-s" x="406.977" y="66.7589" text-anchor="start">Inventory</text>
+<line class="ln" x1="300" y1="210" x2="452.169" y2="160.557"/>
+<text class="tx-s" x="473.092" y="157.759" text-anchor="start">Tiering</text>
+<line class="ln" x1="300" y1="210" x2="452.169" y2="259.443"/>
+<text class="tx-s" x="473.092" y="270.241" text-anchor="start">Enforcement</text>
+<line class="ln" x1="300" y1="210" x2="394.046" y2="339.443"/>
+<text class="tx-s" x="406.977" y="361.241" text-anchor="start">Identity</text>
+<line class="ln" x1="300" y1="210" x2="300" y2="370"/>
+<text class="tx-s" x="300" y="396" text-anchor="middle">Data</text>
+<line class="ln" x1="300" y1="210" x2="205.954" y2="339.443"/>
+<text class="tx-s" x="193.023" y="361.241" text-anchor="end">Evaluation</text>
+<line class="ln" x1="300" y1="210" x2="147.831" y2="259.443"/>
+<text class="tx-s" x="126.908" y="270.241" text-anchor="end">Evidence</text>
+<line class="ln" x1="300" y1="210" x2="147.831" y2="160.557"/>
+<text class="tx-s" x="126.908" y="157.759" text-anchor="end">Delivery</text>
+<line class="ln" x1="300" y1="210" x2="205.954" y2="80.5573"/>
+<text class="tx-s" x="193.023" y="66.7589" text-anchor="end">Operating model</text>
+<polygon points="300.0,130.0 323.5,177.6 338.0,197.6 338.0,222.4 347.0,274.7 300.0,290.0 276.5,242.4 262.0,222.4 223.9,185.3 276.5,177.6" class="ln-no" style="fill:none;stroke-width:2"/>
+<polygon points="300.0,90.0 370.5,112.9 414.1,172.9 376.1,234.7 347.0,274.7 300.0,290.0 253.0,274.7 185.9,247.1 223.9,185.3 229.5,112.9" class="ln-ok" style="fill:none;stroke-width:2.5"/>
+<rect class="box" x="560" y="60" width="320" height="230" rx="6"/>
+<text class="tx-b" x="580" y="90" text-anchor="start">Levels</text>
+<text class="tx" x="580" y="116" text-anchor="start">1  Ad hoc: nobody knows what runs</text>
+<text class="tx" x="580" y="140" text-anchor="start">2  Specified: rules written, not enforced</text>
+<text class="tx" x="580" y="164" text-anchor="start">3  Enforced: chokepoint, gate, evidence</text>
+<text class="tx" x="580" y="188" text-anchor="start">4  Proven: tested, measured, audited</text>
+<line class="ln-no" x1="580" y1="228" x2="610" y2="228" style="stroke-width:2"/>
+<text class="tx-s" x="618" y="232" text-anchor="start">Today (illustrative client)</text>
+<line class="ln-ok" x1="580" y1="254" x2="610" y2="254" style="stroke-width:2.5"/>
+<text class="tx-s" x="618" y="258" text-anchor="start">Target at day 90</text>
+</svg>
+</div>
+<figcaption><b>Fig 51.1</b>Readiness scored on ten dimensions, today and at day 90, for an illustrative client. The first 90 days do not try to raise everything: they lift the dimensions that every later control depends on (ownership, inventory, tiering, evidence, a working operating model) and start enforcement where the risk is.</figcaption>
+</figure>
+
+<h2 id="mvg"><span class="n">51.3</span>Minimum viable governance</h2>
+<p><span class="tag gen">Generic</span> The smallest set of controls that makes every later control possible. Each item below is something a later control depends on, which is why it comes first.</p>
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Item</th><th>Why first</th><th>Cheapest credible version</th><th>In your build</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Inventory with owners</td><td>You cannot govern what you cannot list</td><td>A registry seeded by discovery from each platform, reconciled weekly</td><td><span class="ctl">CTL-0023</span>, D59</td></tr>
+<tr><td>2</td><td>A tiering rule</td><td>Decides where scarce attention goes</td><td>The five axes and highest-wins banding, applied to every agent</td><td><code>governance/taxonomy/</code></td></tr>
+<tr><td>3</td><td>Approval and a kill switch on CRITICAL agents</td><td>The only risk that cannot wait</td><td>Human approval on irreversible or financial effects; a scripted, tested stop</td><td><span class="ctl">CTL-0004</span>, <span class="ctl">CTL-0005</span>; <a class="xref" data-ch="observability-agentops" data-sec="#kill" href="observability-agentops.html#kill">Chapter 31</a></td></tr>
+<tr><td>4</td><td>A chokepoint for effectful tools</td><td>Where every later control attaches</td><td>A gateway in front of the systems that matter most, default deny for unregistered agents</td><td>Tool gateway; GBL-DENY-01</td></tr>
+<tr><td>5</td><td>Evidence of effects</td><td>Without it, no incident can be reconstructed and no control proven</td><td>Append-only records of every effect with who, what, why; anchors later</td><td>GBL-EVID-01; <a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a></td></tr>
+<tr><td>6</td><td>A promotion gate</td><td>Stops new agents adding to the debt</td><td>A required check that reads the manifest and the tier, even if partly manual at first</td><td><code>make gov-fleet</code> in CI</td></tr>
+<tr><td>7</td><td>A rulings log</td><td>Decisions that are written are decisions that can be audited and reused</td><td>Numbered entries: verdict, reasons, rejected alternatives</td><td><code>DECISIONS.md</code></td></tr>
+</tbody></table></div>
+<p>Everything else (a full catalog, platform-native policy, continuous evaluation, cross-platform evidence normalisation) is target state. That answers the second prediction question: the 50-control catalog, platform standardisation and certification are not wrong, they are not first.</p>
+
+<h2 id="states"><span class="n">51.4</span>Interim state and target state</h2>
+<div class="tw"><table>
+<thead><tr><th>Area</th><th>Interim (day 90)</th><th>Target (12–18 months)</th><th>Dependencies</th><th>Risks</th></tr></thead>
+<tbody>
+<tr><td>Inventory</td><td>Known agents registered with owners; weekly manual reconciliation</td><td>Automated discovery across platforms; unregistered agents refused everywhere</td><td>Platform inventory APIs; identity for every agent</td><td>SaaS agents outside reach; shadow use</td></tr>
+<tr><td>Enforcement</td><td>Gateway in front of the top effectful systems; approvals on CRITICAL</td><td>Every effect through a PEP with trusted facts; native policy where it meets the contract</td><td>Tool owners' cooperation; trusted fact sources (PIPs)</td><td>Latency objections; bypass paths</td></tr>
+<tr><td>Evidence</td><td>Effects logged append-only; retention set</td><td>Hash-chained, signed, anchored; joined to traces; normalised across platforms</td><td>KMS; immutable storage; schema agreement</td><td>PII in records; cost of retention</td></tr>
+<tr><td>Gate</td><td>Required check for new agents; manual sign-off</td><td>Generated conformance; sign-off bound to the configuration digest</td><td>CI access; manifests for every agent</td><td>Teams deploying outside the pipeline</td></tr>
+<tr><td>Operating model</td><td>Board, rulings log, RACI, waiver register</td><td>Self-service for LOW and MEDIUM; earned autonomy; KPIs to the board</td><td>Executive sponsor; funded hub</td><td>Hub becomes a bottleneck</td></tr>
+<tr><td>Crosswalk</td><td>The client's top two frameworks mapped, with Verify cells</td><td>Crosswalk as code; four-number reporting; sector overlays</td><td>Legal and compliance time</td><td>Mapping mistaken for compliance</td></tr>
+</tbody></table></div>
+
+<h2 id="plan"><span class="n">51.5</span>Sequencing the first 90 days</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 384" role="img" aria-label="A 90-day plan in three blocks across five workstreams. Days 0 to 30, discover and stabilise: discover agents, owners and tiers; put approvals and a kill switch on CRITICAL agents; log effects today; start a governance board and rulings log; pick the first paved road. Days 31 to 60, enforce where it matters: reconcile the inventory weekly; put a gateway in front of the top effectful tools; build the evidence plane with anchors; set the RACI, waivers and intake; ship a template with a pipeline gate. Days 61 to 90, prove and scale: recertify existing agents; deny unregistered agents; red-team the top agents; publish KPIs and re-score readiness; offer self-service for LOW agents. Milestones: inventory complete for known agents at day 30, first gated release at day 60, day-90 readout.">
+<defs><marker id="g51" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="192" y="8" width="226" height="46" rx="6"/>
+<text class="tx-b" x="305" y="26.5" text-anchor="middle">Days 0–30</text>
+<text class="tx-s" x="305" y="44.5" text-anchor="middle">Discover and stabilise</text>
+<rect class="box-strong" x="422" y="8" width="226" height="46" rx="6"/>
+<text class="tx-b" x="535" y="26.5" text-anchor="middle">Days 31–60</text>
+<text class="tx-s" x="535" y="44.5" text-anchor="middle">Enforce where it matters</text>
+<rect class="box-strong" x="652" y="8" width="226" height="46" rx="6"/>
+<text class="tx-b" x="765" y="26.5" text-anchor="middle">Days 61–90</text>
+<text class="tx-s" x="765" y="44.5" text-anchor="middle">Prove and scale</text>
+<text class="tx-b" x="10" y="96" text-anchor="start">Inventory and tiering</text>
+<rect class="box" x="194" y="70" width="222" height="40" rx="6"/>
+<text class="tx" x="305" y="94.5" text-anchor="middle">discover · owners · tiers</text>
+<rect class="box" x="424" y="70" width="222" height="40" rx="6"/>
+<text class="tx" x="535" y="94.5" text-anchor="middle">reconcile weekly</text>
+<rect class="box" x="654" y="70" width="222" height="40" rx="6"/>
+<text class="tx" x="765" y="94.5" text-anchor="middle">recertify existing</text>
+<text class="tx-b" x="10" y="152" text-anchor="start">Enforcement</text>
+<rect class="box-acc" x="194" y="126" width="222" height="40" rx="6"/>
+<text class="tx-acc" x="305" y="141.5" text-anchor="middle">approvals + kill switch</text>
+<text class="tx-s" x="305" y="159.5" text-anchor="middle">on CRITICAL agents</text>
+<rect class="box" x="424" y="126" width="222" height="40" rx="6"/>
+<text class="tx" x="535" y="150.5" text-anchor="middle">gateway on top effectful tools</text>
+<rect class="box" x="654" y="126" width="222" height="40" rx="6"/>
+<text class="tx" x="765" y="150.5" text-anchor="middle">deny unregistered agents</text>
+<text class="tx-b" x="10" y="208" text-anchor="start">Evidence and assurance</text>
+<rect class="box" x="194" y="182" width="222" height="40" rx="6"/>
+<text class="tx" x="305" y="206.5" text-anchor="middle">log effects today</text>
+<rect class="box" x="424" y="182" width="222" height="40" rx="6"/>
+<text class="tx" x="535" y="206.5" text-anchor="middle">evidence plane + anchors</text>
+<rect class="box" x="654" y="182" width="222" height="40" rx="6"/>
+<text class="tx" x="765" y="206.5" text-anchor="middle">red team top agents</text>
+<text class="tx-b" x="10" y="264" text-anchor="start">Operating model</text>
+<rect class="box" x="194" y="238" width="222" height="40" rx="6"/>
+<text class="tx" x="305" y="262.5" text-anchor="middle">board + rulings log</text>
+<rect class="box" x="424" y="238" width="222" height="40" rx="6"/>
+<text class="tx" x="535" y="262.5" text-anchor="middle">RACI · waivers · intake</text>
+<rect class="box" x="654" y="238" width="222" height="40" rx="6"/>
+<text class="tx" x="765" y="262.5" text-anchor="middle">KPIs · day-90 re-score</text>
+<text class="tx-b" x="10" y="320" text-anchor="start">Paved road</text>
+<rect class="box" x="194" y="294" width="222" height="40" rx="6"/>
+<text class="tx" x="305" y="318.5" text-anchor="middle">pick the first road</text>
+<rect class="box" x="424" y="294" width="222" height="40" rx="6"/>
+<text class="tx" x="535" y="318.5" text-anchor="middle">template + pipeline gate</text>
+<rect class="box" x="654" y="294" width="222" height="40" rx="6"/>
+<text class="tx" x="765" y="318.5" text-anchor="middle">self-service for LOW</text>
+<line class="ln-ok" x1="420" y1="60" x2="420" y2="352" style="stroke-dasharray:4 4"/>
+<line class="ln-ok" x1="650" y1="60" x2="650" y2="352" style="stroke-dasharray:4 4"/>
+<line class="ln-ok" x1="880" y1="60" x2="880" y2="352" style="stroke-dasharray:4 4"/>
+<text class="tx-ok" x="414" y="372" text-anchor="end">M1 inventory</text>
+<text class="tx-ok" x="644" y="372" text-anchor="end">M2 first gated release</text>
+<text class="tx-ok" x="874" y="372" text-anchor="end">M3 day-90 readout</text>
+</svg>
+</div>
+<figcaption><b>Fig 51.2</b>The first 90 days as five workstreams. The one accent bar is the only thing that cannot wait for the rest: human approval and a working kill switch on any agent that can already move money or change records irreversibly.</figcaption>
+</figure>
+<ol>
+  <li><strong>Days 0–30, discover and stabilise.</strong> Pull inventories from every platform, interview owners, apply the tiering rule. For any agent that can already take irreversible or financial actions, put human approval and a tested kill switch in place now, before anything else is designed. Start logging effects, even crudely. Convene the governance board and start the rulings log with its first decisions: the tiering rule and the minimum controls.</li>
+  <li><strong>Days 31–60, enforce where it matters.</strong> Put a gateway in front of the few systems where agent effects matter most (payments, customer records, HR) and make it refuse unregistered agents. Stand up the evidence plane behind it. Publish the RACI, the waiver process and the intake form. Ship the first paved-road template with the gate as a required check, and release one agent through it.</li>
+  <li><strong>Days 61–90, prove and scale.</strong> Recertify the existing agents against the minimum controls. Red-team the highest-tier agents and turn findings into cases. Publish the first KPIs (lead time by tier, inventory completeness, open waivers), re-score readiness, and present the target-state plan with its dependencies and risks.</li>
+</ol>
+
+<h2 id="shadow"><span class="n">51.6</span>Starting from shadow AI and SaaS agents</h2>
+<p><span class="tag gen">Generic</span> Where many agents run inside SaaS products the client does not host, the minimum set changes shape. Inventory comes from each vendor's admin surfaces and identity logs (which agents hold tokens to what); enforcement moves to the boundary the client controls, a gateway in front of its own systems of record; and evidence for calls into those systems is the client's own, while evidence inside the SaaS product is the vendor's and should be labelled as such (<a class="xref" data-ch="data-saas-model-platforms" data-sec="#problem" href="data-saas-model-platforms.html#problem">Chapter 44</a>). The single most useful finding in a shadow-AI discovery is usually the list of agents acting on a person's own credentials: each is an unowned identity with that person's full authority.</p>
+
+<h2 id="no"><span class="n">51.7</span>What to say no to, for now</h2>
+<ul>
+  <li><strong>A complete catalog before any enforcement.</strong> Seven controls that work beat fifty on paper.</li>
+  <li><strong>One platform for everything.</strong> Govern across what exists; standardise new builds on a paved road (<a class="xref" data-ch="across-platforms" data-sec="#portable" href="across-platforms.html#portable">Chapter 45</a>).</li>
+  <li><strong>Waiting for regulation.</strong> Transparency duties already apply, and the evidence you start collecting now is what any regime will ask for (<a class="xref" data-ch="standards-law-crosswalk" data-sec="#euaia" href="standards-law-crosswalk.html#euaia">Chapter 48</a>).</li>
+  <li><strong>Certification first.</strong> ISO/IEC 42001 certifies a management system; build one that operates before auditing it.</li>
+  <li><strong>Buying a tool to be the programme.</strong> Tools fill rows in the target state; they do not decide owners, tiers or waivers (<a class="xref" data-ch="tool-landscape" href="tool-landscape.html">Chapter 46</a>).</li>
+</ul>
+
+<h2 id="fail"><span class="n">51.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>How it shows up</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Assessment by interview</td><td>Scores reflect optimism</td><td>Score only on artefacts shown</td></tr>
+<tr><td>Target-state design first</td><td>Month three, a beautiful framework, nothing enforced</td><td>Minimum viable governance in 60 days</td></tr>
+<tr><td>CRITICAL agents left running unchanged during discovery</td><td>An incident during the programme</td><td>Approvals and kill switch in the first 30 days</td></tr>
+<tr><td>Everything at once</td><td>Every dimension at 1.5 at day 90</td><td>Lift the foundational dimensions to 3 first</td></tr>
+<tr><td>No interim state</td><td>Teams wait for the target platform</td><td>Name the interim and its expiry</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">51.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Where do we start?"</strong> "With what is already running. In the first month we find every agent, give each an owner and a risk tier, and put human approval and an off switch on any that can move money or change records irreversibly. Everything else builds on that."</li>
+    <li><strong>"Governance will slow our teams down."</strong> "The first thing we build is a road that makes the governed way the fast way, and we measure lead time by risk tier so you can see it."</li>
+    <li><strong>"Our vendor already covers this."</strong> "Inside their product, partly. Not across your other platforms, not with your business limits, and not with evidence you control. We use what they provide and add the checkpoint in front of your systems."</li>
+    <li><strong>"Shouldn't we wait for the regulation to settle?"</strong> "Some of it already applies, and every regime will ask the same questions: what agents you have, who owns them, what stops them and what they did. We start collecting those answers now."</li>
+  </ul>
+</div>
+
+<div class="panel p-future" data-trigger="The GTM readiness workbook is revised, or a real pursuit produces a readiness score">
+  <span class="k">Waiting on the builds</span>
+  <p>Align the ten dimensions with the GTM support pack's readiness workbook so a score taken with either means the same thing. When a real engagement produces an anonymised readiness profile, replace the illustrative radar with it (no client facts in this book).</p>
+</div>
+
+<h2 id="prove"><span class="n">51.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · Capstone B6</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The seven items of minimum viable governance and what each later control depends on.</li>
+    <li><span class="lvl">Recall</span>The four readiness levels, with ARB's posture arc beside them.</li>
+    <li><span class="lvl">Apply</span>Score a described client on the ten dimensions from artefacts, not interviews; say which three you would lift first.</li>
+    <li><span class="lvl">Design</span>The 90-day plan for a client with 30 agents on two platforms and one payments agent already live.</li>
+    <li><span class="lvl">Trade-off</span>Gateway in front of payments in month one, against a platform-native policy engine that ships in month four.</li>
+  </ol>
+  <p class="small">Card candidates: <em>minimum viable governance: seven items</em> · <em>approvals and kill switch on CRITICAL in the first 30 days</em> · <em>score on artefacts, not interviews</em> · <em>name the interim state and its expiry</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">51.11</span>Further reading</h2>
+<ul>
+  <li>The operating model in <a class="xref" data-ch="aicoe-operating-model" href="aicoe-operating-model.html">Chapter 50</a>; the cross-platform pattern in <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>.</li>
+  <li>NIST AI RMF Playbook, GOVERN and MAP functions, for assessment prompts.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/visuals/BUILD_STORY.md</code> (the posture arc); <code>docs/operating/RUNBOOKS.md</code> §3 (onboarding an agent); <code>docs/scoping/</code> for how the build itself sequenced its evolution.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="aicoe-operating-model.html"><small>Previous</small>50 · The AICoE operating model</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="capstone-a.html"><small>Next</small>52 · Capstone A: govern a new agent by hand</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

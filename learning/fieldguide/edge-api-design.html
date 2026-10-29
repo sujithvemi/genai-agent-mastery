@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>25 · Edge, request path and API design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 25</div>
+  <ol>
+    <li><a href="#path">The request path</a></li>
+    <li><a href="#runs">Run APIs for agents</a></li>
+    <li><a href="#pm">pm-agent's run API, read closely</a></li>
+    <li><a href="#stream">Streaming: SSE, WebSockets, webhooks</a></li>
+    <li><a href="#idem">Idempotency</a></li>
+    <li><a href="#errors">Errors, versioning, pagination</a></li>
+    <li><a href="#gateways">Three gateways on the path</a></li>
+    <li><a href="#agents">When the caller is another agent</a></li>
+    <li><a href="#scale">What changes at scale</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 25</div>
+  <h1>Edge, request path and API design</h1>
+  <p class="lede">Agents are reached through ordinary infrastructure: DNS, load balancers, gateways and HTTP APIs. What is not ordinary is the shape of the work behind them: long, streaming, interruptible runs that may pause for a human and must never repeat an effect. This chapter walks the request path, then designs the run API an agent needs, using pm-agent's API as the worked example.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-01 · SD-02 · R05 · BT05 · lab T11</span></div>
+    <div><b>Build links</b><span>pm-agent src/pm_agent/api/app.py · design/pm-agent-at-scale.md §1–2</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (service names and features)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A client times out after 30 seconds and retries <code>POST /runs</code>. How many runs now exist, and what should exist?</li>
+    <li>Why is <code>202 Accepted</code> the right answer to "start a run", and what must accompany it?</li>
+    <li>A stream drops at event 412 of 900. How does the client get events 413 onwards?</li>
+  </ol>
+</div>
+
+<h2 id="path"><span class="n">25.1</span>The request path</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 200" role="img" aria-label="The request path from client to agent. Client, DNS, global load balancer with TLS termination and a web application firewall, API gateway with authentication, quotas and routing, the run API service, then a queue or worker pool running the agent, which calls the model gateway and the tool gateway. Each hop has its own timeouts and limits; long work leaves the synchronous path at the run API.">
+  <defs><marker id="a25" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <g>
+    <rect class="box" x="10" y="60" width="90" height="60" rx="6"/><text class="tx-b" x="55" y="86" text-anchor="middle">Client</text><text class="tx-s" x="55" y="104" text-anchor="middle">app · agent</text>
+    <rect class="box" x="120" y="60" width="90" height="60" rx="6"/><text class="tx-b" x="165" y="86" text-anchor="middle">DNS</text><text class="tx-s" x="165" y="104" text-anchor="middle">anycast</text>
+    <rect class="box" x="230" y="60" width="120" height="60" rx="6"/><text class="tx-b" x="290" y="86" text-anchor="middle">Load balancer</text><text class="tx-s" x="290" y="104" text-anchor="middle">TLS · WAF</text>
+    <rect class="box" x="370" y="60" width="120" height="60" rx="6"/><text class="tx-b" x="430" y="86" text-anchor="middle">API gateway</text><text class="tx-s" x="430" y="104" text-anchor="middle">authN · quotas</text>
+    <rect class="box-acc" x="510" y="60" width="110" height="60" rx="6"/><text class="tx-acc" x="565" y="86" text-anchor="middle">Run API</text><text class="tx-s" x="565" y="104" text-anchor="middle">202 · stream</text>
+    <rect class="box-ok" x="640" y="60" width="110" height="60" rx="6"/><text class="tx-ok" x="695" y="86" text-anchor="middle">Workers</text><text class="tx-s" x="695" y="104" text-anchor="middle">agent runs</text>
+    <rect class="box" x="770" y="20" width="120" height="50" rx="6"/><text class="tx-s" x="830" y="50" text-anchor="middle">model gateway</text>
+    <rect class="box" x="770" y="110" width="120" height="50" rx="6"/><text class="tx-s" x="830" y="140" text-anchor="middle">tool gateway</text>
+  </g>
+  <line class="ln" x1="100" y1="90" x2="116" y2="90" marker-end="url(#a25)"/>
+  <line class="ln" x1="210" y1="90" x2="226" y2="90" marker-end="url(#a25)"/>
+  <line class="ln" x1="350" y1="90" x2="366" y2="90" marker-end="url(#a25)"/>
+  <line class="ln" x1="490" y1="90" x2="506" y2="90" marker-end="url(#a25)"/>
+  <line class="ln" x1="620" y1="90" x2="636" y2="90" marker-end="url(#a25)"/>
+  <line class="ln" x1="750" y1="80" x2="766" y2="50" marker-end="url(#a25)"/>
+  <line class="ln" x1="750" y1="100" x2="766" y2="130" marker-end="url(#a25)"/>
+  <text class="tx-s" x="10" y="180">Synchronous to the run API; asynchronous after it. Every hop has a timeout shorter than the one before it.</text>
+</svg>
+</div>
+<figcaption><b>Fig 25.1</b>The request path for an agent. The run API is where long work leaves the synchronous path.</figcaption>
+</figure>
+<p><span class="tag gen">Generic</span> Each hop does one job. DNS (often anycast) finds the nearest entry; a global load balancer terminates TLS, applies a web application firewall and spreads load; an API gateway authenticates, enforces quotas and routes; the service does the work. Two rules matter for agents: <strong>timeouts shrink inwards</strong> (each hop's timeout is shorter than its caller's, or callers give up while work continues unseen), and <strong>long work leaves the synchronous path</strong> as early as possible. On Google Cloud this is typically Cloud DNS, the global external Application Load Balancer with Cloud Armor, API Gateway or Apigee, and Cloud Run (lab T11).</p>
+
+<h2 id="runs"><span class="n">25.2</span>Run APIs for agents</h2>
+<p><span class="tag gen">Generic</span> Model the work as a <strong>run resource</strong> with a lifecycle, not as a request that returns an answer:</p>
+<div class="tw"><table>
+<thead><tr><th>Operation</th><th>Response</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>POST /runs</code></td><td><code>202 Accepted</code> with the run and a <code>Location</code> header</td><td>Carries an idempotency key; returns immediately</td></tr>
+<tr><td><code>GET /runs/{id}</code></td><td>Run state</td><td>Status, progress, result when done</td></tr>
+<tr><td><code>GET /runs/{id}/events</code></td><td>Event stream</td><td>Resumable from the last event id</td></tr>
+<tr><td><code>POST /runs/{id}/cancel</code></td><td>Run state</td><td>Safe interruption at a step boundary</td></tr>
+<tr><td><code>POST /runs/{id}/approve</code>, <code>/reject</code></td><td>Run state, or 403 or 409</td><td>Only for a parked run; the approver is a resolved, entitled, distinct subject</td></tr>
+<tr><td><code>POST /runs/{id}/clarify</code></td><td>Run state</td><td>The agent asked the user a question</td></tr>
+</tbody></table></div>
+<p>The second prediction question: <code>202</code> says "accepted for processing, not done", which is the truth for work lasting minutes. It must come with the run's identifier and a way to follow it: a status URL, an event stream, or a webhook.</p>
+
+<h2 id="pm"><span class="n">25.3</span>pm-agent's run API, read closely</h2>
+<p><span class="tag own">pm-agent</span> <code>src/pm_agent/api/app.py</code> implements exactly this shape in FastAPI, and its comments show the governance threaded through it:</p>
+<ul>
+  <li><code>POST /runs</code> returns <code>202</code>; the run executes in the background and writes a per-run evidence log.</li>
+  <li><code>GET /runs/{id}/events</code> is server-sent events that tail the evidence log, "so a client sees the same node/tool_call/run events an auditor would, live". The user's view and the auditor's are the same records.</li>
+  <li>A run with <code>publish: true</code> proposes a governed write and <strong>parks</strong> as <code>pending_approval</code>. <code>/approve</code> resolves the approver through the approval gate; a self-approval (compared as directory subjects, so an alias of the agent counts as self), an unentitled or an unknown approver gets <code>403</code> and the run stays parked; a distinct entitled human resumes it and the write goes through the PEP.</li>
+  <li><code>/reject</code> resumes with no grant, so the PEP denies the write; <code>/cancel</code> stops the graph at the next node boundary with a terminal evidence event, and a parked run can never resume into its write.</li>
+  <li>Calling <code>/approve</code> on a run that is not parked returns <code>409 Conflict</code>.</li>
+</ul>
+<p>Its docstring is candid about scope: "State is in-memory and per-process — fine for a dev API; durable run state is a later concern." That is the starting point for the design exercise in <a class="sref" href="#scale">25.9</a>.</p>
+
+<h2 id="stream"><span class="n">25.4</span>Streaming: SSE, WebSockets, webhooks</h2>
+<div class="tw"><table>
+<thead><tr><th>Mechanism</th><th>Direction</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td>Server-sent events</td><td>Server to client</td><td>Plain HTTP, proxy-friendly, built-in resume with <code>Last-Event-ID</code></td><td>One direction; some proxies buffer</td></tr>
+<tr><td>WebSockets</td><td>Both</td><td>Interactive (voice, live steering)</td><td>Stateful connections; harder to load-balance and secure</td></tr>
+<tr><td>Webhooks</td><td>Server to client's endpoint</td><td>No open connection; good for system integrations</td><td>Client must expose and secure an endpoint; signatures and retries needed</td></tr>
+<tr><td>Polling</td><td>Client pulls</td><td>Simplest, works everywhere</td><td>Latency and wasted requests</td></tr>
+</tbody></table></div>
+<p>The third prediction question: give every event a monotonically increasing id, have the client reconnect with <code>Last-Event-ID</code>, and serve the stream from a durable event store rather than from a process's memory. pm-agent already has the durable source (the evidence log); at scale the stream should be served from it through a pub/sub layer rather than by polling a file. Agent UI protocols such as AG-UI standardise these event types for front ends (<a class="xref" data-ch="tools-integration-sandboxes" data-sec="#ui" href="tools-integration-sandboxes.html#ui">Chapter 36</a>).</p>
+
+<h2 id="idem"><span class="n">25.5</span>Idempotency</h2>
+<p><span class="tag gen">Generic</span> The first prediction question: without protection, two runs exist, and if both reach a write, the effect may happen twice. The standard fix, popularised by payment APIs and being standardised as an <code>Idempotency-Key</code> HTTP header, is:</p>
+<ol>
+  <li>The client sends a unique key with every non-idempotent request.</li>
+  <li>The server stores the key with a hash of the request and the response, atomically with creating the resource.</li>
+  <li>A repeat with the same key and the same request returns the stored response; the same key with a different request is rejected (<code>422</code> or <code>409</code>).</li>
+  <li>Keys expire after a stated window.</li>
+</ol>
+<p>Apply it at every layer that can repeat: <code>POST /runs</code>, <code>/approve</code>, and above all each tool write, which needs its own key derived from the run and step (ARB's CTL-0006, idempotency on writes; <a class="xref" data-ch="reliability" href="reliability.html">Chapter 29</a>).</p>
+
+<h2 id="errors"><span class="n">25.6</span>Errors, versioning, pagination</h2>
+<ul>
+  <li><strong>Errors</strong>: use a consistent machine-readable body, such as RFC 9457 Problem Details (<code>type</code>, <code>title</code>, <code>status</code>, <code>detail</code>, <code>instance</code>), and include the control id when a governance control refused (<code>403</code> with <code>CTL-0005</code> tells the caller something actionable; a bare 403 does not).</li>
+  <li><strong>Status codes</strong>: <code>202</code> accepted; <code>403</code> refused by policy; <code>409</code> wrong state (approve a run that is not parked); <code>422</code> invalid input; <code>429</code> with <code>Retry-After</code> when rate limited.</li>
+  <li><strong>Versioning</strong>: version the API contract (path or header) and, separately, record the agent's release digest on every run (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>).</li>
+  <li><strong>Pagination</strong>: cursor-based for run lists and event histories.</li>
+</ul>
+
+<h2 id="gateways"><span class="n">25.7</span>Three gateways on the path</h2>
+<p><span class="tag gen">Generic</span> "API gateway" now names three different things, and an agent system usually needs all three. Mixing them up is the commonest edge-design mistake in agent proposals.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="Three gateways. Users and apps reach the edge and API gateway (TLS, web application firewall, authentication, quotas, routing), which calls the agent's run API and workers. From the agent, model traffic goes through an AI or model gateway (token limits, semantic cache, backend pools with circuit breaking, content screening, model pin) to model providers. Tool and agent traffic goes through an agent or tool gateway (agent identity, MCP and A2A, egress allow-list, policy hook) to tools, MCP servers and other agents. Your policy decision point with trusted facts attaches to the tool gateway through a service extension or sits in your own chokepoint.">
+  <defs><marker id="g25" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+  <marker id="g25a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <rect class="box" x="10" y="115" width="110" height="60" rx="6"/>
+  <text class="tx-b" x="65" y="141" text-anchor="middle">Users,</text>
+  <text class="tx-b" x="65" y="159" text-anchor="middle">apps</text>
+  <rect class="box-strong" x="150" y="95" width="170" height="100" rx="6"/>
+  <text class="tx-b" x="235" y="119" text-anchor="middle">Edge + API gateway</text>
+  <text class="tx-s" x="162" y="141">TLS · WAF · DDoS</text>
+  <text class="tx-s" x="162" y="159">authN · quotas</text>
+  <text class="tx-s" x="162" y="177">routing · versions</text>
+  <rect class="box-strong" x="350" y="95" width="170" height="100" rx="6"/>
+  <text class="tx-b" x="435" y="119" text-anchor="middle">Agent</text>
+  <text class="tx-s" x="362" y="141">run API (202, events)</text>
+  <text class="tx-s" x="362" y="159">workers · loop</text>
+  <text class="tx-s" x="362" y="177">checkpoints</text>
+  <rect class="box-acc" x="560" y="10" width="190" height="112" rx="6"/>
+  <text class="tx-acc" x="655" y="32" text-anchor="middle">AI / model gateway</text>
+  <text class="tx-s" x="572" y="54">token limits · showback</text>
+  <text class="tx-s" x="572" y="72">semantic cache</text>
+  <text class="tx-s" x="572" y="90">backend pools · breaker</text>
+  <text class="tx-s" x="572" y="108">screening · model pin</text>
+  <rect class="box" x="780" y="36" width="110" height="60" rx="6"/>
+  <text class="tx" x="835" y="62" text-anchor="middle">Model</text>
+  <text class="tx" x="835" y="80" text-anchor="middle">providers</text>
+  <rect class="box-acc" x="560" y="168" width="190" height="112" rx="6"/>
+  <text class="tx-acc" x="655" y="190" text-anchor="middle">Agent / tool gateway</text>
+  <text class="tx-s" x="572" y="212">agent identity · mTLS</text>
+  <text class="tx-s" x="572" y="230">MCP · A2A routing</text>
+  <text class="tx-s" x="572" y="248">egress allow-list</text>
+  <text class="tx-s" x="572" y="266">policy hook → PDP</text>
+  <rect class="box" x="780" y="194" width="110" height="60" rx="6"/>
+  <text class="tx" x="835" y="220" text-anchor="middle">Tools, MCP,</text>
+  <text class="tx" x="835" y="238" text-anchor="middle">other agents</text>
+  <rect class="box-ok" x="350" y="225" width="170" height="55" rx="6"/>
+  <text class="tx-ok" x="435" y="248" text-anchor="middle">Your PEP / PDP</text>
+  <text class="tx-s" x="435" y="268" text-anchor="middle">trusted facts · evidence</text>
+  <line class="ln" x1="120" y1="145" x2="146" y2="145" marker-end="url(#g25)"/>
+  <line class="ln" x1="320" y1="145" x2="346" y2="145" marker-end="url(#g25)"/>
+  <line class="ln" x1="520" y1="120" x2="556" y2="80" marker-end="url(#g25)"/>
+  <line class="ln" x1="520" y1="170" x2="556" y2="206" marker-end="url(#g25)"/>
+  <line class="ln" x1="750" y1="66" x2="776" y2="66" marker-end="url(#g25)"/>
+  <line class="ln" x1="750" y1="224" x2="776" y2="224" marker-end="url(#g25)"/>
+  <line class="ln-acc" x1="556" y1="252" x2="524" y2="252" marker-end="url(#g25a)" stroke-dasharray="5 4"/>
+  <text class="tx-s" x="235" y="78" text-anchor="middle">north–south</text>
+  <text class="tx-s" x="655" y="150" text-anchor="middle">egress from the agent</text>
+</svg>
+</div>
+<figcaption><b>Fig 25.2</b>Three gateways with different jobs. The edge gateway protects the agent from its callers; the AI gateway governs model traffic; the agent or tool gateway governs what the agent may reach, and is where your policy decision on trusted facts attaches.</figcaption>
+</figure>
+<div class="tw"><table>
+<thead><tr><th>Gateway</th><th>Protects</th><th>Typical controls</th><th>What it cannot decide</th></tr></thead>
+<tbody>
+<tr><td>Edge and API gateway</td><td>The agent's API from its callers</td><td>TLS, WAF, DDoS, token validation (<a class="xref" data-ch="authn-authz" href="authn-authz.html">Chapter 27</a>), per-tenant quotas, routing, API versions</td><td>Anything about what the agent does next</td></tr>
+<tr><td>AI or model gateway</td><td>Model budgets, providers and data sent to them</td><td>Token-based limits per tenant or agent, token metrics for showback, semantic caching, backend pools with priority and circuit breaking (reserved capacity first, spill to pay-as-you-go), content screening, a unified model API, model pinning</td><td>Whether a tool call is allowed; it sees prompts, not effects</td></tr>
+<tr><td>Agent or tool gateway</td><td>Tools, business systems and other agents from the agent</td><td>Agent identity and mTLS, MCP and A2A routing, destination allow-lists, tool-level policy, egress control, tool-description pinning</td><td>Business limits that need trusted facts, unless it calls your PDP (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>)</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> Two design rules follow. Token limits belong at the AI gateway, because a request counter cannot see that one request is 200 tokens and the next is 200,000 (<a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>). And a cache at the AI gateway is a data store: semantic caching returns an earlier answer to a similar question, so its key must include the tenant and the caller's permission scope, and nothing that authorises an effect may be served from it (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</p>
+
+<h2 id="agents"><span class="n">25.8</span>When the caller is another agent</h2>
+<p><span class="tag gen">Generic</span> Other agents will call your agent through A2A (an agent card describing skills and authentication, tasks with lifecycle states, streaming) or through tools exposed over MCP. The same API rules apply, with two additions: the caller's identity must be a resolved subject with a channel authorisation (CTL-0017), and nothing the calling agent says carries authority (CTL-0016; <a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>).</p>
+
+<h2 id="scale"><span class="n">25.9</span>What changes at scale</h2>
+<p><span class="tag asm">Assumption</span> For pm-agent at the scale in its design document (about 50 concurrent runs, 20 seconds to 2 minutes each):</p>
+<ol>
+  <li><strong>Identity from the token, not the body.</strong> The dev API accepts a <code>principal</code> field in the request; at scale the principal comes from the verified token at the gateway (<a class="xref" data-ch="authn-authz" href="authn-authz.html">Chapter 27</a>).</li>
+  <li><strong>Durable run state</strong> in Postgres with the checkpointer; any instance can serve any run.</li>
+  <li><strong>Events from a durable store</strong>, fanned out through pub/sub, resumable with <code>Last-Event-ID</code>.</li>
+  <li><strong>Idempotency keys</strong> on <code>POST /runs</code> and the approval endpoints.</li>
+  <li><strong>Per-tenant quotas</strong> at the gateway, sized from tokens per run, not requests (<a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>).</li>
+</ol>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §1–2</span>
+  <p>Write §1 (request path and edge) and §2 (API design) from this chapter: the hops with their timeouts, the run resource and its endpoints, the streaming choice, idempotency rules and the error model. Log each decision with the alternative you rejected.</p>
+</div>
+
+<h2 id="services"><span class="n">25.10</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> The building blocks for this chapter on the three major clouds, with independent options. Names are as documented on the date in the chapter header; the AI-specific rows move fastest.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>DNS and global load balancing</td><td>Cloud DNS; global external Application Load Balancer</td><td>Route 53; CloudFront; Application Load Balancer; Global Accelerator</td><td>Azure DNS; Front Door; Application Gateway</td><td>Cloudflare; Akamai; NGINX; Envoy</td></tr>
+<tr><td>WAF and DDoS</td><td>Cloud Armor (WAF rules, rate-based rules, adaptive protection)</td><td>AWS WAF; Shield Advanced</td><td>Front Door WAF; Azure DDoS Protection</td><td>Cloudflare WAF</td></tr>
+<tr><td>API management</td><td>Apigee; API Gateway</td><td>Amazon API Gateway (REST, HTTP and WebSocket APIs)</td><td>Azure API Management</td><td>Kong; Tyk; Gravitee</td></tr>
+<tr><td>AI or model gateway</td><td>Apigee AI capabilities: LLM token policies, semantic caching policies, Model Armor policies, MCP in Apigee</td><td>No first-party general AI gateway; Bedrock's own quotas, tiers and Guardrails, plus AWS guidance for a multi-provider gateway built on LiteLLM <span class="tag ver">Verify</span></td><td>API Management AI gateway: <code>llm-token-limit</code>, <code>llm-emit-token-metric</code>, semantic cache store and lookup, <code>llm-content-safety</code>, backend pools with circuit breaker honouring <code>Retry-After</code>; unified model API and Foundry integration in preview (doc updated 2026-05-29)</td><td>LiteLLM proxy (your builds use LiteLLM as a client); Portkey; Kong AI Gateway; Envoy AI Gateway; Cloudflare AI Gateway</td></tr>
+<tr><td>Agent or tool gateway</td><td>Agent Gateway with Agent Identity, IAM access policies and Model Armor (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Gateway (APIs and Lambda as MCP tools) with AgentCore Policy in Cedar (<a class="xref" data-ch="aws" href="aws.html">Chapter 42</a>)</td><td>API Management MCP server exposure and MCP passthrough; A2A agent APIs (<a class="xref" data-ch="microsoft" href="microsoft.html">Chapter 43</a>)</td><td>Docker MCP Gateway; agentgateway (Linux Foundation) <span class="tag ver">Verify</span>; your own gateways, as in ARB (D53)</td></tr>
+<tr><td>Streaming and real time</td><td>Cloud Run (SSE, WebSockets, HTTP/2 streaming); Pub/Sub for fan-out</td><td>API Gateway WebSocket APIs; ALB; AppSync Events</td><td>Azure Web PubSub; SignalR Service</td><td>Any SSE or WebSocket server; AG-UI event protocol (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>)</td></tr>
+<tr><td>Hosting the run API</td><td>Cloud Run</td><td>Lambda behind API Gateway; ECS on Fargate; App Runner</td><td>Container Apps; App Service; Functions</td><td>Any container platform</td></tr>
+</tbody></table></div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>AI gateway features are changing quarter by quarter on all three clouds, and several are preview. Quote a policy name or capability only after checking the current documentation, and say which service tier it needs; Azure API Management, for example, documents that capability availability varies by tier.</p>
+</div>
+
+<h2 id="fail"><span class="n">25.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Holding a request open for a long run</td><td>202 plus a run resource</td></tr>
+<tr><td>Duplicate runs and effects on retry</td><td>Idempotency keys at every layer</td></tr>
+<tr><td>Lost stream position</td><td>Event ids and <code>Last-Event-ID</code></td></tr>
+<tr><td>Principal taken from the request body</td><td>Identity from the verified token</td></tr>
+<tr><td>Bare 403s</td><td>Problem details with the control id</td></tr>
+<tr><td>Timeouts growing inwards</td><td>Shrinking timeout budget per hop</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">25.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We already have an API gateway, so we're covered."</strong> "Your API gateway protects your services from callers. Agents also need a gateway on the way <em>out</em>: one that counts tokens rather than requests for model traffic, and one that decides which tools and agents each agent may reach. Those are different jobs, and the second is where your policies bite."</li>
+    <li><strong>"Why can't the agent just answer the request?"</strong> "Because agent work takes minutes and may pause for a person. We return a run you can follow, stream progress you can resume after a disconnect, and make every retry safe with an idempotency key."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">25.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · R05, BT05</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The run API's endpoints with status codes and their meaning.</li>
+    <li><span class="lvl">Apply</span>Trace a retried <code>POST /runs</code> with and without an idempotency key, through to the tool write.</li>
+    <li><span class="lvl">Design</span>Serve pm-agent's event stream to 500 subscribers across three instances, resumable after a disconnect.</li>
+    <li><span class="lvl">Trade-off</span>SSE against WebSockets for a voice-enabled planning assistant.</li>
+  </ol>
+  <p class="small">Card candidates: <em>timeouts shrink inwards</em> · <em>202 + run resource</em> · <em>same key, same request, same response</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">25.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> JJ Geewax, <cite>API Design Patterns</cite> (2021), long-running operations and idempotency; Google's API Improvement Proposals (AIP-151 long-running operations, AIP-155 request identification).</li>
+  <li><b>Specifications.</b> RFC 9110 (HTTP semantics), RFC 9457 (Problem Details), the IETF Idempotency-Key header draft, the HTML Living Standard on server-sent events.</li>
+  <li><b>Your library.</b> Postman's API Design playlist; "Backend from first principles".</li>
+  <li><span class="tag own">pm-agent</span> <code>src/pm_agent/api/app.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="proving-controls-fire.html"><small>Previous</small>24 · Proving controls fire</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="communication-durable-execution.html"><small>Next</small>26 · Communication and durable execution</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

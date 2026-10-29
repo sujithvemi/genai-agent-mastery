@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>7 · The chassis: seams, fakes and tests that can fail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 7</div>
+  <ol>
+    <li><a href="#why">Why a chassis</a></li>
+    <li><a href="#seams">Seams as Protocols</a></li>
+    <li><a href="#fakes">Fakes, and proving they conform</a></li>
+    <li><a href="#firewall">The import firewall</a></li>
+    <li><a href="#portable">Portability as a tested claim</a></li>
+    <li><a href="#swap">The payoff: a framework swap with zero code</a></li>
+    <li><a href="#govtests">Tests that guard the governance</a></li>
+    <li><a href="#falsifiers">Falsifiers: tests that prove a test can fail</a></li>
+    <li><a href="#stable">Byte stability and pinned baselines</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 7</div>
+  <h1>The chassis: seams, fakes and tests that can fail</h1>
+  <p class="lede">Both builds rest on the same chassis: a governed core that imports no vendor, a set of typed seams with a fake and one or more real bindings behind each, and a test suite that checks claims about the architecture as well as behaviour. This is what makes "portable", "model-agnostic" and "the controls hold on any cloud" testable statements rather than slideware.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN</span></div>
+    <div><b>Reps</b><span>LL1 · BT2 · R03</span></div>
+    <div><b>Build modules</b><span>aicoe/platform/* · platform/_conformance.py · tests/test_import_firewall.py · tests/test_portability.py · pm platform/*</span></div>
+    <div><b>Decisions</b><span>D22 · D32 · D48 · D50 · D61 · D-PM-2 · D-PM-P0-b</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A test asserts "no core module imports a vendor SDK" and passes. What could make that pass while proving nothing?</li>
+    <li>A fake model provider passes every test. How do you know it still behaves like the real one?</li>
+    <li>Moving from one version of an agent framework to another: what should change in a well-built system, and what should not?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">7.1</span>Why a chassis</h2>
+<p><span class="tag gen">Generic</span> The architecture is ports and adapters, Alistair Cockburn's "hexagonal" pattern (2005): the application core talks to the world only through ports it defines, and adapters bind those ports to particular technologies. Michael Feathers supplied the vocabulary that suits testing: a <strong>seam</strong> is "a place where you can alter behaviour in your program without editing in that place" (<cite>Working Effectively with Legacy Code</cite>, 2004). For a governed agent platform the pattern does three jobs at once:</p>
+<ul>
+  <li><strong>Portability.</strong> Models, clouds, gateways, policy engines and agent frameworks change quickly. If they live behind seams, a change is an adapter, not a rewrite.</li>
+  <li><strong>Testability.</strong> Every seam has a fake, so the whole governed path runs offline, deterministically, in CI, with no credentials.</li>
+  <li><strong>Governance independence.</strong> The enforcement plane is part of the core, so its decisions cannot depend on which model or cloud is underneath. That is the property a client's risk function actually cares about, and the chassis makes it testable (<a class="sref" href="#portable">7.5</a>).</li>
+</ul>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 360" role="img" aria-label="The chassis. A governed core containing the chokepoint, enforcement plane, governance and evidence writer, which imports no vendor SDK. Around it, seams defined as Python Protocols: model, runtime, gateway, policy, identity, state, anchor, signing, screening, classifier, observability, retrieval. Each seam has a fake used in CI and one or more real bindings: LiteLLM and Vertex, ADK, FastMCP, OPA and Cedar, Cloud Identity, Firestore, GCS, KMS, Model Armor, OpenTelemetry and Langfuse. An import firewall test separates the core from the vendor SDKs.">
+  <rect class="box-strong" x="300" y="120" width="300" height="120" rx="10"/>
+  <text class="tx-b" x="450" y="148" text-anchor="middle">Governed core</text>
+  <text class="tx-s" x="450" y="172" text-anchor="middle">chokepoint · enforcement plane</text>
+  <text class="tx-s" x="450" y="192" text-anchor="middle">governance · evidence writer · agents</text>
+  <text class="tx-acc" x="450" y="222" text-anchor="middle">imports no vendor SDK</text>
+  <rect class="box-acc" x="270" y="95" width="360" height="170" rx="14" style="fill:none" stroke-dasharray="6 5"/>
+  <text class="tx-m" x="450" y="88" text-anchor="middle">import firewall (tested)</text>
+  <g>
+    <rect class="box" x="16" y="20" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="42">Model · fake │ LiteLLM, Vertex</text>
+    <rect class="box" x="16" y="64" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="86">Runtime · fake │ ADK</text>
+    <rect class="box" x="16" y="108" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="130">Gateway · direct │ FastMCP</text>
+    <rect class="box" x="16" y="152" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="174">Policy · allow-all │ OPA, Cedar</text>
+    <rect class="box" x="16" y="196" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="218">Identity · in-memory │ Cloud Identity</text>
+    <rect class="box" x="16" y="240" width="234" height="34" rx="5"/><text class="tx-s" x="26" y="262">State · fake, local │ Firestore</text>
+    <rect class="box" x="650" y="20" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="42">Anchor · in-memory │ GCS</text>
+    <rect class="box" x="650" y="64" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="86">Signing · local │ Cloud KMS</text>
+    <rect class="box" x="650" y="108" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="130">Screening · fake │ Model Armor</text>
+    <rect class="box" x="650" y="152" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="174">Classifier · fake │ lexicon, judge</text>
+    <rect class="box" x="650" y="196" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="218">Tracing · no-op │ OTel, Langfuse</text>
+    <rect class="box" x="650" y="240" width="234" height="34" rx="5"/><text class="tx-s" x="660" y="262">Retrieval · keyword │ embedding</text>
+  </g>
+  <line class="ln" x1="250" y1="125" x2="268" y2="150"/>
+  <line class="ln" x1="250" y1="213" x2="268" y2="200"/>
+  <line class="ln" x1="650" y1="125" x2="632" y2="150"/>
+  <line class="ln" x1="650" y1="213" x2="632" y2="200"/>
+  <text class="tx-s" x="450" y="310" text-anchor="middle">Each seam: a Protocol in aicoe/platform/&lt;seam&gt;/__init__.py · a fake in fakes.py · real bindings beside it</text>
+  <text class="tx-s" x="450" y="332" text-anchor="middle">Static conformance in platform/_conformance.py (checked by mypy, never executed)</text>
+</svg>
+</div>
+<figcaption><b>Fig 7.1</b>The reference build's chassis, simplified. Left of each bar is the fake used in CI; right of it, the real bindings. The dashed line is the import firewall, which a test enforces.</figcaption>
+</figure>
+
+<h2 id="seams"><span class="n">7.2</span>Seams as Protocols</h2>
+<p><span class="tag gen">Generic</span> In Python the natural seam is a <code>typing.Protocol</code> (PEP 544): structural typing, so an adapter conforms by having the right methods, with no inheritance from the core. That keeps the dependency arrow pointing inward. Vendor code never needs to know the core exists, and the core never imports the vendor.</p>
+<p><span class="tag own">Reference build</span> The ARB defines its seams under <code>aicoe/platform/</code>. Counting the Protocols there gives the shape of the chassis: model (<code>ModelProvider</code>, plus a <code>ModelCallHook</code>), runtime (<code>Agent</code>, <code>RuntimeAdapter</code>), tool gateway (<code>ToolGateway</code>, <code>McpServerConnection</code>), policy (<code>PolicyEngine</code>, <code>RuntimePep</code>, <code>RegoEvaluator</code>), identity (<code>DirectoryService</code>), state (<code>StateStore</code>), memory, retrieval (<code>Retriever</code>), screening (<code>ContentScreen</code>), classifier, anchoring (<code>AnchorSink</code>), signing (<code>Signer</code>, <code>Verifier</code>), observability (<code>Tracer</code>, <code>Span</code>), payments (<code>PaymentsAdapter</code>, <code>ReversiblePayments</code>), cross-agent channel (<code>AgentChannel</code>) and cloud (<code>CloudTarget</code>). Fifteen seam packages carry a <code>fakes.py</code>.</p>
+<p><span class="tag own">pm-agent</span> pm-agent has the same chassis with the seams its domain needs: <code>Orchestrator</code> (fake and LangGraph), <code>JiraReadAdapter</code> and <code>JiraWriteAdapter</code> (fakes, Atlassian MCP and REST), <code>ApprovalGate</code>, <code>Executor</code>, <code>LedgerStore</code>, <code>ReadCache</code>, <code>Signer</code> and <code>KmsClient</code>, and the PEP's own seams (<code>PolicyEngine</code>, <code>Guardrail</code>, <code>IdentityResolver</code>, <code>EvidenceSink</code>).</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>A <code>@runtime_checkable</code> Protocol's <code>isinstance</code> check only confirms that the methods <em>exist</em>; it does not check their signatures. A fake whose <code>complete()</code> takes the wrong arguments passes <code>isinstance</code> and fails in use. That is why both builds also prove conformance statically (<a class="sref" href="#fakes">7.3</a>).</p>
+</div>
+
+<h2 id="fakes"><span class="n">7.3</span>Fakes, and proving they conform</h2>
+<p><span class="tag gen">Generic</span> Test doubles come in grades. Google's <cite>Software Engineering at Google</cite> (Winters, Manshreck and Wright, 2020), in its chapter on test doubles, ranks them: prefer the real implementation where it is fast and deterministic, then a <strong>fake</strong> (a lightweight working implementation), and only then stubs and mocks, which encode assumptions about call sequences and make tests brittle. Fakes earn their place only if they stay faithful to the real thing, so a fake needs its own tests.</p>
+<p><span class="tag own">Reference build</span> Fidelity is checked at two levels:</p>
+<ul>
+  <li><strong>Static conformance.</strong> <code>platform/_conformance.py</code> is "checked by mypy and never executed". It assigns each fake and each real binding to its Protocol type, so if either drifts from the seam, <code>make type</code> fails with a precise message. pm-agent has the same file, which also serves as the non-vacuity anchor for its firewall: the LangGraph binding is named there, under <code>platform/runtime/</code>, where importing it is allowed.</li>
+  <li><strong>Behavioural equivalence.</strong> Where a seam has two real bindings, a test runs both and asserts they decide the same: OPA against Cedar (<code>test_policy_parity.py</code>, D22), the direct gateway against FastMCP (<code>test_gateway_equivalence.py</code>), the fake model against live models (<code>test_portability.py</code>), and in pm-agent the fake orchestrator against LangGraph (<code>test_runtime_portability.py</code>).</li>
+</ul>
+
+<h2 id="firewall"><span class="n">7.4</span>The import firewall</h2>
+<p><span class="tag own">Reference build</span> D32 made portability "falsifiable, the way OPA/Cedar parity is". The mechanism is a test that parses every module outside <code>aicoe/platform</code> with Python's <code>ast</code> and fails if any of them imports a vendor root:</p>
+<pre><code><span class="c"># tests/test_import_firewall.py (reference build), abridged</span>
+FORBIDDEN_ROOTS = frozenset({
+    "google", "googleapiclient", "vertexai", "litellm", "fastmcp", "mcp",
+    "cedarpy", "regopy", "langfuse", "openai", "anthropic", "boto3", "botocore",
+})
+
+def test_no_core_module_imports_a_vendor_sdk():
+    offenders = {p: _module_roots(p) &amp; FORBIDDEN_ROOTS for p in _core_modules()}
+    assert not any(offenders.values())
+
+def test_the_firewall_test_is_not_vacuous():
+    seen = set().union(*(_module_roots(p) for p in PLATFORM_ROOT.rglob("*.py")))
+    for expected in ("google", "googleapiclient", "fastmcp", "cedarpy", "regopy", "langfuse"):
+        assert expected in seen   <span class="c"># the boundary is live, not empty</span></code></pre>
+<p>The second test answers the first prediction question. A firewall test passes trivially if the vendor code has been deleted, or if the scan points at the wrong directory. The non-vacuity test fails in exactly those cases.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's firewall is finer-grained. It confines each vendor to its own seam rather than just to "platform": LangGraph and <code>psycopg</code> only under <code>platform/runtime</code> (and <code>psycopg</code> also in <code>platform/memory/postgres.py</code>), <code>mcp</code> and <code>httpx</code> only under <code>platform/jira</code>, <code>regopy</code> only under <code>platform/policy</code>, <code>cryptography</code> only under <code>platform/crypto</code>, OpenTelemetry and Langfuse only in the OTel module, <code>phonenumbers</code> only in <code>platform/memory/pii.py</code>, and <code>sqlite3</code> only in the ledger store. Each rule has its own non-vacuity test, and several have a <em>bite</em> test: it writes a copy of a legitimate module with one forbidden import added into a temporary directory and asserts the checker flags it (<code>test_the_psycopg_rule_bites_inside_the_memory_directory</code>). D-PM-2b dropped Cedar, and <code>cedarpy</code> stays on the forbidden list so that it "must never reappear".</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha · what an AST firewall cannot see</span>
+  <p>The scan reads <code>import</code> and <code>from … import</code> statements. It does not see <code>importlib.import_module("…")</code> with a string, <code>__import__</code>, or a vendor reached transitively through an allowed third-party library. Both builds use <code>importlib</code> in the core, legitimately: the ARB demo deliberately loads the red-team corpus from <code>tests/</code> ("imported, not copied", so the demo cannot drift from the gated cases), and pm-agent uses lazy attribute loading in <code>agents/__init__.py</code>. Neither reaches a vendor. If a client's codebase needs a stronger guarantee, add a runtime check (import the core in a clean interpreter and assert no vendor module appears in <code>sys.modules</code>) or use a contract tool such as import-linter.</p>
+</div>
+
+<h2 id="portable"><span class="n">7.5</span>Portability as a tested claim</h2>
+<p><span class="tag own">Reference build</span> The firewall proves that the core <em>could</em> be moved. <code>test_portability.py</code> proves that moving it changes no decision. It runs the governed golden set and a sample of the red-team corpus (one attack per major control family: <code>TB-CEILING</code>, <code>TB-NON-REFUNDABLE</code>, <code>TB-NEGATIVE-AMOUNT</code>, <code>INJ-COMPEL-WRITE</code>), and records for each case which controls refused and what reached payments:</p>
+<ul>
+  <li>The <strong>fake-model leg</strong> always runs and is pinned to a baseline in the file, so any change in a decision shows up as a diff.</li>
+  <li>The <strong>LiteLLM and Vertex legs</strong> run only where a provider and credentials are configured. When they run, their decisions must match the fake's exactly. The file is candid that these are "proof a deployment can demand, not a CI gate".</li>
+  <li>An <strong>always-on gateway leg</strong> swaps <code>DirectToolGateway</code> for <code>FastMcpGateway</code> under the same plane and asserts that no decision moves, because "the tool-call ingress is transport, the PEP is the authority".</li>
+</ul>
+<p>This is the precise form of the client claim "our controls are model-agnostic". The enforcement decisions are a property of the plane, so the same refusals happen whatever model proposes the call. The model's <em>quality</em> varies by provider; the plane's <em>decisions</em> do not.</p>
+
+<h2 id="swap"><span class="n">7.6</span>The payoff: a framework swap with zero code</h2>
+<p><span class="tag own">Reference build</span> D48 is the evidence that the chassis works. The AICoE playbook targets Google ADK 2.5.0 while <code>main</code> ran on 2.8.0, so a branch pinned ADK to exactly 2.5.0. "The delta is two pins and zero code." Every <code>google.adk</code> import lives in two adapter files (<code>platform/model/adk.py</code> and <code>platform/runtime/adk.py</code>). The eight ADK primitives those adapters touch were API-stable across the versions for those call sites, so neither adapter changed, and <code>git diff main..adk-2.5.0 -- src/</code> was empty. Every enforced result held: the golden set, the fleet verdict, policy parity, portability, the import firewall, no-dead-policy and the full red-team corpus.</p>
+<p>Two lessons follow. First, the method was "regression-guarded native rewrite": pin the target version, run the suite, and let the red tests draw the worklist (here there was none). Second, the decision also recorded a cost found later: ADK's convenience <code>extensions</code> extra pulled in a LangGraph version cap the build never used (D53). Even a clean swap can hide inherited dependency baggage, and the place to find it is the lock file.</p>
+
+<h2 id="govtests"><span class="n">7.7</span>Tests that guard the governance</h2>
+<p><span class="tag own">Reference build</span> The most distinctive part of the suite tests the governance machinery itself rather than behaviour. A selection:</p>
+<div class="tw"><table>
+<thead><tr><th>Test file</th><th>Claim it makes falsifiable</th><th>Decision</th></tr></thead>
+<tbody>
+<tr><td><code>test_policy_parity.py</code></td><td>OPA and Cedar decide identically on every golden refund, boundary case, read and fixture order; Cedar denies an empty request and an unloadable bundle</td><td>D22</td></tr>
+<tr><td><code>test_no_dead_policy.py</code></td><td>Every fact the Rego bundle reads has a producer; every <code>object.get</code> default is accounted for; the checker still catches a fact with no producer</td><td>GAP-17</td></tr>
+<tr><td><code>test_plane_bypass.py</code></td><td>Plane mode is fixed at construction; no production builder builds a bare plane or accepts a params override; the gateway builds no plane of its own</td><td>D61</td></tr>
+<tr><td><code>test_import_firewall.py</code>, <code>test_portability.py</code></td><td>The core is vendor-free; decisions are identical across model and gateway bindings</td><td>D32</td></tr>
+<tr><td><code>test_living_docs.py</code></td><td>Documents that claim to be current do not contradict the decision log</td><td>D50</td></tr>
+<tr><td><code>test_config_digest.py</code></td><td>Sign-off binds to a digest of the governing configuration</td><td>D59</td></tr>
+<tr><td><code>test_gate_flip.py</code>, <code>test_governance_gate.py</code></td><td>The gate verdict changes when, and only when, the governing facts change</td><td>ADLC gate</td></tr>
+</tbody></table></div>
+<p>The plane-bypass tests repay study. Each closes a specific route around the controls: entering <code>pre_deployment()</code> after a deployed plane is built relaxes nothing; a bare <code>EnforcementPlane(...)</code> skips the inventory check, so production builders may only use <code>build_enforcement_plane</code>; and an in-process params override would bypass the digest that sign-off is bound to, so no production builder accepts one. This is complete mediation (<a class="xref" data-ch="reference-model" href="reference-model.html">Chapter 12</a>) applied to the construction of the enforcer itself.</p>
+
+<h2 id="falsifiers"><span class="n">7.8</span>Falsifiers: tests that prove a test can fail</h2>
+<p><span class="tag gen">Generic</span> A test that cannot fail is decoration. The pattern running through both builds is to pair each claim test with a <strong>falsifier</strong>: a test that shows the checker detects a deliberately broken input. Four forms appear:</p>
+<ol>
+  <li><strong>Non-vacuity.</strong> Prove the thing being guarded exists (the vendor imports really are under <code>platform/</code>; the Rego parser really found facts).</li>
+  <li><strong>Bite.</strong> Plant a violation in a temporary copy and prove the checker flags it (the psycopg and OTel rules; "the check still catches a fact with no producer").</li>
+  <li><strong>Lie.</strong> Feed the checker an output that contradicts the evidence and prove it rejects it (the demo checker test asserting "the checker accepted a matrix junit contradicts" never happens).</li>
+  <li><strong>Red before green.</strong> A new guard is written to fail on the current state, then the fix makes it pass (D50's living-docs test was "red before the sweep and green after").</li>
+</ol>
+<p>Mutation testing (for example <code>mutmut</code> for Python) automates the general version of this by altering code and checking that some test fails. For governance checkers the hand-written falsifier is usually clearer, because the interesting mutations are semantic (a missing producer, a leaked import), not syntactic.</p>
+
+<h2 id="stable"><span class="n">7.9</span>Byte stability and pinned baselines</h2>
+<p><span class="tag own">Both builds</span> Evidence hashes, config digests and pinned baselines only work if the bytes are stable. pm-agent's very first decision after scaffolding, D-PM-P0-b, set <code>* text=auto eol=lf</code> in <code>.gitattributes</code> because the build host is Windows and fixtures must hash identically on every platform. The same discipline shows elsewhere: dependencies pinned exactly with a lock file, canonical JSON before hashing (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>), fixture data instead of live data in CI, and baselines kept in the test file as small literal dictionaries so that any change in a control decision appears in a code review diff.</p>
+
+<h2 id="alts"><span class="n">7.10</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Boundary enforcement</td><td>Hand-written AST test · import-linter contracts · separate packages per layer · code review only</td><td>The AST test is transparent and per-seam; import-linter is declarative; separate packages are strongest and heaviest</td></tr>
+<tr><td>Seam type</td><td><code>Protocol</code> (structural) · abstract base class (nominal) · duck typing</td><td>Protocols keep vendor adapters free of core inheritance; check them statically</td></tr>
+<tr><td>Doubles</td><td>Fakes · stubs · mocks · real services in containers</td><td>Fakes for speed and determinism; containers or live legs for fidelity</td></tr>
+<tr><td>Live-binding checks</td><td>CI gate · deployment-demanded proof · none</td><td>Both builds keep live legs out of CI (credentials, cost, flakiness) and require them before deployment</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">7.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Vacuous boundary test</td><td>Non-vacuity and bite tests</td></tr>
+<tr><td>Fake drifts from the real binding</td><td>Static conformance plus equivalence tests across bindings</td></tr>
+<tr><td>Vendor types leak through a seam (a vendor exception or response object crosses into the core)</td><td>Seam signatures use core types only; adapters translate errors</td></tr>
+<tr><td>"Portable" claimed, never exercised</td><td>A portability test whose live legs a deployment demands</td></tr>
+<tr><td>A convenience extra drags in unused dependencies</td><td>Read the lock file after every pin change</td></tr>
+<tr><td>Hashes differ across machines</td><td>LF normalisation, canonical serialisation, exact pins</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">7.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Are we locked into this framework?"</strong> "In our reference build a framework version swap changed two dependency pins and no code, and every control decision held. Ask any vendor for the equivalent evidence."</li>
+    <li><strong>"Do the controls depend on the model?"</strong> "No. The same refusals happen on a fake model, a local model and Gemini on Vertex, and a test fails if they ever diverge. The model's quality varies; the plane's decisions do not."</li>
+    <li><strong>"How do you know your tests test anything?"</strong> "Each architectural check has a partner test that breaks the rule on purpose and proves the check catches it."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">7.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with LL1, BT2, R03</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name eight seams in the reference build and a fake and a real binding for each.</li>
+    <li><span class="lvl">Recall</span>The three plane-bypass routes D61 closes.</li>
+    <li><span class="lvl">Apply</span>Write a firewall rule confining a new vendor (say, a payments SDK) to one seam, with its non-vacuity and bite tests.</li>
+    <li><span class="lvl">Design</span>Add an AWS Bedrock binding to the model seam. List every file that changes and every test that must stay green.</li>
+    <li><span class="lvl">Trade-off</span>Live-binding equivalence as a CI gate versus a deployment-demanded proof.</li>
+  </ol>
+  <p class="small">Card candidates: <em>seam = alter behaviour without editing in that place</em> · <em>a test that cannot fail is decoration</em> · <em>D48: two pins, zero code</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">7.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Michael Feathers, <cite>Working Effectively with Legacy Code</cite> (2004), on seams. Titus Winters, Tom Manshreck and Hyrum Wright, <cite>Software Engineering at Google</cite> (2020), the chapters on test doubles and larger tests. Michael Nygard, <cite>Release It!</cite> 2nd ed. (2018), on integration points as the number-one stability risk.</li>
+  <li><b>Articles.</b> Alistair Cockburn, "Hexagonal architecture" (2005). Martin Fowler, "Mocks Aren't Stubs" (2007).</li>
+  <li><b>Tools.</b> import-linter (declarative import contracts); mutmut (mutation testing); PEP 544 (Protocols).</li>
+  <li><span class="tag own">Reference build</span> D32, D48 and <code>docs/migrations/ADK_2.5.0.md</code>; <code>tests/test_import_firewall.py</code>, <code>test_portability.py</code>, <code>test_plane_bypass.py</code>, <code>test_no_dead_policy.py</code>; <code>platform/_conformance.py</code>.</li>
+  <li><span class="tag own">pm-agent</span> <code>tests/test_import_firewall.py</code> (per-seam rules and bite tests), <code>test_runtime_portability.py</code>, <code>test_platform_seams.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="orchestration-meta-harness.html"><small>Previous</small>6 · Orchestration and the meta-harness</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="transformers-tokens.html"><small>Next</small>8 · Transformers and tokens for architects</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

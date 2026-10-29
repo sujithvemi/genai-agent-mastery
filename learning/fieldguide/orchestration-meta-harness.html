@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>6 · Orchestration and the meta-harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 6</div>
+  <ol>
+    <li><a href="#workflows">Workflows and agents</a></li>
+    <li><a href="#patterns">Five composable patterns</a></li>
+    <li><a href="#graph">Typed state graphs</a></li>
+    <li><a href="#multi">When many agents help</a></li>
+    <li><a href="#meta">The meta-harness</a></li>
+    <li><a href="#pm">pm-agent as a meta-harness</a></li>
+    <li><a href="#govern">Governing a graph of agents</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 6</div>
+  <h1>Orchestration and the meta-harness</h1>
+  <p class="lede">Most useful agent systems are not one agent in a loop. They are workflows with model judgement inside some steps, graphs of specialised workers, or, increasingly, a coordinator that delegates typed work to other harnesses it does not control. Each shape changes where decisions are made and where controls must sit.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>LL4 · LL10 · BT11</span></div>
+    <div><b>Build modules</b><span>pm agents/planning · platform/runtime · platform/executors · ledger/</span></div>
+    <div><b>Decisions</b><span>ADR-0001 · ADR-0004 · ADR-0007 · ADR-0008 (pm) · D40</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A task is solved by one agent with ten tools, or by a coordinator with three specialist agents. What does the second cost you?</li>
+    <li>Where should the decision "this step is done" be made: by the model, or by code?</li>
+    <li>pm-agent will hand coding work to an external coding agent. What must stay with pm-agent?</li>
+  </ol>
+</div>
+
+<h2 id="workflows"><span class="n">6.1</span>Workflows and agents</h2>
+<p><span class="tag gen">Generic</span> Anthropic's "Building effective agents" (December 2024) drew the distinction that clarifies most orchestration debates. A <strong>workflow</strong> orchestrates models and tools through predefined code paths; an <strong>agent</strong> lets the model direct its own process and tool use. Workflows are predictable and cheap to govern; agents are flexible and harder to bound. The advice that follows is the right default for enterprise work: start with the simplest thing (often one model call with retrieval), use a workflow when the steps are known, and use an agent only where the path genuinely cannot be fixed in advance. Keep model judgement inside nodes and keep the edges deterministic where you can.</p>
+
+<h2 id="patterns"><span class="n">6.2</span>Five composable patterns</h2>
+<div class="tw"><table>
+<thead><tr><th>Pattern</th><th>Shape</th><th>Use when</th><th>Governance note</th></tr></thead>
+<tbody>
+<tr><td>Prompt chaining</td><td>A fixed sequence of model steps, with checks between them</td><td>A task decomposes into known stages</td><td>Gates between steps are natural control points</td></tr>
+<tr><td>Routing</td><td>Classify the input, send it to a specialised path</td><td>Distinct input types need distinct handling</td><td>The router is a classifier: let it restrict, never grant</td></tr>
+<tr><td>Parallelisation</td><td>Several model calls at once; aggregate or vote</td><td>Independent sub-tasks, or confidence by voting</td><td>Cost multiplies; budgets must count all branches</td></tr>
+<tr><td>Orchestrator-workers</td><td>A coordinator plans and delegates to workers, then synthesises</td><td>Sub-tasks cannot be known in advance</td><td>Each worker's acts need their own controls; the coordinator's plan is not an authorisation</td></tr>
+<tr><td>Evaluator-optimiser</td><td>One model produces, another critiques, iterate</td><td>Clear quality criteria exist</td><td>The critic is a check, not a control; bound the iterations</td></tr>
+</tbody></table></div>
+<p><span class="tag own">pm-agent</span> pm-agent's planning graph combines three: a planner that decomposes the request (orchestrator), a router that sends work to workers by type, and a critic that screens the plan before anything is proposed (evaluator), whose blocking screen is where the output guard runs.</p>
+
+<h2 id="graph"><span class="n">6.3</span>Typed state graphs</h2>
+<p><span class="tag own">pm-agent</span> ADR-0001 chose orchestration as a typed state graph: nodes are agents or stages with Pydantic contracts, edges are deterministic where possible, model judgement is confined inside nodes, human-approval gates are graph interrupts, and checkpoints are Postgres-backed. The runtime library (LangGraph) sits behind an owned <code>Orchestrator</code> interface, and an import-firewall test keeps LangGraph inside <code>platform/runtime/</code>. The properties that matter:</p>
+<ul>
+  <li><strong>Typed contracts between nodes</strong> make every hand-off checkable, which is where shape slips get caught (<a class="xref" data-ch="loop-tools-typed-outputs" data-sec="#slips" href="loop-tools-typed-outputs.html#slips">Chapter 2</a>).</li>
+  <li><strong>Deterministic edges</strong> mean "what happens next" is code, testable without a model.</li>
+  <li><strong>Interrupts as approval gates</strong> mean a run can stop before any effect, wait, and resume or end with no write.</li>
+  <li><strong>Checkpoints</strong> make runs durable across waits, crashes and deployments (<a class="xref" data-ch="communication-durable-execution" href="communication-durable-execution.html">Chapter 26</a>).</li>
+</ul>
+
+<h2 id="multi"><span class="n">6.4</span>When many agents help</h2>
+<p><span class="tag gen">Generic</span> Multi-agent systems are fashionable, and the evidence is mixed in an instructive way. Anthropic reported that its orchestrator-worker research system, with parallel sub-agents, outperformed a single-agent baseline by about 90% on an internal evaluation while using roughly fifteen times the tokens of a chat interaction. The gain came from parallel exploration of breadth-first questions; the cost is tokens, latency, coordination failures and a much larger governance surface. The harness study found coordinator-worker shapes in seven of eleven coding agents, with sub-agent coordination kept in-process in eight of the nine multi-agent systems. Use many agents when the work is genuinely parallel and the budget allows; otherwise a single agent with good tools and a workflow around it is easier to make reliable and to govern.</p>
+
+<h2 id="meta"><span class="n">6.5</span>The meta-harness</h2>
+<p><span class="tag gen">Generic</span> A meta-harness coordinates whole harnesses from above, with no editing loop of its own. The first public example, Databricks' Omnigent (June 2026), treats coding harnesses (Claude Code, Codex, OpenCode, Hermes, Pi, Cursor) as interchangeable components behind one API, adding cross-harness policies, a uniform sandbox and shared sessions. OpenHands does something similar through ACP, hosting other harnesses as back-ends. The pattern matters to an architect for two reasons: the executor layer is becoming a commodity you choose per task, and governance has to work across executors you did not build.</p>
+
+<h2 id="pm"><span class="n">6.6</span>pm-agent as a meta-harness</h2>
+<p><span class="tag own">pm-agent</span> pm-agent's direction is a meta-harness for the software product lifecycle: it keeps a product's plan, requirements, decisions, work and releases in step, and delegates the work itself to executors. Three ADRs define the shape:</p>
+<ul>
+  <li><strong>A domain-neutral ledger</strong> (ADR-0007): generic artefact kinds (intent, requirement, decision, work item, deliverable, verification, release, feedback) with typed links (derives from, satisfies, implements, verifies, decided by, supersedes, released in…). The ledger is a derived index rebuilt from the systems of record, not a system of record itself; losing it loses only a cache. Lifecycle packs are versioned data (software first; other lifecycles such as UX design later), and drift is a failed check whose findings are fixable by typed actions.</li>
+  <li><strong>An executor contract</strong> (ADR-0008): each executor declares its capabilities, accepts a delegation (a typed action with retrieved targets, a context pack and constraints) only with eligibility and a signed approval, runs in its own sandbox with its own credentials, and returns a <em>proposal</em> verified against acceptance criteria before anything is linked as done. One shared conformance suite every executor must pass.</li>
+  <li><strong>Governance as each release's definition of done</strong> (ADR-0004): every new effect is a typed action with an eligibility rule, a hostile-planner proof and an eval case; tiers re-derived and gates passed for every profile touched; evidence signed; residuals disclosed.</li>
+</ul>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="pm-agent as a meta-harness. Systems of record (Jira, git, repository documents) feed a derived ledger. The planner proposes typed actions and delegations. Eligibility policy and signed human approval gate each one. Executors (Jira executor via MCP, local repository executor on a branch, coding agents via ACP, design tools via MCP) run in their own sandboxes with their own credentials and return proposals, which are verified against acceptance criteria before being linked in the ledger with evidence.">
+  <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box" x="10" y="30" width="170" height="120" rx="6"/>
+  <text class="tx-b" x="95" y="56" text-anchor="middle">Systems of record</text>
+  <text class="tx-s" x="95" y="80" text-anchor="middle">Jira · git · repo docs</text>
+  <text class="tx-s" x="95" y="100" text-anchor="middle">(read as the user)</text>
+  <rect class="box-strong" x="10" y="190" width="170" height="90" rx="6"/>
+  <text class="tx-b" x="95" y="218" text-anchor="middle">Ledger</text>
+  <text class="tx-s" x="95" y="240" text-anchor="middle">derived index · drift checks</text>
+  <text class="tx-s" x="95" y="258" text-anchor="middle">lifecycle packs as data</text>
+  <line class="ln" x1="95" y1="150" x2="95" y2="186" marker-end="url(#a6)"/>
+
+  <rect class="box-strong" x="220" y="90" width="160" height="110" rx="6"/>
+  <text class="tx-b" x="300" y="118" text-anchor="middle">Planner graph</text>
+  <text class="tx-s" x="300" y="140" text-anchor="middle">typed actions</text>
+  <text class="tx-s" x="300" y="158" text-anchor="middle">delegations</text>
+  <text class="tx-s" x="300" y="176" text-anchor="middle">critic screen</text>
+  <line class="ln" x1="180" y1="90" x2="216" y2="130" marker-end="url(#a6)"/>
+  <line class="ln" x1="180" y1="235" x2="216" y2="175" marker-end="url(#a6)"/>
+
+  <rect class="box-acc" x="420" y="90" width="150" height="110" rx="6"/>
+  <text class="tx-acc" x="495" y="118" text-anchor="middle">Gate each act</text>
+  <text class="tx-s" x="495" y="140" text-anchor="middle">eligibility (Rego)</text>
+  <text class="tx-s" x="495" y="158" text-anchor="middle">signed approval</text>
+  <text class="tx-s" x="495" y="176" text-anchor="middle">provenance lane</text>
+  <line class="ln" x1="380" y1="145" x2="416" y2="145" marker-end="url(#a6)"/>
+
+  <g>
+    <rect class="box-ok" x="620" y="20" width="270" height="44" rx="6"/><text class="tx" x="632" y="47">Jira executor · via MCP</text>
+    <rect class="box-ok" x="620" y="74" width="270" height="44" rx="6"/><text class="tx" x="632" y="101">Repo executor · branch, docs path</text>
+    <rect class="box-ok" x="620" y="128" width="270" height="44" rx="6"/><text class="tx" x="632" y="155">Coding agents · via ACP</text>
+    <rect class="box-ok" x="620" y="182" width="270" height="44" rx="6"/><text class="tx" x="632" y="209">Design tools · via MCP (later)</text>
+  </g>
+  <line class="ln" x1="570" y1="130" x2="616" y2="42" marker-end="url(#a6)"/>
+  <line class="ln" x1="570" y1="138" x2="616" y2="96" marker-end="url(#a6)"/>
+  <line class="ln" x1="570" y1="150" x2="616" y2="150" marker-end="url(#a6)"/>
+  <line class="ln" x1="570" y1="160" x2="616" y2="204" marker-end="url(#a6)"/>
+  <rect class="box" x="420" y="250" width="470" height="56" rx="6"/>
+  <text class="tx-b" x="655" y="274" text-anchor="middle">Proposal → verify against acceptance criteria → link with evidence</text>
+  <text class="tx-s" x="655" y="294" text-anchor="middle">own sandbox and credentials per executor · a failed verification links nothing as done</text>
+  <polyline class="ln" points="755,226 755,246" marker-end="url(#a6)"/>
+  <line class="ln" x1="420" y1="268" x2="184" y2="268" marker-end="url(#a6)"/>
+</svg>
+</div>
+<figcaption><b>Fig 6.1</b>pm-agent's intended meta-harness shape (ADR-0007, ADR-0008). Executors are interchangeable; what pm-agent keeps is the ledger, the decision on each act, the approval and the verification of what comes back.</figcaption>
+</figure>
+
+<div class="panel p-future" data-trigger="pm-agent R1 ships the Jira and repository executors; R3 adds coding agents via ACP">
+  <span class="k">Waiting on the builds</span>
+  <p>The executor contract and ledger are decided; R1 builds the first two executors. As each lands, replace "intended" with "built" in the figure, add the shared executor conformance suite's results, and add the first worked delegation (task, context pack, constraints, proposal, verification) as an example.</p>
+</div>
+
+<h2 id="govern"><span class="n">6.7</span>Governing a graph of agents</h2>
+<p><span class="tag gen">Generic</span> Four rules carry across every orchestration shape, and each is grounded in a decision in your builds:</p>
+<ol>
+  <li><strong>A plan is not an authorisation.</strong> A coordinator's decision to delegate does not permit the worker's acts; each act is decided on its own facts at its own enforcement point.</li>
+  <li><strong>Messages carry no authority</strong> (D40). What one agent tells another is data.</li>
+  <li><strong>Tiers belong to nodes; edges get their own controls</strong> (D40). Do not compose a super-agent tier.</li>
+  <li><strong>Executors never get the coordinator's keys</strong> (ADR-0008). Delegated work runs on delegated, narrower authority, and its output is a proposal until verified.</li>
+</ol>
+
+<h2 id="alts"><span class="n">6.8</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Control flow</td><td>Model-directed agent · typed state graph · fixed workflow</td><td>Graphs keep model judgement inside nodes and edges testable</td></tr>
+<tr><td>Agent count</td><td>One agent with tools · coordinator with workers · peer network</td><td>Multi-agent wins on parallel breadth at large token and governance cost</td></tr>
+<tr><td>Executors</td><td>Build every capability · delegate to external harnesses through a contract</td><td>Delegation reuses the best executors and needs a strict contract, sandboxing and verification</td></tr>
+<tr><td>Coordination library</td><td>LangGraph · ADK workflows · Temporal-style durable execution · hand-rolled</td><td>Keep it behind your own interface; the harness study shows production systems often hand-roll</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">6.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Multi-agent where a workflow would do</td><td>Start simple; add agents only for parallel breadth</td></tr>
+<tr><td>Coordinator's plan treated as permission</td><td>Per-act decisions at the worker's enforcement point</td></tr>
+<tr><td>Runaway fan-out</td><td>Budgets across all branches; caps on sub-agents per run</td></tr>
+<tr><td>Executor with the coordinator's credentials</td><td>Own sandbox, own narrower credentials</td></tr>
+<tr><td>Executor output applied as truth</td><td>Proposal, verified against acceptance criteria first</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">6.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We want a multi-agent architecture."</strong> "For which part of the work is parallel exploration worth roughly ten times the tokens and a larger control surface? Start with a workflow and add agents where the evidence says they pay."</li>
+    <li><strong>"Can one orchestrator drive all our coding agents?"</strong> "Yes, as a meta-harness: it decides and verifies, they execute in their own sandboxes on narrower credentials, and their output is a proposal until checked."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">6.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with LL4, LL10, BT11</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The five patterns and a governance note for each.</li>
+    <li><span class="lvl">Recall</span>ADR-0008's six decisions.</li>
+    <li><span class="lvl">Apply</span>Trace a delegation from pm-agent to a coding agent end to end, naming every control.</li>
+    <li><span class="lvl">Design</span>Extend pm-agent's ledger to a UX-design lifecycle pack: kinds, links, drift checks, executors.</li>
+    <li><span class="lvl">Trade-off</span>Build a coding capability inside pm-agent versus delegating to external harnesses.</li>
+  </ol>
+  <p class="small">Card candidates: <em>workflows vs agents</em> · <em>a plan is not an authorisation</em> · <em>executors never get the coordinator's keys; output is a proposal</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">6.12</span>Further reading</h2>
+<ul>
+  <li><b>Guidance.</b> Anthropic, "Building effective agents" (December 2024) and "How we built our multi-agent research system" (2025).</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026), section on the meta-harness and the platform turn.</li>
+  <li><b>Your library.</b> Lamhot Siagian, <cite>LLM System Design</cite> (preview), on continuous agent loops; the LangGraph tutorial playlist.</li>
+  <li><span class="tag own">pm-agent</span> ADR-0001, ADR-0004, ADR-0007, ADR-0008; <code>agents/planning/</code>, <code>platform/executors/</code>, <code>ledger/</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="protocols-trust.html"><small>Previous</small>5 · Protocols and trust between agents</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="chassis-seams-tests.html"><small>Next</small>7 · The chassis: seams, fakes and tests that can fail</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

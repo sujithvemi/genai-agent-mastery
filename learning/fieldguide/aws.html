@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>42 · AWS: Bedrock and AgentCore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VII · Platforms and tools</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 42</div>
+  <ol>
+    <li><a href="#shape">The shape of AWS's offer</a></li>
+    <li><a href="#agentcore">AgentCore, service by service</a></li>
+    <li><a href="#policy">AgentCore Policy, examined</a></li>
+    <li><a href="#identity">Identity and delegation</a></li>
+    <li><a href="#bedrock">Bedrock: models, guardrails, knowledge</a></li>
+    <li><a href="#beyond">Beyond the developer platform</a></li>
+    <li><a href="#map">Mapping AWS to your catalog</a></li>
+    <li><a href="#leadlag">Where AWS leads and lags</a></li>
+    <li><a href="#landing">A reference landing on AWS</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VII · CHAPTER 42</div>
+  <h1>AWS: Bedrock and AgentCore</h1>
+  <p class="lede">AWS splits its agent offer in two. Amazon Bedrock is the model layer: models, guardrails, knowledge bases, tuning and capacity tiers. Amazon Bedrock AgentCore is a framework-neutral and model-neutral set of agent infrastructure services, and in 2026 it has moved fastest of the three clouds: a deterministic Cedar policy engine on tool calls, a registry, evaluations, optimization with A/B testing, a managed harness and agent payments are all generally available. Many of your clients will run agents here, so you need it at the same depth as Google.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>LANDSCAPE · GF-4</span></div>
+    <div><b>Reps</b><span>TC-03 · TC-08 (lab T08: Cedar)</span></div>
+    <div><b>Build links</b><span>ARB platform/policy/cedar.py · policies/cedar/tool_call.cedar · D22 (OPA/Cedar parity) · inventory export shaped like AgentCore (D59)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (developer guide and release notes read that day)</span></div>
+  </div>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Statuses come from the AgentCore release notes (latest entries October 2026), the AgentCore developer guide, AWS What's New and the AWS Summit New York announcements of 17 June 2026. Re-check before naming a feature to a client.</p>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An AgentCore Cedar policy permits <code>process_refund</code> when <code>context.input.amount &lt; 1000</code>. What can it still not check?</li>
+    <li>Dogwood adds conditions over "prior tool calls and outcomes". Which of your controls does that resemble?</li>
+    <li>Bedrock Guardrails advertises up to 99% accuracy for automated reasoning checks. Where in your architecture may such a check sit?</li>
+  </ol>
+</div>
+
+<h2 id="shape"><span class="n">42.1</span>The shape of AWS's offer</h2>
+<ul>
+  <li><strong>Amazon Bedrock</strong>: managed access to many model families (Amazon Nova, Anthropic Claude, Meta Llama, Mistral, DeepSeek, OpenAI's open-weight models and others), Guardrails, Knowledge Bases, the original Bedrock Agents and Flows, prompt management, model evaluation, customization, and capacity tiers (Reserved, Priority, Standard, Flex; <a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+  <li><strong>Amazon Bedrock AgentCore</strong>: agent infrastructure that "works with any framework and foundation model", including models outside Bedrock. Generally available since October 2025 and expanded through 2026.</li>
+  <li><strong>Strands Agents</strong>: AWS's open-source agent SDK, the default in AgentCore tooling (<a class="xref" data-ch="frameworks-sdks-studios" href="frameworks-sdks-studios.html">Chapter 35</a>).</li>
+  <li><strong>Business and developer agents</strong>: Amazon Quick (no-code background agents for business users), Kiro (an agentic development environment), the AWS DevOps Agent, AWS Transform, and the security agent AWS Continuum announced in June 2026.</li>
+</ul>
+
+<h2 id="agentcore"><span class="n">42.2</span>AgentCore, service by service</h2>
+<div class="tw"><table>
+<thead><tr><th>Service</th><th>What it does</th><th>Status (2026)</th></tr></thead>
+<tbody>
+<tr><td>Runtime</td><td>Serverless hosting for agents and tools from any framework; session isolation; long-running asynchronous agents; bidirectional streaming; AG-UI; stateful MCP; bring-your-own file system</td><td>GA (October 2025); many additions</td></tr>
+<tr><td>Harness</td><td>A managed agent loop: declare model, instructions and tools; each session runs in an isolated microVM with file system and shell; lifecycle hooks; Step Functions integration</td><td>Preview April, GA June 2026</td></tr>
+<tr><td>Memory</td><td>Short- and long-term memory shared across agents; strategies including episodic; namespaces; time-to-live (October 2026)</td><td>GA</td></tr>
+<tr><td>Gateway</td><td>Turns APIs, Lambda functions and services into MCP tools; fronts existing MCP servers; three-legged OAuth to MCP targets; rate limits; runtime and inference targets</td><td>GA; 3LO GA April 2026</td></tr>
+<tr><td>Identity</td><td>Agent workload identities; inbound JWT authorizers; outbound credential providers; on-behalf-of token exchange (April 2026); consent portal (September 2026)</td><td>GA</td></tr>
+<tr><td>Policy</td><td>A Cedar policy engine attached to Gateway that intercepts every tool call (<a class="sref" href="#policy">42.3</a>)</td><td>GA March 2026</td></tr>
+<tr><td>Code Interpreter, Browser</td><td>Isolated code execution (Python, JavaScript, TypeScript); managed cloud browser with Web Bot Auth and OS-level interaction</td><td>GA; Web Bot Auth preview</td></tr>
+<tr><td>Observability</td><td>OpenTelemetry-compatible traces in CloudWatch; cross-account monitoring</td><td>GA</td></tr>
+<tr><td>Evaluations</td><td>Automated assessment of agent and tool behaviour before and after deployment; batch evaluations; third-party evaluators (DeepEval); skill evaluators; failure-analysis evaluator (October 2026)</td><td>GA March 2026</td></tr>
+<tr><td>Optimization</td><td>Recommendations from traces, versioned configuration bundles, A/B testing of system prompts and tool descriptions; failure insights (preview)</td><td>Recommendations and A/B GA June 2026</td></tr>
+<tr><td>Registry</td><td>AWS Agent Registry: agents, MCP servers, tools, skills and custom resources; hybrid search; cross-account sharing; customer-managed keys</td><td>Preview April, GA August 2026</td></tr>
+<tr><td>Payments</td><td>Agent micropayments over x402 and the Machine Payments Protocol, with spending limits and managed wallets</td><td>Preview May, GA August 2026</td></tr>
+<tr><td>Managed Knowledge Base, Web Search</td><td>Managed retrieval with connectors (S3, SharePoint, Confluence, Google Drive); a governed web-search tool</td><td>GA June 2026</td></tr>
+</tbody></table></div>
+
+<h2 id="policy"><span class="n">42.3</span>AgentCore Policy, examined</h2>
+<p><span class="tag gen">Generic</span> AgentCore Policy is the closest any cloud comes to the PDP in your reference model, so it repays close reading. From the developer guide:</p>
+<pre><code><span class="c"># the developer guide's own example: refunds under $1,000</span>
+permit(principal,
+  action == AgentCore::Action::"RefundTarget___process_refund",
+  resource == AgentCore::Gateway::"&lt;gateway-arn&gt;")
+when { context.input.amount &lt; 1000 };</code></pre>
+<ul>
+  <li>A <strong>policy engine</strong> is a collection of Cedar policies attached to a Gateway. In <code>ENFORCE</code> mode "every tool call is intercepted and evaluated", "all actions are denied unless explicitly permitted", any matching <code>forbid</code> denies (forbid wins), and decisions are logged to CloudWatch.</li>
+  <li>Policies can be <strong>generated from natural language</strong> (<code>--generate "Only allow refunds under 1000 dollars"</code>), which produces Cedar for review; the enforced artefact is still Cedar.</li>
+  <li>Validation runs schema and semantic checks, rejecting a policy with findings by default; wildcard resources are rejected.</li>
+  <li><strong>Dogwood</strong>, open-sourced under Apache 2.0 and reported by InfoQ in August 2026, extends Cedar with temporal conditions over an agent's prior tool calls and outcomes: approvals, rate limits, running totals. Any Cedar policy is valid Dogwood. Temporal clauses give up Cedar's automated analysis, and AWS describes the reference interpreter as for exploration, not production <span class="tag ver">Verify</span>.</li>
+  <li>Since June 2026 Policy can also call Bedrock Guardrails to check agent actions.</li>
+</ul>
+<p>The prediction questions:</p>
+<ol>
+  <li>The example checks the amount the <em>agent supplied</em>. It cannot check that the amount is no more than the order's total, that the order is refundable, or that the currency matches, because those are facts in the order system that the policy does not read. Your CTL-0002, CTL-0003 and CTL-0012 need a PIP; on AWS that means the tool (the Lambda target) re-reading trusted state, or a pre-check service in the path (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</li>
+  <li>Dogwood's running totals and approvals over prior calls resemble ARB's CTL-0007 (rate and value budget on trusted counters) and parts of CTL-0004: state the enforcement point keeps itself, rather than the agent's account. That is the right design; check where the history is stored and whether it survives restarts and replicas (your GAP-20 lesson; <a class="xref" data-ch="context-memory-state" data-sec="#control" href="context-memory-state.html#control">Chapter 3</a>).</li>
+  <li>Automated reasoning checks are model-assisted validation of responses. However accurate, they are probabilistic relative to your rules, so they may restrict (hold or block an answer) but should not be the thing that allows an effect (D52; <a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>).</li>
+</ol>
+<p><span class="tag own">Reference build</span> ARB already runs Cedar: <code>governance/policies/cedar/tool_call.cedar</code> mirrors the Rego bundle, and D22's parity tests prove the two engines agree on every golden refund, boundary case and read (<a class="xref" data-ch="chassis-seams-tests" data-sec="#govtests" href="chassis-seams-tests.html#govtests">Chapter 7</a>). Porting ARB's refund rules to AgentCore Policy would therefore be a translation of a tested policy, with the trusted-fact checks staying in the tool layer.</p>
+
+<h2 id="identity"><span class="n">42.4</span>Identity and delegation</h2>
+<p><span class="tag gen">Generic</span> AgentCore Identity gives agents workload identities "compatible with industry-standard workload identity patterns", authenticates inbound callers with JWT authorizers from existing identity providers (Amazon Cognito, Okta, Microsoft Entra ID, Auth0), and manages outbound credentials through credential providers so agent code does not hold them. On-behalf-of token exchange (April 2026) and a consent portal (September 2026) cover user delegation. Gateway enforces inbound traffic from itself to Runtime targets. The design goal matches yours: a resolved principal, delegated narrowly, with credentials outside the agent (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>). Under the hood, IAM remains the authorisation system for AWS resources, with condition keys for AgentCore resources.</p>
+
+<h2 id="bedrock"><span class="n">42.5</span>Bedrock: models, guardrails, knowledge</h2>
+<ul>
+  <li><strong>Guardrails</strong> has six policy types: content filters (including prompt-attack detection), denied topics, word filters, sensitive-information filters (PII and custom patterns), contextual grounding checks, and Automated Reasoning checks, which AWS says validate responses "with up to 99% accuracy". The <code>ApplyGuardrail</code> API applies guardrails to any model, including non-Bedrock ones, and guardrails can be enforced across accounts in an AWS Organization.</li>
+  <li><strong>Knowledge Bases</strong> and the newer AgentCore Managed Knowledge Base for retrieval (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>).</li>
+  <li><strong>Customization</strong>: fine-tuning, continued pre-training, distillation and reinforcement fine-tuning for selected models <span class="tag ver">Verify</span>.</li>
+  <li><strong>Bedrock Agents and Flows</strong>: the earlier managed agent and workflow features. For new agents AWS points to AgentCore; check which a client's existing agents use.</li>
+  <li><strong>Capacity</strong>: Reserved (1 or 3 months, minimum 100,000 input and 10,000 output tokens per minute, overflow to Standard), Priority, Standard and Flex tiers; cross-region inference profiles; batch.</li>
+</ul>
+
+<h2 id="beyond"><span class="n">42.6</span>Beyond the developer platform</h2>
+<p>Agents built by business users in Amazon Quick, developer agents in Kiro and the AWS DevOps Agent, and agents bought through AWS Marketplace all enter a client's estate without passing through AgentCore. Your inventory and reconciliation discipline (CTL-0023) has to find them; ARB's reconciliation fixture already includes an export shaped like an AgentCore runtime listing (D59; the field names are the build's, not AWS's schema).</p>
+
+<h2 id="map"><span class="n">42.7</span>Mapping AWS to your catalog</h2>
+<p><span class="tag asm">Assumption</span> A first cut:</p>
+<div class="tw"><table>
+<thead><tr><th>ARB control</th><th>AWS native support</th><th>Gap you fill</th></tr></thead>
+<tbody>
+<tr><td>CTL-0001 refund ceiling</td><td>AgentCore Policy (Cedar on arguments), deterministic</td><td>None for the asserted amount</td></tr>
+<tr><td>CTL-0002, CTL-0003, CTL-0012 trusted facts</td><td>None in Policy</td><td>PIP in the tool or a pre-check service</td></tr>
+<tr><td>CTL-0004 approval</td><td>Dogwood temporal approvals <span class="tag ver">Verify</span>; Step Functions human steps</td><td>Approval bound to the exact action and approver identity</td></tr>
+<tr><td>CTL-0005 separation of duties</td><td>IAM and Cedar can express it</td><td>Resolved identities of requester and approver</td></tr>
+<tr><td>CTL-0007 rate and value budget</td><td>Gateway rate limits; Dogwood running totals; Payments spending limits</td><td>Value limits on trusted counters for non-payment effects</td></tr>
+<tr><td>CTL-0008, CTL-0017 principals</td><td>AgentCore Identity; IAM</td><td>Subject resolution across spellings (D33)</td></tr>
+<tr><td>CTL-0011 evidence</td><td>CloudWatch, CloudTrail, X-Ray</td><td>Hash chain and signatures; S3 Object Lock anchors</td></tr>
+<tr><td>CTL-0013, CTL-0014, CTL-0025, CTL-0026 screening and grounding</td><td>Bedrock Guardrails</td><td>Monotone composition; typed answer contract</td></tr>
+<tr><td>CTL-0020 model budget</td><td>Service quotas and tiers</td><td>Per-agent, per-principal ledger</td></tr>
+<tr><td>CTL-0021 model pin</td><td>Versioned model ids and inference profiles</td><td>Pin check and alias refusal</td></tr>
+<tr><td>CTL-0022 sign-off digest</td><td>Optimization configuration bundles are versioned</td><td>Digest and gate</td></tr>
+<tr><td>CTL-0023 inventory</td><td>AWS Agent Registry</td><td>Registry of record across platforms</td></tr>
+<tr><td>CTL-0024 MCP integrity</td><td>Gateway and Registry</td><td>Description and schema hash pinning</td></tr>
+</tbody></table></div>
+
+<h2 id="leadlag"><span class="n">42.8</span>Where AWS leads and lags</h2>
+<p><span class="tag asm">Assumption</span> A judgement as of October 2026; revisit quarterly.</p>
+<div class="tw"><table>
+<thead><tr><th>AWS leads</th><th>AWS lags</th></tr></thead>
+<tbody>
+<tr><td>Deterministic tool-call policy (Cedar, with forbid-wins and default deny) at GA, plus a temporal extension</td><td>First-party models (Amazon Nova) are less often a client's first choice than partner models such as Anthropic's Claude, so model strategy depends on partners</td></tr>
+<tr><td>Breadth of GA agent primitives: harness, registry, evaluations, optimization with A/B testing, payments</td><td>Estate-wide governance of Microsoft 365 and SaaS agents, where Microsoft's Agent 365 and ServiceNow reach further</td></tr>
+<tr><td>Framework and model neutrality of AgentCore</td><td>End-user agent distribution: Amazon Quick is younger than Gemini Enterprise and Microsoft 365 Copilot</td></tr>
+<tr><td>Guardrails usable on any model, enforceable across an organisation</td><td>Many services and options to compose; architecture discipline falls to the client</td></tr>
+</tbody></table></div>
+
+<h2 id="landing"><span class="n">42.9</span>A reference landing on AWS</h2>
+<p><span class="tag asm">Assumption</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Layer</th><th>Default</th></tr></thead>
+<tbody>
+<tr><td>Organisation</td><td>AWS Organizations with separate accounts per environment; service control policies; organisation-wide guardrails; CloudTrail organisation trail</td></tr>
+<tr><td>Network</td><td>VPC egress for AgentCore; PrivateLink endpoints for Bedrock and AgentCore control planes</td></tr>
+<tr><td>Identity</td><td>AgentCore Identity with the client's IdP; IAM least privilege per agent; on-behalf-of exchange for user data</td></tr>
+<tr><td>Agents</td><td>AgentCore Runtime (or Harness for simple agents); Strands or the team's framework</td></tr>
+<tr><td>Tools</td><td>AgentCore Gateway in front of every tool; Policy engine in ENFORCE; your PIP inside consequential tools</td></tr>
+<tr><td>Safety</td><td>Bedrock Guardrails (input and output); monotone composition</td></tr>
+<tr><td>Assurance</td><td>Your evidence plane with S3 Object Lock anchors and KMS signing; AgentCore Observability for operations; Evaluations and Optimization for quality</td></tr>
+<tr><td>Lifecycle</td><td>Your gate in CodePipeline or GitHub Actions; AWS Agent Registry plus your registry of record</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">42.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"AgentCore Policy enforces our rules, right?"</strong> "It enforces rules on what the agent asks for, deterministically, and it is the best native policy engine in the market today. Rules that need your systems' facts, such as 'no more than the order total', still need a check that reads those systems."</li>
+    <li><strong>"Can we use Guardrails instead of policies?"</strong> "Use both: guardrails screen content and may block; policies decide actions. A screen should never be the thing that allows a refund."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">42.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · lab T08</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Ten AgentCore services and their status.</li>
+    <li><span class="lvl">Recall</span>AgentCore Policy's semantics: default, forbid, modes, logging, generation.</li>
+    <li><span class="lvl">Apply</span>Lab T08: translate ARB's <code>tool_call.cedar</code> refund rules into an AgentCore Policy engine; list which rules move and which must stay in a PIP.</li>
+    <li><span class="lvl">Design</span>ARB's customer-service agent on AWS: runtime, gateway, policy, PIP, guardrails, evidence.</li>
+    <li><span class="lvl">Trade-off</span>Dogwood temporal rules against your own counters on a state store, for CTL-0007.</li>
+  </ol>
+  <p class="small">Card candidates: <em>Cedar on context.input checks the agent's assertion</em> · <em>Dogwood = Cedar + history</em> · <em>guardrails screen, policies decide</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">42.12</span>Further reading</h2>
+<ul>
+  <li><b>AWS.</b> Amazon Bedrock AgentCore developer guide ("What is AgentCore", Policy getting-started, Identity) and release notes; Amazon Bedrock User Guide (service tiers, Guardrails); Amazon News, AWS Summit New York 2026 (17 June 2026); AWS What's New for Harness (June 2026) and Payments (August 2026).</li>
+  <li><b>Coverage.</b> InfoQ, "AWS Dogwood agent policy" (16 August 2026).</li>
+  <li><b>Specifications.</b> The Cedar language reference; the Dogwood repository <span class="tag ver">Verify</span>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/policies/cedar/tool_call.cedar</code>, <code>platform/policy/cedar.py</code>, <code>tests/test_policy_parity.py</code>, D22, D59.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="google-cloud.html"><small>Previous</small>41 · Google Cloud: Gemini Enterprise Agent Platform</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="microsoft.html"><small>Next</small>43 · Microsoft: Foundry, Copilot Studio and Agent 365</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

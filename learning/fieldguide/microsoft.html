@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>43 · Microsoft: Foundry, Copilot Studio and Agent 365</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VII · Platforms and tools</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 43</div>
+  <ol>
+    <li><a href="#shape">Four planes</a></li>
+    <li><a href="#foundry">Foundry: the pro-code platform</a></li>
+    <li><a href="#copilot">Copilot Studio: the maker platform</a></li>
+    <li><a href="#estate">Estate governance: Agent 365, Entra, Purview, Defender</a></li>
+    <li><a href="#planes">Two control planes</a></li>
+    <li><a href="#apim">API Management as the AI gateway</a></li>
+    <li><a href="#open">The open trust stack</a></li>
+    <li><a href="#map">Mapping Microsoft to your catalog</a></li>
+    <li><a href="#leadlag">Where Microsoft leads and lags</a></li>
+    <li><a href="#landing">A reference landing</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VII · CHAPTER 43</div>
+  <h1>Microsoft: Foundry, Copilot Studio and Agent 365</h1>
+  <p class="lede">Most enterprises already run Microsoft 365, so most will have Microsoft agents whether or not anyone planned them: makers build them in Copilot Studio, developers in Foundry, and vendors ship them into Teams. Microsoft's distinctive strength is estate governance: an identity for every agent in Entra, a tenant-wide registry in Agent 365, and the Purview and Defender machinery that already governs people and documents. This chapter covers the four planes, the two control planes that confuse clients, and how your catalog maps onto them.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>LANDSCAPE · GF-1 · GF-4</span></div>
+    <div><b>Reps</b><span>R25 (AGT through your build) · lab T07 (Agent Framework)</span></div>
+    <div><b>Build links</b><span>ARB D63 (AGT not adopted, revisit trigger) · inventory export shaped like PPAC/Agent 365 (D59)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (Microsoft Learn and Foundry blog read that day)</span></div>
+  </div>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Microsoft renames and re-bundles often (Azure AI Foundry became Microsoft Foundry; Semantic Kernel and AutoGen became Agent Framework; agent registries are converging into Agent 365). Statuses here are from Microsoft Learn pages and the Build 2026 Foundry announcements; licensing changes frequently.</p>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A Copilot Studio agent's connector runs with the maker's credentials. Who can see what through it?</li>
+    <li>Foundry Control Plane and Agent 365 both list agents. Which one should the CISO use?</li>
+    <li>Since May 2026 every new Copilot Studio agent gets an Entra Agent ID automatically. What does that make possible that was not possible before?</li>
+  </ol>
+</div>
+
+<h2 id="shape"><span class="n">43.1</span>Four planes</h2>
+<div class="tw"><table>
+<thead><tr><th>Plane</th><th>Products</th><th>Who builds or runs</th></tr></thead>
+<tbody>
+<tr><td>Pro-code</td><td>Microsoft Foundry: Foundry Models, Foundry Agent Service, Microsoft Agent Framework, Foundry IQ, evaluations, Foundry Control Plane; Azure API Management as AI gateway</td><td>Developers and platform teams</td></tr>
+<tr><td>Low-code</td><td>Copilot Studio on the Power Platform</td><td>Makers across the business</td></tr>
+<tr><td>End-user</td><td>Microsoft 365 Copilot; agents in Teams and Outlook; GitHub Copilot's coding agent for developers</td><td>Every employee</td></tr>
+<tr><td>Estate governance</td><td>Agent 365, Entra Agent ID, Purview, Defender</td><td>IT, identity, security and compliance teams</td></tr>
+</tbody></table></div>
+
+<h2 id="foundry"><span class="n">43.2</span>Foundry: the pro-code platform</h2>
+<ul>
+  <li><strong>Foundry Models</strong>: OpenAI models, Microsoft's own MAI models, Anthropic's Claude, open models and partner hosts (Fireworks AI on Foundry is GA). Deployment types decide where data is processed and how capacity is bought: global, data zone or regional; standard (pay per token), provisioned (PTU) or batch; with priority and flex processing at request level (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+  <li><strong>Foundry Agent Service</strong>: hosted agents with sandboxed sessions, state and a file system, for any framework, through the Responses API and an Invocations protocol (GA expected July 2026 <span class="tag ver">Verify</span>); Routines for scheduled agents; Toolboxes, a single managed endpoint for tools, skills and MCP clients with governance; a skills catalogue; tool search; memory (procedural, user and session; preview); voice agents; publishing to Teams and Microsoft 365 Copilot.</li>
+  <li><strong>Microsoft Agent Framework</strong> 1.0 (April 2026; .NET and Python): agents, graph workflows with checkpointing, middleware, MCP and A2A; the agent harness with skills, memory and middleware is stable, and it integrates the GitHub Copilot SDK and Claude Agent SDK (<a class="xref" data-ch="frameworks-sdks-studios" href="frameworks-sdks-studios.html">Chapter 35</a>).</li>
+  <li><strong>Foundry IQ</strong>: managed knowledge bases with agentic retrieval (GA), part of a wider "Microsoft IQ" layer.</li>
+  <li><strong>Quality and safety</strong>: evaluations for any framework (preview), a rubric evaluator, the AI Red Teaming Agent and scheduled red-team scans, guided guardrail setup (PII filters, jailbreak protection, task adherence), and Azure AI Content Safety with Prompt Shields <span class="tag ver">Verify</span>. Agent Optimizer was announced for preview.</li>
+</ul>
+
+<h2 id="copilot"><span class="n">43.3</span>Copilot Studio: the maker platform</h2>
+<p><span class="tag gen">Generic</span> Copilot Studio is where agent sprawl begins in most Microsoft estates. Its governance is the Power Platform's:</p>
+<ul>
+  <li><strong>Environments</strong> are the unit of control; <strong>Managed Environments</strong> add sharing limits, environment-group rules and network scoping. A common pattern is to detect agents made in the default environment and steer makers to a governed one.</li>
+  <li><strong>Data policies</strong> govern connectors, knowledge sources and actions; enforcement for Copilot Studio is on by default and per-agent exemptions are no longer supported. Advanced connector policies (preview) use an allow-list model that can target MCP servers. Custom connectors are the route to custom MCP servers and external agents, so their endpoints need allow-lists.</li>
+  <li><strong>Credentials.</strong> Connectors can run with the <em>maker's</em> credentials or the <em>end user's</em>. The first prediction question: with maker credentials, every user of the agent sees what the maker can see. That is the most common source of unintended data access, and an admin setting can restrict agents to end-user credentials (which breaks agents triggered without a live user).</li>
+  <li><strong>Identity.</strong> Since May 2026 every new Copilot Studio agent automatically gets an Entra Agent ID, a child of a Copilot Studio agent-identity blueprint; existing app-registration identities are being migrated. Connector permissions appear as API permissions on the agent identity, and Conditional Access can target them (device, network, risk) before a token is issued; the connector runtime re-validates against data policies so the scopes cannot bypass them.</li>
+</ul>
+<p>The third prediction question: agent-level identity turns makers' agents into governable principals. Identity teams can see what each agent can call, apply Conditional Access to its connector access, and run access reviews and sponsor workflows, instead of governing a tangle of maker accounts and app registrations.</p>
+
+<h2 id="estate"><span class="n">43.4</span>Estate governance: Agent 365, Entra, Purview, Defender</h2>
+<div class="tw"><table>
+<thead><tr><th>Product</th><th>Role for agents</th><th>Status · notes</th></tr></thead>
+<tbody>
+<tr><td>Agent 365</td><td>"A control plane for agents": a central registry and agent map (observe); lifecycle, permissions, policies and reviews through the Microsoft 365 admin centre, Entra and Purview (govern); risk-based access, data protection and threat detection (secure)</td><td>GA 1 May 2026 (commercial); licensed per user; works best with E5</td></tr>
+<tr><td>Entra Agent ID</td><td>Agent identities from blueprints; Conditional Access for agents with templates (block high-risk agents, autonomous agents, on-behalf-of agents); access packages for agent identities; owners, sponsors and managers with sponsor lifecycle workflows; the agent registry converging into Agent 365</td><td>GA</td></tr>
+<tr><td>Purview</td><td>Audit of agent lifecycle and interaction events; Data Security Posture Management for AI (prompt and response content, sensitive-data access); DLP and sensitivity labels that can block; communication compliance, insider risk, eDiscovery and retention</td><td>Interaction capture for non-Microsoft channels needs pay-as-you-go Purview <span class="tag ver">Verify</span></td></tr>
+<tr><td>Defender</td><td>Agent inventory, MCP tool visibility, orphaned-agent and hard-coded-credential detection through advanced hunting; runtime protection; alerts surfaced in Foundry Control Plane</td><td><span class="tag ver">Verify</span> per product</td></tr>
+</tbody></table></div>
+
+<h2 id="planes"><span class="n">43.5</span>Two control planes</h2>
+<p><span class="tag gen">Generic</span> Clients routinely confuse these. They are complementary, scoped differently:</p>
+<div class="tw"><table>
+<thead><tr><th>Aspect</th><th>Foundry Control Plane</th><th>Agent 365</th></tr></thead>
+<tbody>
+<tr><td>Audience</td><td>AI platform and development teams</td><td>IT, identity, security and compliance administrators</td></tr>
+<tr><td>Scope</td><td>Agents, models and tools across Foundry projects in a subscription, plus registered agents from Microsoft and non-Microsoft sources</td><td>Agents across the Microsoft 365 tenant, including partner agents</td></tr>
+<tr><td>Main jobs</td><td>Asset inventory with health, cost and token use; versioned guardrail policies with assignment tracking and bulk remediation; continuous evaluation (task adherence, groundedness, sensitive-data leakage); token limits; scheduled red teaming; Defender and Purview alerts; Azure Policy compliance; quota</td><td>Registry and agent map; lifecycle, permissions and access reviews; Conditional Access, DLP and threat protection through Entra, Purview and Defender</td></tr>
+<tr><td>Analogy in your reference model</td><td>Authoring and assurance planes for engineered agents</td><td>Inventory and identity governance for the whole estate</td></tr>
+</tbody></table></div>
+<p>The second prediction question: both, for different questions. The CISO's view of "every agent with access to our data, who sponsors it, and what it can reach" is Agent 365 and Entra; "is this engineered agent's quality and guardrail posture within policy" is Foundry Control Plane. Neither sees agents on Google or AWS unless they are registered into it, so a registry of record remains yours (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>).</p>
+
+<h2 id="apim"><span class="n">43.6</span>API Management as the AI gateway</h2>
+<p><span class="tag gen">Generic</span> Azure API Management's AI gateway features (Microsoft Learn, updated May 2026) are a mature model and tool gateway:</p>
+<ul>
+  <li><strong>Token limits</strong> per consumer, per minute or as quotas over an hour to a year, keyed on subscription, IP or any expression; prompt tokens are pre-calculated so requests over the limit never reach the model. This is a building block for your CTL-0020 ledger, keyed to the resolved principal.</li>
+  <li><strong>Token metrics</strong> with custom dimensions, and prompt and completion logging for billing and audit.</li>
+  <li><strong>Semantic caching</strong> backed by Redis (<a class="xref" data-ch="model-choice-risk" data-sec="#caching" href="model-choice-risk.html#caching">Chapter 10</a> for its risks).</li>
+  <li><strong>Load balancing</strong> (round robin, weighted, priority so provisioned capacity is used first, session-aware) and a <strong>circuit breaker</strong> that honours the back end's <code>Retry-After</code>.</li>
+  <li><strong>Content safety</strong> policy calling Azure AI Content Safety; managed identities instead of keys.</li>
+  <li><strong>MCP</strong>: expose REST APIs as MCP servers, govern remote MCP servers, secure them with OAuth, register them in API Center; <strong>A2A</strong> agent APIs can be imported.</li>
+  <li>Previews: a unified OpenAI-compatible model API across back ends, and an AI gateway inside Foundry.</li>
+</ul>
+
+<h2 id="open"><span class="n">43.7</span>The open trust stack</h2>
+<p><span class="tag gen">Generic</span> Microsoft's open-source governance components, two of them announced at Build 2026 (2 June 2026) as an "open trust stack":</p>
+<ul>
+  <li><strong>Agent Governance Toolkit (AGT)</strong>, open-sourced on 2 April 2026, the open-source toolkit your build evaluated: ARB ran a parity spike and decided not to adopt it, with a revisit trigger (D63). Its model, gaps and fit are the subject of <a class="xref" data-ch="agt-through-your-build" href="agt-through-your-build.html">Chapter 47</a>.</li>
+  <li><strong>Agent Control Specification (ACS)</strong>, part of AGT: an open specification for placing controls at five checkpoints in an agent workflow (input, model, state, tool execution, output), written as policy YAML and described by a partner as "a portable, declarative contract enforced outside the model". Its controls may include classifiers and LLM judges, so apply your D52 rule to each.</li>
+  <li><strong>ASSERT</strong>: an open-source evaluation framework that turns written policies into generated test scenarios (<a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a>).</li>
+</ul>
+<p>ACS's five checkpoints line up closely with your enforcement points: input screening, model-call controls (budget, pin), state (memory and control state), tool execution (the chokepoint) and output (the answer contract). That makes it a plausible exchange format for a cross-platform toolkit (Capstone B), worth tracking.</p>
+
+<h2 id="map"><span class="n">43.8</span>Mapping Microsoft to your catalog</h2>
+<p><span class="tag asm">Assumption</span> A first cut:</p>
+<div class="tw"><table>
+<thead><tr><th>ARB control</th><th>Microsoft native support</th><th>Gap you fill</th></tr></thead>
+<tbody>
+<tr><td>CTL-0001 to CTL-0003 business limits</td><td>APIM policy expressions can inspect requests; ACS tool-execution checkpoint</td><td>Trusted facts from business systems (PIP)</td></tr>
+<tr><td>CTL-0004, CTL-0005 approval and separation of duties</td><td>Power Automate approvals; Entra identities</td><td>Approval bound to the exact action</td></tr>
+<tr><td>CTL-0008, CTL-0017 principals</td><td>Entra Agent ID; Conditional Access; on-behalf-of</td><td>Subject resolution across platforms</td></tr>
+<tr><td>CTL-0009 evidence minimisation</td><td>Purview DLP and labels</td><td>Minimisation in your evidence records</td></tr>
+<tr><td>CTL-0011 evidence</td><td>Purview Audit; Azure Monitor</td><td>Hash chain, signatures, immutable-storage anchors</td></tr>
+<tr><td>CTL-0013, CTL-0014, CTL-0025 screening</td><td>Content Safety, Prompt Shields, guided guardrails</td><td>Monotone composition</td></tr>
+<tr><td>CTL-0020 model budget</td><td>APIM token limits; Foundry token limits</td><td>Keys tied to resolved principals and agents</td></tr>
+<tr><td>CTL-0021 model pin</td><td>Model deployment versions</td><td>Pin check and alias refusal</td></tr>
+<tr><td>CTL-0023 inventory</td><td>Agent 365 registry; Foundry Control Plane assets; Defender orphan detection</td><td>Cross-platform registry of record</td></tr>
+<tr><td>CTL-0024 MCP integrity</td><td>API Center registration; advanced connector policies</td><td>Description and schema hash pinning</td></tr>
+</tbody></table></div>
+
+<h2 id="leadlag"><span class="n">43.9</span>Where Microsoft leads and lags</h2>
+<p><span class="tag asm">Assumption</span> As of October 2026; revisit quarterly.</p>
+<div class="tw"><table>
+<thead><tr><th>Microsoft leads</th><th>Microsoft lags</th></tr></thead>
+<tbody>
+<tr><td>Estate governance of agents built anywhere in the tenant: identity, Conditional Access, sponsors, access reviews, DLP, audit, threat detection</td><td>A deterministic tool-call policy engine as a managed service comparable to AgentCore Policy; ACS is a specification, enforcement depends on the implementation</td></tr>
+<tr><td>A mature API gateway with token-aware policies and MCP support</td><td>Complexity and churn: renamed products, overlapping control planes, licensing spread across SKUs</td></tr>
+<tr><td>Reach to end users through Microsoft 365 and Teams</td><td>Several Foundry agent features still in preview at the time of writing</td></tr>
+<tr><td>Open governance artefacts (AGT, ACS, ASSERT)</td><td>Maker-credential risk in the low-code plane, which is common in existing estates</td></tr>
+</tbody></table></div>
+
+<h2 id="landing"><span class="n">43.10</span>A reference landing</h2>
+<p><span class="tag asm">Assumption</span> For a client on Microsoft 365 and Azure:</p>
+<ol>
+  <li><strong>Agent 365 and Entra Agent ID first</strong>: inventory everything, assign sponsors, apply Conditional Access templates, block maker credentials where possible.</li>
+  <li><strong>Copilot Studio in Managed Environments</strong> with data policies, sharing limits and an approved connector and MCP allow-list.</li>
+  <li><strong>Pro-code agents on Foundry Agent Service</strong> or Azure Container Apps, behind <strong>API Management</strong> for models and tools, with your PDP and PIP for business rules.</li>
+  <li><strong>Purview</strong> for audit, DSPM and DLP; <strong>Defender</strong> for threat detection; your evidence plane for decision evidence.</li>
+  <li><strong>Foundry Control Plane</strong> for guardrail policy assignment, evaluation and red teaming of engineered agents.</li>
+</ol>
+
+<h2 id="client"><span class="n">43.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We have hundreds of Copilot Studio agents. Where do we start?"</strong> "Inventory and identity: Agent 365 and Entra Agent ID give every agent an owner, a sponsor and visible permissions. Then remove maker credentials from agents that serve other people."</li>
+    <li><strong>"Is Agent 365 our agent governance?"</strong> "It is the estate's identity and inventory layer, and a strong one. Business rules on actions, decision evidence and release gates for engineered agents still sit in your platform layer."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">43.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · R25, lab T07</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four planes and two products in each.</li>
+    <li><span class="lvl">Recall</span>Foundry Control Plane against Agent 365: audience, scope, jobs.</li>
+    <li><span class="lvl">Apply</span>Explain the maker-credential risk to a CISO with one concrete example, and the fix.</li>
+    <li><span class="lvl">Design</span>Map ACS's five checkpoints to ARB's enforcement points and identify what ACS lacks for CTL-0002.</li>
+    <li><span class="lvl">Trade-off</span>APIM token limits against ARB's CTL-0020 ledger.</li>
+  </ol>
+  <p class="small">Card candidates: <em>maker credentials = everyone sees what the maker sees</em> · <em>Foundry Control Plane for engineering, Agent 365 for the estate</em> · <em>ACS checkpoints: input, LLM, state, tool, output</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">43.13</span>Further reading</h2>
+<ul>
+  <li><b>Microsoft.</b> "What's new in Microsoft Foundry" (Build 2026, 2 June 2026); "Build 2026: the open trust stack for AI agents" (2 June 2026); Microsoft Learn: Agent 365 overview, Entra Agent ID what's new, Copilot Studio and Entra Agent IDs, Foundry Control Plane overview, API Management AI gateway capabilities, Foundry deployment types; "Foundry Control Plane and Agent 365: two control planes walk into an enterprise" (Tech Community, May 2026).</li>
+  <li><b>Practice.</b> Copilot Studio governance admin references from the Power Platform community; the CoE Starter Kit.</li>
+  <li><b>Your library.</b> Microsoft Agent Framework playlist (parked until a client needs it).</li>
+  <li><span class="tag own">Your builds</span> ARB D59 (reconciliation exports), D63 (AGT), <code>tests/test_policy_parity_agt.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="aws.html"><small>Previous</small>42 · AWS: Bedrock and AgentCore</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="data-saas-model-platforms.html"><small>Next</small>44 · Data, SaaS and model-provider platforms</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

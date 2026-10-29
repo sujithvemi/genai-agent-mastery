@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>12 · A reference model: planes, layers, enforcement points</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part III · The rulebook</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 12</div>
+  <ol>
+    <li><a href="#why">Why a reference model</a></li>
+    <li><a href="#planes">Three planes and a loop</a></li>
+    <li><a href="#cp">Control plane, data plane</a></li>
+    <li><a href="#layers">Ten capability layers</a></li>
+    <li><a href="#points">Kinds of enforcement point</a></li>
+    <li><a href="#use">Using the model</a></li>
+    <li><a href="#others">Other reference models</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART III · CHAPTER 12</div>
+  <h1>A reference model: planes, layers, enforcement points</h1>
+  <p class="lede">A map you can assess an estate against, design an architecture from, assign owners on, and sequence a roadmap with. Three planes say where the work happens; ten layers say what capability is needed; four kinds of enforcement point say where a control can bite.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>FRAMEWORKS · Capstone B</span></div>
+    <div><b>Reps</b><span>R04 · B1–B3</span></div>
+    <div><b>Build modules</b><span>governance/ · enforcement/ · evidence/ · docs/operating/</span></div>
+    <div><b>Decisions</b><span>ADR-0001 · D22 · D45</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>If the policy decision service is down, should agents stop? Should the authoring tool being down stop them?</li>
+    <li>Where would you place "separation of duties": in the design-time gate, at run time, in the evidence, or in all three?</li>
+    <li>Which single capability would you build first for an organisation with 200 uncounted agents?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">12.1</span>Why a reference model</h2>
+<p><span class="tag gen">Generic</span> A reference model is useful when it lets different people answer different questions from one picture. An executive asks "where are we weak?"; an architect asks "where does this control run?"; a programme lead asks "what do we build first?"; an auditor asks "who owns this, and where is the proof?". A model that answers only one of these becomes shelfware. The one in this chapter is built to answer all four, and it is grounded in the way your reference build is actually laid out, so each box has a directory you can open.</p>
+
+<h2 id="planes"><span class="n">12.2</span>Three planes and a loop</h2>
+<p><span class="tag gen">Generic</span> Every governance mechanism lives in one of three planes, and the three form a loop.</p>
+<ul>
+  <li><strong>The authoring plane</strong> says what must be true: taxonomy, tiering rules, the control catalog, policy source, parameters, the registry of agents and edges, sign-offs and waivers. It is written by people, reviewed, versioned and ratified.</li>
+  <li><strong>The enforcement plane</strong> makes it true at the moment of the act: the design-time gate that refuses a release, and the run-time enforcement points that refuse a call. It is code, configured by the authoring plane.</li>
+  <li><strong>The assurance plane</strong> proves it was true: the evidence each decision and act leaves, the conformance runs that show controls fire, evaluations, red-team results, and audit. Its findings flow back into the authoring plane as changes.</li>
+</ul>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 360" role="img" aria-label="Three planes in a loop. The authoring plane (governance folder: taxonomy, catalog, policies, params, registry, sign-offs) compiles into bundles and manifests consumed by the enforcement plane (design-time gate, run-time PEPs, gateways). Enforcement writes decision and action records to the assurance plane (evidence, conformance, evals, red team, audit). Assurance findings and gaps feed back into the authoring plane as changes. Operations wraps the loop: change, incidents, recertification, retirement.">
+  <defs>
+    <marker id="a12m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker>
+  </defs>
+  <rect class="box" x="10" y="10" width="880" height="340" rx="10"/>
+  <text class="tx-s" x="26" y="32">OPERATIONS · change control · incidents · recertification · retirement · cost</text>
+
+  <rect class="box-strong" x="45" y="60" width="230" height="200" rx="8"/>
+  <text class="tx-acc" x="160" y="86" text-anchor="middle">AUTHORING PLANE</text>
+  <text class="tx-b" x="160" y="108" text-anchor="middle">what must be true</text>
+  <text class="tx-m" x="62" y="140">taxonomy · tiers</text>
+  <text class="tx-m" x="62" y="160">catalog (CTL, GBL)</text>
+  <text class="tx-m" x="62" y="180">policy source · params</text>
+  <text class="tx-m" x="62" y="200">registry · manifests</text>
+  <text class="tx-m" x="62" y="220">sign-offs · waivers</text>
+  <text class="tx-s" x="160" y="246" text-anchor="middle">ARB: governance/</text>
+
+  <rect class="box-acc" x="335" y="60" width="230" height="200" rx="8"/>
+  <text class="tx-acc" x="450" y="86" text-anchor="middle">ENFORCEMENT PLANE</text>
+  <text class="tx-b" x="450" y="108" text-anchor="middle">make it true</text>
+  <text class="tx-m" x="352" y="140">design-time gate</text>
+  <text class="tx-m" x="352" y="160">run-time PEP + PDP + PIP</text>
+  <text class="tx-m" x="352" y="180">tool / model gateways</text>
+  <text class="tx-m" x="352" y="200">data-access checks</text>
+  <text class="tx-m" x="352" y="220">agent-to-agent edge</text>
+  <text class="tx-s" x="450" y="246" text-anchor="middle">ARB: gate/ · enforcement/</text>
+
+  <rect class="box-ok" x="625" y="60" width="230" height="200" rx="8"/>
+  <text class="tx-ok" x="740" y="86" text-anchor="middle">ASSURANCE PLANE</text>
+  <text class="tx-b" x="740" y="108" text-anchor="middle">prove it was true</text>
+  <text class="tx-m" x="642" y="140">evidence (chained, signed)</text>
+  <text class="tx-m" x="642" y="160">conformance runs</text>
+  <text class="tx-m" x="642" y="180">evals · fairness</text>
+  <text class="tx-m" x="642" y="200">red team · audit CLI</text>
+  <text class="tx-m" x="642" y="220">reports · evidence pack</text>
+  <text class="tx-s" x="740" y="246" text-anchor="middle">ARB: evidence/ · evals/ · redteam</text>
+
+  <line class="ln-acc" x1="275" y1="140" x2="331" y2="140" marker-end="url(#a12m)"/>
+  <text class="tx-s" x="305" y="130" text-anchor="middle">compile</text>
+  <line class="ln-acc" x1="565" y1="140" x2="621" y2="140" marker-end="url(#a12m)"/>
+  <text class="tx-s" x="595" y="130" text-anchor="middle">record</text>
+  <polyline class="ln-acc" points="740,260 740,310 160,310 160,264" marker-end="url(#a12m)"/>
+  <text class="tx-acc" x="450" y="302" text-anchor="middle">findings, gaps, drift → authored change</text>
+</svg>
+</div>
+<figcaption><b>Fig 12.1</b>The planes and the loop between them. A governance programme that has only the left plane is paper governance; one with only the middle plane enforces rules nobody owns; one without the right plane cannot show anyone that it works.</figcaption>
+</figure>
+
+<p><span class="tag own">Your build</span> ARB's ADR-0001 put this split into the repository layout from the start: authored governance semantics at the root <code>governance/</code> (written by you), governance code under <code>src/aicoe/governance/</code> and <code>src/aicoe/enforcement/</code> (written by the build), evidence and assurance under <code>evidence/</code>, <code>evals/</code>, <code>tests/</code> and the audit CLI. The rule that the build may not author semantics (CHARTER, "fleet-first, not agent-first") is the authoring plane's change control expressed as a repository convention.</p>
+
+<h2 id="cp"><span class="n">12.3</span>Control plane and data plane</h2>
+<p><span class="tag gen">Generic</span> If you have worked with networks or Kubernetes, the authoring plane is a <em>control plane</em> and the enforcement plane is a <em>data plane</em>, and the same engineering rules apply. They are worth stating because they decide the availability and latency of every agent you govern.</p>
+<div class="tw"><table>
+<thead><tr><th>Rule</th><th>Why</th><th>How ARB does it</th></tr></thead>
+<tbody>
+<tr><td>The control plane is never on the hot path</td><td>An authoring tool, registry UI or GRC system being down must not stop agents. Policies are compiled and distributed ahead of time.</td><td>The Rego bundle, params and catalog are loaded into the plane at build; the PDP is embedded (<code>regopy</code>), so a decision makes no network call</td></tr>
+<tr><td>The data plane fails closed for writes</td><td>If the decision cannot be made, the act must not happen</td><td>Every PDP fact has a deny default; a contended state store refuses (<code>StateUnavailableError</code>)</td></tr>
+<tr><td>Configuration is versioned and identifiable</td><td>Evidence must say which rules decided</td><td>A configuration digest over manifest, required controls, catalog files, model pin and params; sign-off bound to it (<span class="ctl">CTL-0022</span>)</td></tr>
+<tr><td>The data plane reports, the control plane decides change</td><td>Enforcement must not rewrite its own rules</td><td>The gate reads authored sign-offs and never infers them from green tests (D22)</td></tr>
+<tr><td>The evidence path is append-only and cheap to write</td><td>It runs on every call, so it must not become the bottleneck or the attack surface</td><td>Allowlisted open log, free text in a separate detail store, hash chain with periodic anchors (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>)</td></tr>
+</tbody></table></div>
+<p>The assurance plane has a different shape again: it is batch and analytical, run on demand or on a schedule, and it must be able to work from a fresh process with nothing but the evidence and the public keys. That property, "an auditor can verify without trusting the running system", is what separates assurance from monitoring.</p>
+
+<h2 id="layers"><span class="n">12.4</span>Ten capability layers</h2>
+<p><span class="tag gen">Generic</span> Planes say where work happens. Layers say what capability an organisation needs. Ten is enough to assess and staff separately, and few enough to fit on one page. Each row names the question the layer answers, its core mechanisms, which of ARB's controls realise it, and what "good" looks like in a form you can test.</p>
+<div class="tw"><table>
+<thead><tr><th>Layer</th><th>Question</th><th>Core mechanisms</th><th>In ARB</th><th>Good looks like</th></tr></thead>
+<tbody>
+<tr><td>1 · Direction and accountability</td><td>What will we use agents for, within what limits, and who decides?</td><td>Policy with prohibited uses and an autonomy appetite; decision rights; named owners per control</td><td><code>owner_role</code> on every control; RACI overlay (D45); ratification by the owner (D49)</td><td>An autonomy grant is a recorded decision; the board has said no at least once</td></tr>
+<tr><td>2 · Inventory and registry</td><td>Which agents exist, what can each do, who owns it?</td><td>Discovery per platform; a registry of record; manifests; declared edges</td><td><span class="ctl">CTL-0023</span> inventory (no entry, no run); <span class="ctl">CTL-0018</span> declared = observed topology</td><td>Registered vs discovered is 100%; an unregistered agent is refused at run time, not reported later</td></tr>
+<tr><td>3 · Risk classification</td><td>How risky is each agent, consistently?</td><td>Axes, banding, derivation, re-tiering on change</td><td>Tiering engine; taxonomy YAML (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>)</td><td>Two assessors agree; the control list is generated, never hand-picked</td></tr>
+<tr><td>4 · Identity and access</td><td>Under whose authority does the agent act?</td><td>Agent identities, resolved subjects, capabilities, on-behalf-of, least privilege</td><td><span class="ctl">CTL-0008</span>, <span class="ctl">CTL-0017</span>, <span class="ctl">GBL-DENY-01</span></td><td>No agent on a builder's credentials; revoking an agent is a tested step</td></tr>
+<tr><td>5 · Data and knowledge</td><td>What may it see, keep and move; is what it reads trustworthy?</td><td>Labels, permission-aware retrieval, data channels, egress, memory scope, grounding</td><td><span class="ctl">CTL-0009</span>, <span class="ctl">CTL-0014</span>, <span class="ctl">CTL-0015</span>, <span class="ctl">CTL-0026</span>, <span class="ctl">CTL-0019</span></td><td>A planted secret is blocked at every exit in testing; memory can be purged per user</td></tr>
+<tr><td>6 · Run-time action control</td><td>What stops a wrong act at the moment it is attempted?</td><td>PEP/PDP on every tool call; preconditions; limits; idempotency; contracts; model and tool pinning</td><td><span class="ctl">CTL-0001–0003</span>, <span class="ctl">0006</span>, <span class="ctl">0007</span>, <span class="ctl">0010</span>, <span class="ctl">0012</span>, <span class="ctl">0013</span>, <span class="ctl">0016</span>, <span class="ctl">0020</span>, <span class="ctl">0021</span>, <span class="ctl">0024</span>, <span class="ctl">0025</span></td><td>Removing any rule makes the gate block; the kill switch has been exercised</td></tr>
+<tr><td>7 · Human oversight</td><td>Are people meaningfully in charge of consequential acts?</td><td>Signed approvals bound to one act, SoD, friction, fatigue measurement, stop and reverse</td><td><span class="ctl">CTL-0004</span>, <span class="ctl">CTL-0005</span>, <span class="ctl">GBL-SOD-01</span></td><td>Approval patterns are measured and reviewed; an approver cannot approve their own request by any spelling of their name</td></tr>
+<tr><td>8 · Evaluation and assurance</td><td>Does it do the job, stay within bounds, and do the controls work?</td><td>Eval gates, regression baselines, conformance, red team, falsifiers</td><td>Conformance suite feeding the gate (D27); golden sets; fairness measurement (held, D74)</td><td>No release without a generated conformance report; disabling a control turns a test red</td></tr>
+<tr><td>9 · Evidence and audit</td><td>Can any act be reconstructed and shown unaltered?</td><td>Decision-before-effect records, hash chain, signatures, anchors, minimisation</td><td><span class="ctl">GBL-EVID-01</span>, <span class="ctl">CTL-0011</span>, <span class="ctl">CTL-0009</span></td><td>A random past act is reconstructed in minutes by someone who never saw the system</td></tr>
+<tr><td>10 · Operations and change</td><td>Does it stay governed after day one?</td><td>Change control, incidents, recertification, retirement, cost, governance SLOs</td><td><span class="ctl">CTL-0022</span> sign-off digest; <code>docs/operating/</code> runbooks and SLOs (D45)</td><td>A change re-gates automatically; agents actually get retired</td></tr>
+</tbody></table></div>
+<p>Notice that layer 3 has no control of its own in ARB. Tiering is the function that decides which controls apply, so it lives in the authoring plane and the gate, not on the run-time path. Layer 1 likewise is realised by process and fields rather than by a run-time control. A reference model that forced a run-time control into every layer would be decorative.</p>
+
+<h2 id="points"><span class="n">12.5</span>Kinds of enforcement point</h2>
+<p><span class="tag own">Your build</span> Every control in ARB's catalog declares where it bites, in its <code>enforcement_point</code> field, and the field is a list because many controls bite in more than one place. The vocabulary has three values; a fourth, process, covers what code cannot do.</p>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>Bites when</th><th>Good at</th><th>Blind to</th><th>ARB catalog (29 entries)</th></tr></thead>
+<tbody>
+<tr><td><strong>Design-time gate</strong></td><td>Before release, and on every change</td><td>Facts about the configuration: is it registered, pinned, signed off, are all required controls bound and proven</td><td>Anything that depends on what the agent is asked or reads</td><td>7 (e.g. <span class="ctl">CTL-0021</span>, <span class="ctl">CTL-0022</span>, <span class="ctl">CTL-0023</span>, <span class="ctl">GBL-SOD-01</span>)</td></tr>
+<tr><td><strong>Run-time PEP</strong></td><td>On every call</td><td>Acts and their facts: limits, preconditions, identity, approval, injection boundary, budgets</td><td>Whether the configuration it runs is the approved one, unless told</td><td>26 of 29</td></tr>
+<tr><td><strong>Evidence plane</strong></td><td>When the record is written and when it is verified</td><td>Minimisation, tamper evidence, provenance, completeness</td><td>Preventing the act; it proves, it does not refuse (except that a failed record refuses or reverses)</td><td>4 (<span class="ctl">CTL-0009</span>, <span class="ctl">CTL-0011</span>, <span class="ctl">CTL-0019</span>, <span class="ctl">GBL-EVID-01</span>)</td></tr>
+<tr><td><strong>Process</strong></td><td>On a human cadence</td><td>Risk acceptance, ratification, recertification, incident review</td><td>Anything at machine speed</td><td>Not a catalog value; carried by <code>owner_role</code>, sign-offs and runbooks</td></tr>
+</tbody></table></div>
+<p>Two design observations follow from the distribution. First, the run-time PEP carries almost everything, which is why its complete mediation (<a class="xref" data-ch="governed-action" data-sec="#mediation" href="governed-action.html#mediation">Chapter 16</a>) is the most important property in the system. Second, the controls that sit at two points are the interesting ones: separation of duties is checked at the gate (the control must be bound, proven by a conformance run and, at CRITICAL, carry no waiver before the agent may ship) and at run time (is this approver a different resolved subject from this executor, on this call?), and neither check can stand in for the other. The gate cannot see a particular approval; the PEP cannot see whether the deployed configuration is the one that was signed off.</p>
+<p><span class="tag gen">Generic</span> Inside "run-time PEP" there are several placements (in-process chokepoint, tool gateway, model gateway, data-access check, agent-to-agent edge, the system of record's own permissions), compared in <a class="xref" data-ch="governed-action" data-sec="#where" href="governed-action.html#where">Chapter 16</a>. For a client estate, a useful artefact is a matrix of controls against placements per platform; that matrix is Capstone B's stage B3 (<a class="xref" data-ch="capstone-b" href="capstone-b.html">Chapter 53</a>).</p>
+
+<h2 id="use"><span class="n">12.6</span>Using the model</h2>
+<h3>For assessment</h3>
+<p>Score each layer 0 to 5 (absent, ad hoc, defined, enforced, measured, optimised), with one piece of evidence required for any score above 2. The radar that results shows where to start, and the evidence rule stops the most common distortion, which is scoring documents as capabilities. A practical threshold: if inventory, identity, run-time action control or evidence score below 2, the organisation is not ready for any agent above the advisory level, whatever its other scores.</p>
+<h3>For architecture</h3>
+<p>For each control, decide its plane and its enforcement points, then its placement per platform. Every control should land in at least one enforcement point and the evidence plane; a control with no enforcement point is a policy statement, and one with no evidence cannot be audited.</p>
+<h3>For ownership</h3>
+<p>Assign every layer an accountable executive and every control an <code>owner_role</code>. ARB's RACI (<code>docs/operating/RACI.md</code>) shows the pattern: it is an overlay that groups the catalog's authored roles (Payments governor, Security, Platform/IAM, Data governance, Agent product owner, AI security, and the four roles the evolution phases added) under the functions an organisation actually has, without changing any control.</p>
+<h3>For the roadmap</h3>
+<p><span class="tag asm">Assumption</span> The order that works for most estates: inventory, then tiering, then minimum run-time enforcement (identity and the PEP on writes), then evidence, then evaluation and conformance, then human oversight refinements, then operations. Policy runs in parallel from the start. The reasoning is that you cannot tier what you have not counted, cannot enforce proportionately without tiers, and cannot prove what you have not recorded; <a class="xref" data-ch="readiness-first-90-days" href="readiness-first-90-days.html">Chapter 51</a> turns this into a 90-day plan.</p>
+
+<h2 id="others"><span class="n">12.7</span>Other reference models, and what each is for</h2>
+<div class="tw"><table>
+<thead><tr><th>Model</th><th>Shape</th><th>Best for</th><th>Limits for agents</th></tr></thead>
+<tbody>
+<tr><td>NIST AI RMF 1.0 (+ AI 600-1)</td><td>Four functions: Govern, Map, Measure, Manage, with categories and subcategories</td><td>Risk-management vocabulary and US-facing assurance; widely understood by auditors</td><td>Function-oriented, not mechanism-oriented; says what to achieve, not where it runs</td></tr>
+<tr><td>ISO/IEC 42001:2023</td><td>A certifiable AI management system (clauses 4–10, plan-do-check-act) with Annex A controls</td><td>Certification, and organisations that already run ISO 27001</td><td>Management-system level; run-time enforcement is left to the implementer</td></tr>
+<tr><td>OWASP Top 10 for LLM Applications and for Agentic Applications</td><td>Threat lists</td><td>Threat coverage checks and crosswalks</td><td>A list of what can go wrong, not a model of how to govern</td></tr>
+<tr><td>Google Secure AI Framework (SAIF)</td><td>Security principles and a risk map across the AI development and serving lifecycle</td><td>Security architecture conversations, especially on GCP</td><td>Security-centred; business governance (autonomy, approval, value) is out of scope</td></tr>
+<tr><td>CSA MAESTRO <span class="tag ver">Verify</span></td><td>A layered threat-modelling framework for agentic systems</td><td>Threat modelling a specific multi-agent design</td><td>A threat-modelling method rather than an operating model</td></tr>
+<tr><td>This chapter's model</td><td>Three planes, ten layers, four kinds of enforcement point</td><td>Architecture, ownership, assessment and roadmap from one picture, tied to working code</td><td>Not a recognised standard; always crosswalk it to one of the above for external audiences (<a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>)</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">12.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Symptom</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>The model becomes an org chart</td><td>Each layer is a team; nobody owns the planes or the loop</td><td>Assign owners to layers, but measure the loop: time from finding to authored change to enforced control</td></tr>
+<tr><td>Layers without enforcement points</td><td>Every layer scored 3, nothing refuses at run time</td><td>Require an enforcement point and evidence for any layer scored above 2</td></tr>
+<tr><td>Control plane on the hot path</td><td>An authoring or GRC outage stops production agents, or decisions call a remote policy service with no cache</td><td>Compile and distribute; embed or co-locate the PDP; cache with explicit staleness bounds</td></tr>
+<tr><td>Assurance that trusts the runtime</td><td>The audit report is generated by the system it audits, from its own memory</td><td>Verify from a fresh process with only evidence and public keys (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>)</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="ARB E6 binds a real GCP organisation; pm-agent ships a hosted instance">
+  <span class="k">Waiting on the builds</span>
+  <p>Today both builds run the PDP embedded and the authoring plane as files in git, which is the simplest correct shape for one team. A hosted pm-agent or an org-bound ARB will need bundle distribution, a registry service and decision logs. When either lands, add the deployed control-plane topology (what is central, what is per-tenant, how bundles reach PEPs) as a figure, and revisit the "control plane is never on the hot path" row with measured numbers.</p>
+</div>
+
+<h2 id="client"><span class="n">12.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>For an executive:</strong> "Three questions run your programme: what must be true, what makes it true at the moment an agent acts, and how you prove it was true. Most organisations have the first, few have the second, almost none have the third."</li>
+    <li><strong>For a CISO:</strong> "Twenty-six of our twenty-nine controls bite at run time. The design review decides which ones apply; it cannot be the control."</li>
+    <li><strong>For an auditor:</strong> "Every control names its owner, its trigger, the evidence it leaves and the test that proves it fires, and the evidence can be verified without trusting the system that wrote it."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">12.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R04 and Capstone B1–B3</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name the three planes, what each says, and the ARB directories for each.</li>
+    <li><span class="lvl">Recall</span>State the five control-plane/data-plane rules and the ARB mechanism for each.</li>
+    <li><span class="lvl">Apply</span>Place <span class="ctl">CTL-0005</span>, <span class="ctl">CTL-0011</span> and <span class="ctl">CTL-0022</span> on the planes and enforcement points, and say what each placement can and cannot see.</li>
+    <li><span class="lvl">Design</span>A client runs Copilot Studio agents (no run-time hooks you control) and ADK agents on GCP. Draw the three planes for them and say which layers will score lowest on the Copilot side, and why.</li>
+    <li><span class="lvl">Trade-off</span>Embedded PDP versus a central policy service with sidecars: make the case for each at 10 agents and at 1,000.</li>
+  </ol>
+  <p class="small">Card candidates: <em>three planes and the loop</em> · <em>control plane never on the hot path; data plane fails closed for writes</em> · <em>26 of 29 controls bite at run time</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">12.11</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Mark Richards and Neal Ford, <cite>Fundamentals of Software Architecture</cite> (O'Reilly), on architecture characteristics and fitness functions, which is what a conformance suite is. Brendan Burns, <cite>Designing Distributed Systems</cite> (O'Reilly), the sidecar and ambassador patterns, for PEP placement.</li>
+  <li><b>Standards.</b> NIST AI RMF 1.0 and the AI RMF Playbook (<a href="https://www.nist.gov/itl/ai-risk-management-framework">nist.gov</a>); ISO/IEC 42001:2023, clauses 6 and 8 and Annex A; Google's SAIF materials.</li>
+  <li><span class="tag own">Your build</span> <code>docs/architecture/ARCHITECTURE.md</code>, ADR-0001 (repo layout), <code>docs/operating/RACI.md</code> and <code>SLOS.md</code> (D45).</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="governance-when-software-acts.html"><small>Previous</small>11 · What governance must do when software acts</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="risk-tiering.html"><small>Next</small>13 · Fleet-first risk tiering</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

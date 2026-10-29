@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>39 · Evaluation, simulation and optimization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 39</div>
+  <ol>
+    <li><a href="#loop">The quality loop</a></li>
+    <li><a href="#what">What to evaluate</a></li>
+    <li><a href="#evaluators">Evaluators and their calibration</a></li>
+    <li><a href="#data">Datasets and baselines</a></li>
+    <li><a href="#sim">Simulation</a></li>
+    <li><a href="#online">Online evaluation and drift</a></li>
+    <li><a href="#replay">Replay</a></li>
+    <li><a href="#prompt">Optimizing prompts and agents</a></li>
+    <li><a href="#model">Optimizing the model</a></li>
+    <li><a href="#cost">Optimizing cost and latency</a></li>
+    <li><a href="#tools">Tools and platforms</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 39</div>
+  <h1>Evaluation, simulation and optimization</h1>
+  <p class="lede"><a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a> treated evaluations as gates: pass or hold before release. This chapter treats them as the engine of improvement. Quality comes from a loop: find failures in production, turn them into cases, change something, measure the change offline and in simulation, release it carefully and watch it online. Every platform now sells parts of this loop, including optimizers that propose changes themselves. The architect's job is to keep the loop honest.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · TECH</span></div>
+    <div><b>Reps</b><span>TC-06 · lab T03 · BT08</span></div>
+    <div><b>Build links</b><span>ARB evals/ · tests/redteam · D71, D74 · pm-agent src/pm_agent/evals (baseline, drift, replay, rubric)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An agent succeeds on a task 80% of the time. What is the chance it succeeds on all of four attempts at it?</li>
+    <li>An LLM judge agrees with your experts 92% of the time. Is it a good judge?</li>
+    <li>A platform optimizer proposes a new system prompt that scores higher on your eval set. What could go wrong if you ship it?</li>
+  </ol>
+</div>
+
+<h2 id="loop"><span class="n">39.1</span>The quality loop</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="The quality loop. Production traces, evidence and user feedback feed failure analysis, which clusters failures and turns them into new cases. A candidate change (prompt, tool, model, retrieval or code) is evaluated offline on the golden, regression and red-team sets and in simulation with synthetic users and virtual tools. Candidates that improve without regressing are released by shadow or canary, and online evaluation on sampled live traffic plus drift detection closes the loop back to production.">
+  <defs><marker id="a39" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box-ok" x="20" y="110" width="170" height="80" rx="8"/>
+  <text class="tx-ok" x="105" y="136" text-anchor="middle">Production</text>
+  <text class="tx-s" x="105" y="158" text-anchor="middle">traces · evidence</text>
+  <text class="tx-s" x="105" y="176" text-anchor="middle">feedback · escalations</text>
+  <rect class="box" x="250" y="20" width="180" height="80" rx="8"/>
+  <text class="tx-b" x="340" y="46" text-anchor="middle">Failure analysis</text>
+  <text class="tx-s" x="340" y="68" text-anchor="middle">read traces · cluster</text>
+  <text class="tx-s" x="340" y="86" text-anchor="middle">every failure → a case</text>
+  <rect class="box" x="490" y="20" width="180" height="80" rx="8"/>
+  <text class="tx-b" x="580" y="46" text-anchor="middle">Candidate change</text>
+  <text class="tx-s" x="580" y="68" text-anchor="middle">prompt · tool · model</text>
+  <text class="tx-s" x="580" y="86" text-anchor="middle">retrieval · code · optimizer</text>
+  <rect class="box-acc" x="700" y="110" width="180" height="80" rx="8"/>
+  <text class="tx-acc" x="790" y="136" text-anchor="middle">Offline + simulation</text>
+  <text class="tx-s" x="790" y="158" text-anchor="middle">golden · regression · red team</text>
+  <text class="tx-s" x="790" y="176" text-anchor="middle">synthetic users · virtual tools</text>
+  <rect class="box-acc" x="490" y="200" width="180" height="80" rx="8"/>
+  <text class="tx-acc" x="580" y="226" text-anchor="middle">Release</text>
+  <text class="tx-s" x="580" y="248" text-anchor="middle">gate · shadow · canary</text>
+  <text class="tx-s" x="580" y="266" text-anchor="middle">A/B with a fixed metric</text>
+  <rect class="box" x="250" y="200" width="180" height="80" rx="8"/>
+  <text class="tx-b" x="340" y="226" text-anchor="middle">Online evaluation</text>
+  <text class="tx-s" x="340" y="248" text-anchor="middle">sampled judges · SLOs</text>
+  <text class="tx-s" x="340" y="266" text-anchor="middle">drift windows · alerts</text>
+  <line class="ln" x1="190" y1="130" x2="246" y2="80" marker-end="url(#a39)"/>
+  <line class="ln" x1="430" y1="60" x2="486" y2="60" marker-end="url(#a39)"/>
+  <line class="ln" x1="670" y1="80" x2="726" y2="108" marker-end="url(#a39)"/>
+  <line class="ln" x1="726" y1="192" x2="674" y2="222" marker-end="url(#a39)"/>
+  <line class="ln" x1="490" y1="240" x2="434" y2="240" marker-end="url(#a39)"/>
+  <line class="ln" x1="250" y1="230" x2="194" y2="176" marker-end="url(#a39)"/>
+  <text class="tx-no" x="795" y="215" text-anchor="middle">regresses → reject</text>
+</svg>
+</div>
+<figcaption><b>Fig 39.1</b>The quality loop. Platform optimizers automate the top edge (failure clusters to candidate changes); they do not remove the right-hand edge, where a change must prove it improves without regressing.</figcaption>
+</figure>
+
+<h2 id="what"><span class="n">39.2</span>What to evaluate</h2>
+<div class="tw"><table>
+<thead><tr><th>Layer</th><th>Question</th><th>Typical measure</th></tr></thead>
+<tbody>
+<tr><td>Outcome</td><td>Did the task get done correctly?</td><td>Task success against the end state (check the system, not the transcript)</td></tr>
+<tr><td>Trajectory</td><td>Did it take a sensible path?</td><td>Tool selection and argument accuracy, order, step count, redundant calls</td></tr>
+<tr><td>Components</td><td>Did each part work?</td><td>Retrieval recall and precision, extraction accuracy, routing accuracy</td></tr>
+<tr><td>Safety and policy</td><td>Did it stay inside its limits?</td><td>Refusal correctness, injection obey rate, control decisions, groundedness</td></tr>
+<tr><td>Efficiency</td><td>At what cost?</td><td>Tokens, latency, cost per <em>successful</em> task</td></tr>
+<tr><td>Experience</td><td>Would a user be satisfied?</td><td>Rubric scores, human ratings, escalation and abandonment rates</td></tr>
+</tbody></table></div>
+<p><strong>Reliability over repeated trials.</strong> The first prediction question: if each attempt succeeds independently with probability 0.8, all four succeed with probability 0.8<sup>4</sup> ≈ 0.41. τ-bench (Yao et al., 2024) introduced <strong>pass^k</strong>, the chance that all k trials of a task succeed, because agents that look good on a single pass often fail this. Customers meet your agent many times; pass^k is closer to their experience than pass@1.</p>
+
+<h2 id="evaluators"><span class="n">39.3</span>Evaluators and their calibration</h2>
+<ul>
+  <li><strong>Code-based checks</strong> are cheapest and most trustworthy: schema validity, exact values, state of the system after the run (was the refund the right amount, on the right order?), policy decisions in evidence. Use them wherever the answer is checkable.</li>
+  <li><strong>LLM judges</strong> score what code cannot: helpfulness, faithfulness, tone, adherence to a rubric. Zheng et al. ("Judging LLM-as-a-Judge", 2023) documented their biases: position, verbosity and self-preference. Mitigate with rubrics that ask narrow, binary questions, swapped positions in pairwise comparisons, and a judge from a different model family than the agent.</li>
+  <li><strong>Human review</strong> creates the labels everything else is calibrated against, and catches what nothing else does.</li>
+</ul>
+<p>The second prediction question: 92% agreement may be poor. If 90% of cases are passes, a judge that always says "pass" agrees 90% of the time. Calibrate judges like classifiers: measure agreement per class, use a chance-corrected statistic such as Cohen's kappa, and look at the disagreements. In your build, classifier accuracy is "reported, never gated" (D54), and a model-based check on the enforcement path may only restrict (D52); a judge used for quality measurement needs the same humility about what its score means.</p>
+
+<h2 id="data"><span class="n">39.4</span>Datasets and baselines</h2>
+<ul>
+  <li><strong>Golden sets</strong>: hand-written, representative, with the definition of correct agreed by the product owner (<a class="xref" data-ch="agent-development-lifecycle" data-sec="#design" href="agent-development-lifecycle.html#design">Chapter 34</a>).</li>
+  <li><strong>Regression cases</strong>: every production failure that was fixed becomes a case, so it cannot return unnoticed.</li>
+  <li><strong>Adversarial sets</strong>: red-team corpora for injection, misuse and policy edges (ARB's red-team corpus has hundreds of cases; <a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>).</li>
+  <li><strong>Production samples</strong>: real conversations, with consent, minimisation and PII handling decided in advance (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</li>
+  <li><strong>Synthetic expansions</strong>: model-generated variants of real cases to widen coverage; label a sample by hand.</li>
+</ul>
+<p><span class="tag own">pm-agent</span> pm-agent's evaluation baseline is a committed file that pins, for the deterministic offline eval, each golden case's verdict and plan-quality rubric score and the injection eval's per-class rates. Any regression fails the build. Two rules make it trustworthy: a changed corpus means the baseline "must be rewritten <strong>in its own reviewed commit</strong>, so a rate can never be re-based silently", and a deliberate-regression test weakens the guard to prove the check bites.</p>
+
+<h2 id="sim"><span class="n">39.5</span>Simulation</h2>
+<p><span class="tag gen">Generic</span> Multi-turn agents cannot be evaluated with single prompts. Simulation pairs the agent with a <strong>simulated user</strong> (a model playing a persona with a goal and hidden information) and <strong>virtual tools</strong> (deterministic stand-ins for real systems), then scores the end state. τ-bench established the pattern for customer-service agents; the platforms now offer it as a service: GEAP Agent Simulation (synthetic users and virtualised tools, scoring task success and safety), AgentCore's agent performance loop with user simulation, and Salesforce's conversation testing with simulated customer personas <span class="tag ver">Verify</span>.</p>
+<p>Three cautions. A simulator is a model, so it has blind spots and can be too cooperative; check a sample of simulated conversations against real ones. Do not let the simulator and the agent be the same model family if you can avoid it. And keep virtual tools faithful to the real ones, for the same reasons fakes need conformance (<a class="xref" data-ch="chassis-seams-tests" data-sec="#fakes" href="chassis-seams-tests.html#fakes">Chapter 7</a>).</p>
+
+<h2 id="online"><span class="n">39.6</span>Online evaluation and drift</h2>
+<p><span class="tag gen">Generic</span> Offline sets go stale; production keeps changing. Online evaluation samples live traffic and scores it continuously: GEAP Online Monitors, AgentCore Evaluations, Foundry Control Plane's continuous evaluation (task adherence, groundedness, sensitive data leakage), Agentforce Custom Scorers and Health Monitoring. Add implicit signals: escalations to humans, user edits of the agent's output, retries, abandonment.</p>
+<p><span class="tag own">pm-agent</span> <code>make eval-drift</code> compares a recent window of runs with the window before it, per class, over the evidence log (each run's rubric criteria and its grounding-control actions), with thresholds in <code>params.yaml</code>. Drift is how you notice a provider's silent model update, a change in user requests or a decaying knowledge source, none of which shows up in an unchanged offline set. ARB's CTL-0021 names the same need: behavioural drift under an unchanged model id is "measured only (evals on schedule)" (<a class="xref" data-ch="model-choice-risk" data-sec="#pinning" href="model-choice-risk.html#pinning">Chapter 10</a>).</p>
+
+<h2 id="replay"><span class="n">39.7</span>Replay</h2>
+<p><span class="tag own">pm-agent</span> A technique worth stealing: replay retained live runs through the <em>current</em> guard, with no new model calls. pm-agent's replay (ruling D-PM-P5-t) rebuilds each run's inputs from evidence, re-runs only the plan screen over the stored model output, and writes the result to a new file labelled "replay". Before reading anything, every retained file must match the hash its committed summary recorded and every evidence chain must verify. Values that were minimised to salted digests are restored only when a candidate text re-digests to the stored value; anything else stays an opaque token, so a person's name is never guessed back. And fidelity is checked: replayed with the guard the run was measured under, every outcome must reproduce its recorded verdict. The result is a way to measure a guard change on real model behaviour, cheaply and privately.</p>
+
+<h2 id="prompt"><span class="n">39.8</span>Optimizing prompts and agents</h2>
+<p><span class="tag gen">Generic</span> Three generations of prompt optimization coexist:</p>
+<ol>
+  <li><strong>Error analysis by hand.</strong> Read failing traces, name the failure modes, fix the biggest. Still the highest-value activity.</li>
+  <li><strong>Programmatic optimizers.</strong> DSPy (Khattab et al., 2023) treats prompts and few-shot examples as parameters tuned against a metric; GEPA (Agrawal et al., 2025) evolves prompts using a model's reflection on failures and reported results competitive with reinforcement learning at far lower cost; TextGrad (Yuksekgonul et al., 2024) propagates textual "gradients".</li>
+  <li><strong>Platform optimizers.</strong> GEAP's Agent Optimizer "automatically clusters real-world failures and suggests refined system instructions" and tool descriptions; AgentCore Optimization offers recommendations, versioned configuration bundles and A/B testing; Salesforce's Agent Optimizer ranks failure patterns by impact; Microsoft's Agent Optimizer was announced for preview <span class="tag ver">Verify</span>.</li>
+</ol>
+<p>The third prediction question: an optimizer that maximises your eval score will find the eval's weaknesses. Risks are overfitting to the set (Goodhart's law), regressions on cases outside it, safety instructions trimmed because they cost points, and prompts no human understands. Treat optimizer output as a <strong>candidate change</strong>: it goes through held-out evaluation, red-team cases and the normal release path, and at CRITICAL it re-signs, because a new system prompt is a new configuration (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>).</p>
+
+<h2 id="model"><span class="n">39.9</span>Optimizing the model</h2>
+<p><span class="tag gen">Generic</span> When prompts plateau, change the model:</p>
+<div class="tw"><table>
+<thead><tr><th>Technique</th><th>What it does</th><th>When it pays</th></tr></thead>
+<tbody>
+<tr><td>Supervised fine-tuning (often with LoRA or QLoRA adapters)</td><td>Teaches format, style, domain vocabulary, tool-call conventions</td><td>Stable task, hundreds to thousands of good examples</td></tr>
+<tr><td>Distillation</td><td>Trains a small model on a large model's outputs</td><td>High volume where a small model's latency and cost matter</td></tr>
+<tr><td>Reinforcement fine-tuning</td><td>Optimises against a grader's reward (for example GRPO, from DeepSeekMath, 2024)</td><td>Verifiable tasks with a reliable grader</td></tr>
+</tbody></table></div>
+<p>All three clouds and the main model providers offer managed tuning <span class="tag ver">Verify</span>. The governance consequences: a tuned model is a new model identity (pin it, price it, re-gate it); training data needs rights and minimisation; and the injection obey rate and refusal behaviour must be re-measured, because tuning can erode safety training.</p>
+
+<h2 id="cost"><span class="n">39.10</span>Optimizing cost and latency</h2>
+<p>Target cost per <em>successful</em> task, not cost per call. The levers, roughly in order of effort: shorter and stable prompts (cache hits); output ceilings; fewer, better tools; parallel tool calls where safe; smaller models for routing and extraction; caching of reads; early termination when the answer is known; and finally tuning or distillation (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>, <a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>).</p>
+
+<h2 id="tools"><span class="n">39.11</span>Tools and platforms</h2>
+<div class="tw"><table>
+<thead><tr><th>Category</th><th>Examples</th></tr></thead>
+<tbody>
+<tr><td>Open-source frameworks</td><td>DeepEval, Ragas, promptfoo, Inspect AI, MLflow (GenAI evaluation), OpenAI Evals format</td></tr>
+<tr><td>Observability with evals</td><td>Langfuse, LangSmith, Arize Phoenix and AX, Braintrust, Weights &amp; Biases Weave</td></tr>
+<tr><td>Cloud services</td><td>GEAP Gen AI evaluation, simulation and online monitors; AgentCore Evaluations and Optimization; Foundry evaluations, rubric evaluator and AI Red Teaming Agent; Bedrock model evaluation</td></tr>
+<tr><td>Policy-driven test generation</td><td>Microsoft ASSERT (open source): generates evaluation scenarios from written policies</td></tr>
+</tbody></table></div>
+<p>One portability rule: keep datasets, graders and baselines in your own format and repository. OpenAI's hosted Evals product and Agent Builder leave its platform on 30 November 2026; teams whose eval sets lived only there must migrate them.</p>
+
+<h2 id="fail"><span class="n">39.12</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Single-pass success reported as reliability</td><td>pass^k over repeated trials</td></tr>
+<tr><td>Uncalibrated judge</td><td>Per-class agreement, kappa, disagreement review</td></tr>
+<tr><td>Silent re-baselining</td><td>Baseline rewritten only in its own reviewed commit</td></tr>
+<tr><td>Simulator too cooperative</td><td>Compare with real conversations; adversarial personas</td></tr>
+<tr><td>Optimizer overfits the eval set</td><td>Held-out set, red team, normal release path</td></tr>
+<tr><td>Eval assets locked in a vendor</td><td>Own format and repository</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">39.13</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our agent scores 95% on our test set."</strong> "On how many cases, over how many runs per case, and how many of them came from last month's failures? Reliability is pass^k on cases that keep up with production."</li>
+    <li><strong>"Can the platform optimize our agent automatically?"</strong> "It can propose changes quickly. Each proposal still has to beat a held-out set, pass the red team and go through release, because the optimizer is graded by the same tests it is optimizing."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">39.14</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · lab T03</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Six evaluation layers with a measure for each.</li>
+    <li><span class="lvl">Apply</span>Compute pass^3 for success rates of 0.95, 0.9 and 0.8, and say what each means for a customer-facing agent.</li>
+    <li><span class="lvl">Apply</span>Lab T03: run one golden set through DeepEval, Ragas and Vertex Gen AI evaluation; compare judge agreement with your own labels.</li>
+    <li><span class="lvl">Design</span>An optimizer workflow for an AICoE in which platform optimizers may propose but not ship.</li>
+    <li><span class="lvl">Trade-off</span>Distilling pm-agent's planner into a small model against routing between a frontier and a small model.</li>
+  </ol>
+  <p class="small">Card candidates: <em>pass^k = p^k</em> · <em>a 92%-agreeing judge can be useless</em> · <em>optimizer output is a candidate change</em> · <em>replay on stored outputs</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">39.15</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapters 3 and 4 (evaluation methodology, evaluating AI systems) and 7 (fine-tuning).</li>
+  <li><b>Papers.</b> Yao et al., τ-bench (arXiv 2406.12045). Zheng et al., "Judging LLM-as-a-Judge" (arXiv 2306.05685). Khattab et al., DSPy (arXiv 2310.03714). Agrawal et al., GEPA (arXiv 2507.19457). Yuksekgonul et al., TextGrad (arXiv 2406.07496). Shao et al., DeepSeekMath (GRPO; arXiv 2402.03300).</li>
+  <li><b>Practice.</b> Hamel Husain and Shreya Shankar on evals and error analysis. Yesha Shah, "Agentic Evals" part 1 (in your library: pass^k and trajectory grading).</li>
+  <li><b>Platform documentation.</b> GEAP evaluation, simulation and optimizer; AgentCore Evaluations and Optimization; Foundry evaluations; Microsoft ASSERT.</li>
+  <li><span class="tag own">Your builds</span> pm-agent <code>src/pm_agent/evals/baseline.py</code>, <code>replay.py</code>, <code>rubric.py</code>; ARB <code>evals/</code>, <code>tests/redteam/</code>, D71, D74.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="versioning-release.html"><small>Previous</small>38 · Versioning, registries and release management</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="maintenance-evolution.html"><small>Next</small>40 · Maintenance and evolution</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

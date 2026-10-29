@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>33 · Capacity, cost and multi-region</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 33</div>
+  <ol>
+    <li><a href="#chain">Capacity is a chain</a></li>
+    <li><a href="#estimate">A worked estimate</a></li>
+    <li><a href="#tiers">Demand shape and what to buy</a></li>
+    <li><a href="#levers">Unit cost and its levers</a></li>
+    <li><a href="#budgets">Budgets, quotas and showback</a></li>
+    <li><a href="#other">Everything that is not the model</a></li>
+    <li><a href="#regions">Regions and residency</a></li>
+    <li><a href="#dr">Failover for agents</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 33</div>
+  <h1>Capacity, cost, regions and disaster recovery</h1>
+  <p class="lede">The last system-design chapter answers the questions a platform owner and a finance partner ask before an agent goes wide: how much will it carry, what will it cost per run, what should we buy, where does the data go, and what happens when a region fails mid-run. The answers are arithmetic plus a few agent-specific traps.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-11 (capacity and cost) · SD-12 (multi-region and DR)</span></div>
+    <div><b>Build links</b><span>ARB CTL-0006 (idempotency), CTL-0020 (model budget), CTL-0021 (model pin), CTL-0022 (sign-off digest), <code>platform/model/settings.py</code> (location) · pm-agent CTL-0007 (fan-out and cost budget) · design/pm-agent-at-scale.md §11–12</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (FinOps and residency services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An agent run makes 15 model calls of about 6,000 input tokens each. At 50 runs a minute, roughly how many input tokens per minute do you need?</li>
+    <li>Your demand peaks at 3.6 times its daily average. Should you reserve capacity for the peak?</li>
+    <li>A region fails while a run is waiting for approval of a refund. What has to be true in the other region for the run to finish safely?</li>
+  </ol>
+</div>
+
+<h2 id="chain"><span class="n">33.1</span>Capacity is a chain</h2>
+<p><span class="tag gen">Generic</span> An agent's throughput is the minimum over a chain of limits, and the model is only one link:</p>
+<ul>
+  <li><strong>Model quota</strong>: tokens and requests per minute, per model, per region or endpoint, per project. Input and output tokens are often limited separately.</li>
+  <li><strong>Provider tier</strong>: shared on-demand capacity can throttle under load; reserved and priority tiers change that (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+  <li><strong>Your gateway and workers</strong>: concurrency limits, connection pools, memory per in-flight run.</li>
+  <li><strong>Tools and business systems</strong>: the order system's API limit is frequently the real ceiling, and it is shared with human users.</li>
+  <li><strong>State and evidence stores</strong>: write rates on checkpoints and evidence records, and hot keys (<a class="xref" data-ch="state-data-scale" data-sec="#skew" href="state-data-scale.html#skew">Chapter 28</a>).</li>
+</ul>
+<p>Find the narrowest link first. Agents make the chain longer and multiply load on each link by the number of steps per run.</p>
+
+<h2 id="estimate"><span class="n">33.2</span>A worked estimate</h2>
+<p><span class="tag asm">Assumption</span> Every number below is an assumption for pm-agent at scale, to be replaced by measurements from traces. The structure is what carries over.</p>
+<pre><code><span class="c"># estimate.py — rerun with your own numbers</span>
+PEAK_RUNS_PER_MIN = 50        <span class="c"># arrivals in the busiest minute</span>
+RUN_SECONDS       = 60
+RUNS_PER_DAY      = 20_000
+CALLS_PER_RUN     = 15
+IN_TOK, OUT_TOK   = 6_000, 400   <span class="c"># per model call</span>
+LARGE_SHARE       = 1/3          <span class="c"># calls routed to the large model</span>
+PRICE = {"large": (3.00, 15.00), "small": (1.00, 5.00)}  <span class="c"># $ per 1M tokens, illustrative</span>
+CACHED_SHARE, CACHE_READ = 0.70, 0.10   <span class="c"># input served from cache; read price vs input price</span>
+
+in_run, out_run = CALLS_PER_RUN * IN_TOK, CALLS_PER_RUN * OUT_TOK
+concurrency = PEAK_RUNS_PER_MIN * RUN_SECONDS / 60    <span class="c"># Little's law: L = λW</span>
+peak_in_tpm = PEAK_RUNS_PER_MIN * in_run
+avg_in_tpm  = RUNS_PER_DAY * in_run / 1440</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Quantity</th><th>Result</th><th>What it tells you</th></tr></thead>
+<tbody>
+<tr><td>Tokens per run</td><td>90,000 in · 6,000 out</td><td>Input dominates: agents re-send context on every step</td></tr>
+<tr><td>Concurrent runs at peak</td><td>50</td><td>Sizes workers, connection pools and memory</td></tr>
+<tr><td>Peak model load</td><td>4.5M input TPM · 300k output TPM · 750 RPM</td><td>Compare with quota per model and region before launch</td></tr>
+<tr><td>Average model load</td><td>1.25M input TPM</td><td>Peak is 3.6 times average: a peaky workload</td></tr>
+<tr><td>Cost, all large model, no cache</td><td>$0.36 a run · $7,200 a day</td><td>The naive design</td></tr>
+<tr><td>Cost, routed (one call in three large)</td><td>$0.20 a run · $4,000 a day</td><td>Routing roughly halves cost if quality holds</td></tr>
+<tr><td>Cost, routed and cached</td><td>$0.11 a run · $2,110 a day</td><td>Caching the shared prefix halves it again</td></tr>
+</tbody></table></div>
+<p>The first prediction question: 15 × 6,000 × 50 = 4.5 million input tokens a minute. Two cautions on the cost rows: cache writes can carry a premium (on some providers, writing a prefix costs more than reading it), and every lever that changes which model answers is a behaviour change that needs an evaluation (<a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a>).</p>
+
+<h2 id="tiers"><span class="n">33.3</span>Demand shape and what to buy</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="An illustrative day of demand for pm-agent. Input tokens per minute are near zero overnight, rise to a peak of 4.5 million mid-morning, dip at lunch, peak again mid-afternoon, and fall to near zero by evening. A dashed line marks a reserved baseline of 1.5 million tokens per minute. Demand above the line spills over to pay-as-you-go. Overnight the reservation is unused, and deferrable work such as evaluations, replays and digests can run there.">
+  <line class="ln-mute" x1="70" y1="250" x2="860" y2="250"/>
+  <line class="ln-mute" x1="70" y1="30" x2="70" y2="250"/>
+  <text class="tx-m" x="78" y="22">input tokens per minute</text>
+  <text class="tx-s" x="62" y="254" text-anchor="end">0</text>
+  <text class="tx-s" x="62" y="210" text-anchor="end">1M</text>
+  <text class="tx-s" x="62" y="166" text-anchor="end">2M</text>
+  <text class="tx-s" x="62" y="122" text-anchor="end">3M</text>
+  <text class="tx-s" x="62" y="78" text-anchor="end">4M</text>
+  <text class="tx-s" x="62" y="34" text-anchor="end">5M</text>
+  <text class="tx-s" x="70" y="268">00:00</text>
+  <text class="tx-s" x="267.5" y="268" text-anchor="middle">06:00</text>
+  <text class="tx-s" x="465" y="268" text-anchor="middle">12:00</text>
+  <text class="tx-s" x="662.5" y="268" text-anchor="middle">18:00</text>
+  <text class="tx-s" x="860" y="268" text-anchor="end">24:00</text>
+  <polyline class="ln-acc" style="fill:none" points="70.0,235.8 78.2,235.8 86.5,235.8 94.7,235.8 102.9,235.8 111.1,235.8 119.4,235.8 127.6,235.8 135.8,235.8 144.1,235.8 152.3,235.8 160.5,235.8 168.8,235.8 177.0,235.8 185.2,235.8 193.4,235.8 201.7,235.8 209.9,235.8 218.1,235.8 226.4,235.8 234.6,235.8 242.8,235.8 251.0,235.8 259.3,235.8 267.5,235.8 275.7,235.8 284.0,235.8 292.2,235.7 300.4,235.6 308.6,235.5 316.9,235.0 325.1,234.1 333.3,232.2 341.6,228.9 349.8,223.1 358.0,214.0 366.2,200.5 374.5,182.1 382.7,159.0 390.9,132.6 399.2,105.4 407.4,80.9 415.6,62.5 423.9,53.0 432.1,53.6 440.3,63.4 448.5,79.8 456.8,99.2 465.0,117.6 473.2,132.0 481.5,140.5 489.7,142.8 497.9,139.5 506.1,132.1 514.4,122.5 522.6,112.4 530.8,103.4 539.1,96.9 547.3,93.7 555.5,94.2 563.8,98.5 572.0,106.3 580.2,117.0 588.4,129.8 596.7,143.8 604.9,158.1 613.1,172.0 621.4,184.9 629.6,196.2 637.8,205.9 646.0,213.8 654.3,220.1 662.5,224.9 670.7,228.4 679.0,230.9 687.2,232.7 695.4,233.9 703.6,234.6 711.9,235.1 720.1,235.4 728.3,235.6 736.6,235.7 744.8,235.7 753.0,235.7 761.2,235.8 769.5,235.8 777.7,235.8 785.9,235.8 794.2,235.8 802.4,235.8 810.6,235.8 818.9,235.8 827.1,235.8 835.3,235.8 843.5,235.8 851.8,235.8 860.0,235.8"/>
+  <line class="ln-ok" x1="70" y1="184" x2="860" y2="184" stroke-dasharray="6 5"/>
+  <text class="tx-ok" x="855" y="176" text-anchor="end">reserved baseline 1.5M</text>
+  <text class="tx-acc" x="428" y="42" text-anchor="middle">peak 4.5M</text>
+  <text class="tx-s" x="566" y="74">above the line: spillover to PayGo</text>
+  <text class="tx-s" x="80" y="203">below the line overnight: unused reservation;</text>
+  <text class="tx-s" x="80" y="218">run evals, replays and digests here</text>
+  <text class="tx-s" x="465" y="292" text-anchor="middle">Illustrative business-hours profile: 20,000 runs a day, peak 4.5M input TPM, average 1.25M.</text>
+</svg>
+</div>
+<figcaption><b>Fig 33.1</b>Demand shape decides the purchase. Reserve a baseline, spill the peak to on-demand, and fill the trough with deferrable work.</figcaption>
+</figure>
+<p><span class="tag gen">Generic</span> The second prediction question: almost never. Reserved capacity is cheaper per token only when you use most of it. Break-even utilisation is the reserved price divided by what the same capacity would cost on demand at full use; if your average use of the reservation is below that, on demand is cheaper. With the profile above, a reservation sized at the peak averages 28% utilisation; one at 1.5M TPM averages about 50%, because demand falls to near zero overnight. Two moves raise that: <strong>spill the peak</strong> to on-demand capacity (which the providers support directly), and <strong>fill the trough</strong> with deferrable work you control (evaluation suites, replays, nightly digests). Reserve for latency guarantees and for the steady base, not for the peak.</p>
+<div class="tw"><table>
+<thead><tr><th>Provider</th><th>Consumption options (verified 2026-10-21)</th><th>Notes for agents</th></tr></thead>
+<tbody>
+<tr><td>Google Cloud (Vertex AI / GEAP)</td><td>Standard PayGo; Priority PayGo (premium, higher reliability); Flex PayGo (about 50% cheaper, latency-tolerant); Provisioned Throughput (1-month or 1-year commitments, spillover to Standard PayGo by default); Batch (about 50% cheaper)</td><td>A multi-region (US or EU) Provisioned Throughput commitment can cover a whole jurisdiction</td></tr>
+<tr><td>AWS Bedrock</td><td>Service tiers via <code>service_tier</code>: Reserved (1- or 3-month, overflow to Standard, minimum 100k input and 10k output TPM), Priority, Standard, Flex; batch inference; cross-region inference profiles</td><td>Reserved sizing counts cache-write tokens as well as input tokens; <code>ResolvedServiceTier</code> in CloudWatch shows which tier actually served</td></tr>
+<tr><td>Microsoft Foundry</td><td>Standard, Provisioned (PTUs) and Batch (50% cheaper, 24-hour target), each as Global, Data Zone or Regional deployments</td><td>Azure Policy can block a deployment type, for example Global, in a subscription</td></tr>
+<tr><td>Anthropic Claude API</td><td>Standard, Priority Tier (committed capacity), Message Batches; <code>inference_geo</code> per request</td><td>US-only inference is priced at 1.1 times standard and draws Priority Tier capacity at the same multiplier</td></tr>
+</tbody></table></div>
+<p class="small muted">Tier names, discounts and minimums change; they are in the register's re-verify list (<a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>).</p>
+
+<h2 id="levers"><span class="n">33.4</span>Unit cost and its levers</h2>
+<p>Track <strong>cost per successful run</strong> (not per call, not per token), split by agent, tenant and model, and treat the levers as design changes with evaluation gates:</p>
+<div class="tw"><table>
+<thead><tr><th>Lever</th><th>Typical effect</th><th>Risk and the guard</th></tr></thead>
+<tbody>
+<tr><td>Prompt layout for caching: shared prefix first (instructions, tool schemas), tenant and run content after</td><td>Large on input-heavy agents</td><td>Cross-tenant timing leaks if tenant data sits in a shared prefix; keep tenant content after the cache breakpoint (<a class="xref" data-ch="security-multitenancy" data-sec="#tenancy" href="security-multitenancy.html#tenancy">Chapter 32</a>)</td></tr>
+<tr><td>Route easy steps to smaller models</td><td>Large</td><td>Quality drop on edge cases; per-route evaluation and pins (<a class="xref" data-ch="model-choice-risk" data-sec="#routing" href="model-choice-risk.html#routing">Chapter 10</a>)</td></tr>
+<tr><td>Fewer steps: plan once, batch tool calls, stop early</td><td>Medium to large</td><td>Lost checks; keep the PEP on every effect</td></tr>
+<tr><td>Trim context: summarise history, retrieve less, drop stale tool output</td><td>Medium</td><td>Missing facts; groundedness evaluation</td></tr>
+<tr><td>Cap output and reasoning tokens</td><td>Medium on output-heavy steps</td><td>Truncated answers; contract checks on outputs (CTL-0010)</td></tr>
+<tr><td>Batch or flex for deferrable work</td><td>About half, on that work</td><td>Latency; only for work nobody waits on</td></tr>
+<tr><td>Response caching for repeated questions</td><td>Workload-dependent</td><td>Stale or cross-user answers; permission-scoped keys (pm-agent CTL-0021)</td></tr>
+</tbody></table></div>
+
+<h2 id="budgets"><span class="n">33.5</span>Budgets, quotas and showback</h2>
+<ul>
+  <li><strong>Attribute every call.</strong> Tag model and tool calls with tenant, agent, version and run so cost can be shown back per tenant and per agent (labels on GCP, cost allocation tags on AWS, tags on Azure, plus your own trace attributes).</li>
+  <li><strong>Enforce at the run, not the invoice.</strong> <span class="tag own">Your builds</span> ARB's CTL-0020 projects every model call at its <code>max_output_tokens</code> ceiling and refuses a request that carries none; pm-agent's CTL-0007 caps fan-out and cost per run. Budgets that only alert after the month ends are reports, not controls.</li>
+  <li><strong>Per-tenant quotas</strong> on runs, tokens and tool calls, so one tenant cannot starve the rest (<a class="xref" data-ch="reliability" data-sec="#limits" href="reliability.html#limits">Chapter 29</a>).</li>
+  <li><strong>Alert on cost per run</strong>, not only total spend: a prompt change that doubles steps shows up there first (<a class="xref" data-ch="observability-agentops" data-sec="#alerts" href="observability-agentops.html#alerts">Chapter 31</a>).</li>
+</ul>
+
+<h2 id="other"><span class="n">33.6</span>Everything that is not the model</h2>
+<ul>
+  <li><strong>Workers.</strong> Agent workers spend most of their time waiting on models and tools, so CPU-based autoscaling under-scales them. Scale on in-flight runs or queue depth (request concurrency on Cloud Run, KEDA on queue length, target tracking on a custom metric).</li>
+  <li><strong>Telemetry.</strong> Full prompt capture is large: 90,000 input tokens a run is roughly 360 KB of text, so 20,000 runs is about 7 GB a day before compression. Store prefix hashes plus the per-step deltas, keep full content in cheaper object storage under a retention policy, and sample what goes to the observability tool.</li>
+  <li><strong>Evidence.</strong> Append-only, retained for years; budget for storage and for the verification jobs that read it (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</li>
+  <li><strong>Vector indexes, state stores and egress</strong> are usually small next to model spend, but per-tenant indexes multiply fixed costs.</li>
+</ul>
+
+<h2 id="regions"><span class="n">33.7</span>Regions and residency</h2>
+<p><span class="tag gen">Generic</span> Separate three questions, because providers answer them separately: <strong>where inference runs</strong>, <strong>where data rests</strong> (prompts, sessions, memories, files), and <strong>where your telemetry and evidence live</strong>.</p>
+<div class="tw"><table>
+<thead><tr><th>Provider</th><th>Inference location choices</th><th>How you see where it ran</th></tr></thead>
+<tbody>
+<tr><td>Google Cloud</td><td>Global endpoint (any location, no residency guarantee; data at rest stays in the chosen location); multi-region US or EU (the EU excludes the UK and Switzerland); regional endpoints</td><td>The endpoint you called; block the global endpoint with organisation policy where residency is required</td></tr>
+<tr><td>AWS Bedrock</td><td>In-region; geographic cross-region profiles (US, EU, APAC); global profiles (about 10% cheaper); service control policies must allow the destination regions</td><td>CloudTrail <code>additionalEventData.inferenceRegion</code></td></tr>
+<tr><td>Microsoft Foundry</td><td>Global, Data Zone (US or EU) or Regional deployment types</td><td>The deployment type; Azure Policy to restrict it</td></tr>
+<tr><td>Anthropic Claude API</td><td><code>inference_geo</code> <code>global</code> or <code>us</code>, with workspace allow-lists and defaults; workspace geo for data at rest</td><td><code>usage.inference_geo</code> on every response</td></tr>
+</tbody></table></div>
+<p>Two design rules follow. Put the inference location in the <strong>approved configuration</strong>, because it decides where regulated data is processed; and record <strong>where each call actually ran</strong> in the evidence record whenever the provider reports it. <span class="tag own">Your builds</span> ARB's Vertex binding defaults its location to <code>global</code> in <code>src/aicoe/platform/model/settings.py</code>, set from the environment; the manifest's model pin (provider, model, version, thinking budget) does not include it, so neither does the sign-off digest. That is a reasonable default for a reference build and a gap for a residency-bound client: finding F-08 (<a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>).</p>
+
+<h2 id="dr"><span class="n">33.8</span>Failover for agents</h2>
+<p><span class="tag gen">Generic</span> Ordinary DR planning applies: an RPO and RTO per store, replication to match, and drills. Agents add state that ordinary services do not have. The third prediction question in one table:</p>
+<div class="tw"><table>
+<thead><tr><th>State</th><th>What must hold in the other region</th></tr></thead>
+<tbody>
+<tr><td>In-flight runs</td><td>Checkpoints replicated within the RPO, so durable runs resume (<a class="xref" data-ch="communication-durable-execution" data-sec="#durable" href="communication-durable-execution.html#durable">Chapter 26</a>); runs without checkpoints are failed visibly and re-driven, never silently dropped</td></tr>
+<tr><td>Effects already sent</td><td>Idempotency keys derived from the run and step, not from anything region-local, so a re-driven step cannot refund twice (CTL-0006)</td></tr>
+<tr><td>Pending approvals</td><td>The approval request, its bound facts and the approver's grant are readable there, and the keys that sign and verify grants are available there (multi-region or replicated KMS keys)</td></tr>
+<tr><td>Evidence chain</td><td>A hash chain has one writer. Either one region writes and the other takes over from the last anchored head, or each region writes its own chain and both are anchored. The unanchored tail at failover is the detection gap; size it (<a class="xref" data-ch="evidence-plane" data-sec="#anchor" href="evidence-plane.html#anchor">Chapter 22</a>)</td></tr>
+<tr><td>Model</td><td>The pinned model and version are offered there. A fallback model is a different model: it must be evaluated and inside the signed-off configuration, or failover becomes an unapproved change (CTL-0021, CTL-0022; <a class="xref" data-ch="versioning-release" data-sec="#digest" href="versioning-release.html#digest">Chapter 38</a>)</td></tr>
+<tr><td>Quota and capacity</td><td>Quota and any reservations exist in the standby region before you need them; a capacity plan that exists in one region is not a DR plan</td></tr>
+<tr><td>Policy, registry and memory</td><td>Policy bundles, the agent and tool registry, and memory stores replicated, with their versions recorded so the evidence shows which applied</td></tr>
+</tbody></table></div>
+<p>Active-passive is the usual answer for the stateful core (run state, evidence, approvals), with an active-active stateless edge. Active-active for the core means multi-writer evidence, memory conflicts and shared rate limits across regions; take it on only when the RTO demands it.</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §11–12</span>
+  <p>§11: replace the assumptions in the estimator with pm-agent's traced numbers, find the narrowest link, choose tiers per workload (interactive, deferrable), and set per-tenant budgets. §12: choose the inference location and record it; write the RPO and RTO per store; fill the failover table for pm-agent's state; and plan one drill that fails a region with a run waiting on approval.</p>
+</div>
+
+<div class="panel p-future" data-trigger="pm-agent runs at volume, or either build adds a second region">
+  <span class="k">Waiting on the builds</span>
+  <p>Replace the illustrative profile and prices with measured pm-agent traces once it runs at volume; re-verify provider tiers and residency options each quarter; revisit the evidence-chain failover pattern when ARB or pm-agent runs in a second region.</p>
+</div>
+
+<h2 id="services"><span class="n">33.9</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> The model-consumption tiers are in section <a class="sref" href="#tiers">33.3</a>. This table covers the services around them: budgets, attribution, quotas, commitments, sovereignty and recovery.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Budgets and anomaly alerts</td><td>Cloud Billing budgets (with Pub/Sub for automated responses); cost anomaly detection</td><td>AWS Budgets with budget actions; Cost Anomaly Detection</td><td>Cost Management budgets; anomaly alerts</td><td>Vantage; CloudZero</td></tr>
+<tr><td>Cost data and allocation</td><td>Billing export to BigQuery; labels; FOCUS view</td><td>Data Exports (CUR 2.0 and FOCUS); cost allocation tags; split cost allocation</td><td>Cost Management exports (FOCUS); tags; FinOps toolkit</td><td>FOCUS specification; OpenCost; Kubecost</td></tr>
+<tr><td>Per-agent and per-tenant model cost</td><td>Request labels on Vertex AI calls; Apigee token metrics</td><td>Bedrock application inference profiles with cost allocation tags</td><td>API Management <code>llm-emit-token-metric</code> with dimensions; per-deployment cost views</td><td>LiteLLM spend tracking; Langfuse and Helicone cost per trace</td></tr>
+<tr><td>Quotas</td><td>Cloud Quotas (quota adjuster for automatic increases)</td><td>Service Quotas; Bedrock tokens-per-minute quotas per model and region</td><td>Foundry quota per model, region and deployment type (TPM)</td><td>Your gateway's per-tenant limits</td></tr>
+<tr><td>Commitments</td><td>Committed use discounts; Provisioned Throughput</td><td>Savings Plans; Bedrock Reserved tier</td><td>Reservations and savings plans; Provisioned Throughput Units</td><td>—</td></tr>
+<tr><td>Residency and sovereignty</td><td>Assured Workloads; data residency for Gemini processing; sovereign cloud offerings</td><td>AWS European Sovereign Cloud <span class="tag ver">Verify</span>; geographic inference profiles</td><td>EU Data Boundary; Data Zone deployments; Microsoft Sovereign Cloud</td><td>Regional providers; on-premises open-weight models (<a class="xref" data-ch="data-saas-model-platforms" href="data-saas-model-platforms.html">Chapter 44</a>)</td></tr>
+<tr><td>Backup and recovery</td><td>Backup and DR Service; multi-region Spanner, Firestore and Cloud Storage</td><td>AWS Backup; Elastic Disaster Recovery; Application Recovery Controller</td><td>Azure Backup; Azure Site Recovery</td><td>Velero for Kubernetes state</td></tr>
+</tbody></table></div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Sovereign-cloud offerings vary in what they actually isolate (operations staff, key custody, the control plane, the model catalogue) and several agent services are not yet available in them. For a regulated client, check the specific agent services and models offered in the sovereign or residency-bound configuration, not just the region list.</p>
+</div>
+
+<h2 id="fail"><span class="n">33.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Capacity planned for the model only</td><td>Walk the chain; the business API is often the limit</td></tr>
+<tr><td>Reserved for the peak</td><td>Reserve the base, spill the peak, fill the trough</td></tr>
+<tr><td>Cost watched per month</td><td>Cost per successful run, per agent and tenant, enforced per run</td></tr>
+<tr><td>Cheaper model swapped in without evaluation</td><td>Routing is a behaviour change with a gate</td></tr>
+<tr><td>Global endpoint for regulated data</td><td>Location in the approved configuration; actual location in evidence</td></tr>
+<tr><td>Failover to an unapproved model</td><td>Fallback inside the signed-off configuration</td></tr>
+<tr><td>Double effects after failover</td><td>Run-and-step idempotency keys</td></tr>
+<tr><td>No quota in the standby region</td><td>Provision and test it before the incident</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">33.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"What will it cost?"</strong> "Per successful task, not per call: here is the estimate from traced runs, the narrowest capacity link, and the budget each tenant gets. The run refuses to overspend; it does not wait for the invoice."</li>
+    <li><strong>"Should we buy reserved capacity?"</strong> "Only for the steady part of demand, sized to what we will actually use; the peaks go to pay-as-you-go and anything nobody waits on goes to batch at about half price."</li>
+    <li><strong>"If a region goes down, do approvals still work?"</strong> "Yes, if we plan it: the pending approval, its facts and the signing keys must be available in the second region, and the model we fail over to must be one you approved."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">33.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-11, SD-12</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Little's law, and the three locations to separate for residency.</li>
+    <li><span class="lvl">Apply</span>Rerun the estimator with pm-agent's real step counts from a trace; what changed most?</li>
+    <li><span class="lvl">Apply</span>Compute break-even utilisation for a reservation from one provider's current price sheet.</li>
+    <li><span class="lvl">Design</span>DR for an agent that issues refunds with approvals, at an RTO of one hour.</li>
+    <li><span class="lvl">Trade-off</span>Global endpoint with better availability against a regional endpoint with residency, for a European bank.</li>
+  </ol>
+  <p class="small">Card candidates: <em>reserve the base, spill the peak, fill the trough</em> · <em>cost per successful run</em> · <em>a fallback model is a different model</em> · <em>record where inference ran</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">33.13</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Kleppmann, <cite>Designing Data-Intensive Applications</cite>, chapters on replication and consistency; Huyen, <cite>AI Engineering</cite>, the inference optimisation chapter; Storment and Fuller, <cite>Cloud FinOps</cite> (2nd ed., 2023); Beyer et al., <cite>Site Reliability Engineering</cite> (2016), on capacity planning and load.</li>
+  <li><b>Provider documentation</b> (re-verify): Vertex AI consumption options and data residency; Bedrock service tiers and cross-region inference; Foundry deployment types; Claude API data residency and service tiers.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/catalog/CTL-0020.yaml</code>, <code>src/aicoe/platform/model/settings.py</code>; pm-agent <code>governance/catalog/CTL-0007.yaml</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="security-multitenancy.html"><small>Previous</small>32 · Security architecture and multi-tenancy</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="agent-development-lifecycle.html"><small>Next</small>34 · The agent development lifecycle</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>G · Findings and errata</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Appendices</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this appendix">
+  <div class="t">Appendix G</div>
+  <ol>
+    <li><a href="#how">How to read this</a></li>
+    <li><a href="#builds">In the builds</a></li>
+    <li><a href="#learning">In the learning system</a></li>
+    <li><a href="#verified">Checked and found correct</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">APPENDIX G</div>
+  <h1>Findings and errata</h1>
+  <p class="lede">Things found while writing this book that look wrong, stale or risky in the builds and the learning system, each with its evidence and a suggested fix. None of them has been changed: the build repositories are yours and your build threads', so these are proposals for T1 to rule on.</p>
+</div>
+
+<h2 id="how"><span class="n">G.1</span>How to read this</h2>
+<p>Severity is a judgement about consequence, not effort. <strong>Medium</strong>: a control claim is weaker than it reads, or a misunderstanding is likely in front of a client. <strong>Low</strong>: a stale statement or a latent issue that would bite only if something else changes. <strong>Cosmetic</strong>: record-keeping. Every finding names the file and the date it was read; the build commits read were ARB <code>adk-2.5.0</code> at <code>7e577e5</code> (mirrored on <code>main</code> at <code>d4057c7</code>) and pm-agent <code>r1-build</code> at <code>2d9dbb5</code>.</p>
+
+<h2 id="builds"><span class="n">G.2</span>In the builds</h2>
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Where</th><th>Finding</th><th>Severity</th><th>Suggested fix</th><th>Book</th></tr></thead>
+<tbody>
+<tr><td>F-01</td><td>ARB <code>src/aicoe/audit.py</code>, <code>evidence/chain.py</code>, <code>evidence/writer.py</code></td><td>Every evidence record is signed (Ed25519 since E4-S3, Cloud KMS in live mode), but the auditor's path does not verify record signatures: <code>verify_integrity</code>, behind <code>aicoe audit verify</code>, calls <code>verify_evidence</code> without a verifier. Only the writer's own <code>verify()</code> and the conformance falsifiers pass the signer, and both run in the process that holds the key (re-checked at <code>main</code> <code>fa1c0a8</code> on 2026-10-21). <code>audit verify</code> is therefore hash-only, and its docstring still justifies that with the pre-E4 reasoning (a per-process HMAC key cannot be shared across processes, D20/D28). The obstacle D28 named has been removed; the verification has not been added. Net effect: the signature half of CTL-0011 is produced but unverified, so a rewrite that recomputes the chain is caught only by anchors, and only within the anchoring window.</td><td>Medium</td><td>Publish the evidence-signing public key(s) as <code>governance/trust/signoff_keys.yaml</code> already does for sign-offs; add <code>audit verify --keys</code>; include signature status in the evidence pack; update the <code>audit.py</code> docstring. pm-agent's chain-signature verification with a deployment verify key (D-PM-P5-p) is a working reference. Until then, the GR1 claims card's line 3 ("hash-chained, Ed25519-signed and anchored, so an edit … is detected") is true but invites the question "do you verify the signatures?", whose honest answer today is no; worth closing before the showcase or adding to the card's "If asked".</td><td><a class="xref" data-ch="evidence-plane" data-sec="#sign" href="evidence-plane.html#sign">Chapter 22</a></td></tr>
+<tr><td>F-02</td><td>ARB and pm-agent <code>governance/catalog/</code></td><td>Control ids collide across the two catalogs with different meanings. pm-agent's CTL-0020 is on-behalf-of entitlement propagation, CTL-0021 permission-scoped cache, CTL-0022 degraded-context disclosure, CTL-0023 safe interruption; ARB's CTL-0020 is the model budget, CTL-0021 model pin, CTL-0022 sign-off digest, CTL-0023 inventory. pm-agent's CTL-0005 merges ARB's CTL-0004 and CTL-0005, and its CTL-0010 is a contract on the plan, not on writes. The fork accepted drift (D-PM-1); id reuse makes drift look like agreement.</td><td>Medium</td><td>Namespace ids per catalog (for example <code>ARB-CTL-0020</code>, <code>PM-CTL-0020</code>) in docs, crosswalks and evidence, or keep one shared id registry with reserved ranges per build. Add a <code>catalog_id</code> to evidence records. Matters most for the GTM narrative and any future shared toolkit (Capstone B7).</td><td><a class="xref" data-ch="data-boundaries" data-sec="#see" href="data-boundaries.html#see">Chapter 21</a></td></tr>
+<tr><td>F-03</td><td>ARB <code>governance/taxonomy/tiers.yaml</code> (living)</td><td>The comment on the CRITICAL pair clause says it matters "even if no single axis is at absolute top". With the current value lists both of its values are their axes' top values, so the pair clause is logically subsumed by "two or more axes at top"; it contributes only the reason string. The same sentence appears in <code>P2_Governance_Framework.md</code>, which is a dated record and should not be edited (D50).</td><td>Low</td><td>Correct the living comment; add a test asserting whether the pair clause is subsumed, so that adding an action class above financial-write flags the change.</td><td><a class="xref" data-ch="risk-tiering" data-sec="#banding" href="risk-tiering.html#banding">Chapter 13</a></td></tr>
+<tr><td>F-04</td><td>ARB <code>DECISIONS.md</code></td><td>No entry or mention for D15 (the sequence goes D14 → D16). D66 exists, folded into the D65 section, which is documented there.</td><td>Cosmetic</td><td>Add a one-line "D15: number not used" so the index reads as complete.</td><td><a class="xref" data-ch="appendix-decisions" href="appendix-decisions.html">Appendix D</a></td></tr>
+<tr><td>F-05</td><td>ARB <code>docs/governance/CONTROL_GAPS.md</code></td><td>GAP-17 appears in two tables (as the tool-contract item in the P3 list and as "a live, correct rule that nothing can reach" in the P5 list). Probably intentional (re-confirmed by attack), but a reader counting gaps will double count.</td><td>Cosmetic</td><td>Mark the second row as a re-confirmation of the first, or cross-reference.</td><td><a class="xref" data-ch="governance-when-software-acts" data-sec="#census" href="governance-when-software-acts.html#census">Chapter 11</a></td></tr>
+<tr><td>F-06</td><td>ARB <code>src/aicoe/governance/config_digest.py</code>; <code>governance/catalog/CTL-0022.yaml</code> (living); S4 §2</td><td>CTL-0022's objective says any change to what was approved makes the sign-off stale, but the digest covers only the manifest, required control ids and their catalog text, the model pin, <code>params.yaml</code> and (since D61) the agent's MCP pins. Four behaviour-setting inputs are outside it: the agent's system instruction (<code>INSTRUCTION</code> in <code>src/aicoe/agents/&lt;agent&gt;.py</code>), the in-process tool definitions, the policy bundle source (<code>governance/policies/rego/tool_call.rego</code>, <code>cedar/tool_call.cedar</code>) and <code>guardrails.yaml</code>. A loosening Rego edit that keeps the suite green leaves the CRITICAL agent's sign-off valid. The fairness digest already includes the instruction text, so the two digests disagree on scope. D61's own reasoning for MCP pins ("a tool's description and schema are capability configuration") applies equally to in-process tools.</td><td>Medium</td><td>Add digest kinds <code>policy</code> (each bundle file the PDP loads), <code>guardrails</code>, <code>instruction</code> and <code>tool</code> (canonical name, description and schema per declared in-process tool, as CTL-0024 does for MCP), each with a red-before-green staleness test; or name the exclusions as residuals in CTL-0022's detection window. The specification change is T1's to rule; the dated S4 document is not edited (D50).</td><td><a class="xref" data-ch="versioning-release" data-sec="#digest" href="versioning-release.html#digest">Chapter 38</a></td></tr>
+<tr><td>F-07</td><td>ARB <code>docs/defense/STANDARDS_MAPPING.md</code>, <code>docs/defense/POSTURE.md</code> (living)</td><td>The crosswalk checks controls against "the current Agentic AI Threats and Mitigations list" and cites its T-numbers (for example "OWASP Agentic T9 identity spoofing" on CTL-0008), while POSTURE.md describes the same source as the "Agentic Top 10". OWASP published a separate <em>Top 10 for Agentic Applications</em> (version 2026, ASI01 to ASI10) on 9 December 2025. A reviewer holding the ASI list will not find its ids in the crosswalk, and the "Top 10" label points at the wrong document. pm-agent's P2 kit already names the ASI ids as a crosswalk source.</td><td>Low</td><td>Add an ASI column next to the T-numbers (the mapping in <a class="xref" data-ch="security-multitenancy" data-sec="#owasp" href="security-multitenancy.html#owasp">Chapter 32</a> is a starting point), and correct the POSTURE.md label to name both lists. Re-verify against OWASP's published list when doing it (register).</td><td><a class="xref" data-ch="security-multitenancy" data-sec="#owasp" href="security-multitenancy.html#owasp">Chapter 32</a></td></tr>
+<tr><td>F-08</td><td>ARB <code>src/aicoe/platform/model/settings.py</code>; <code>governance/agents/&lt;agent&gt;.yaml</code> (model pin); <code>src/aicoe/governance/config_digest.py</code></td><td>The Vertex binding's <code>location</code> defaults to <code>global</code> and is set from the environment. The global endpoint gives no data-residency guarantee for ML processing (Google's data-residency page, verified 2026-10-21). The manifest's model pin records provider, model id, version and thinking budget, not location, so the CTL-0022 sign-off digest does not cover where inference runs, and evidence records do not say where a call was served. Reasonable for a reference build; a gap for a residency-bound client, where switching a regional endpoint to global would change where regulated data is processed without staling the sign-off.</td><td>Low</td><td>Add <code>location</code> (or a deployment profile naming it) to the governed configuration and the digest; record the serving location in evidence where the provider reports it; for a residency-bound deployment, add an organisation policy that blocks the global endpoint and a test that the configured location is not <code>global</code>. T1 to rule; ties to F-06.</td><td><a class="xref" data-ch="capacity-cost-regions" data-sec="#regions" href="capacity-cost-regions.html#regions">Chapter 33</a></td></tr>
+</tbody></table></div>
+
+<h2 id="learning"><span class="n">G.3</span>In the learning system</h2>
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Where</th><th>Finding</th><th>Suggested fix</th></tr></thead>
+<tbody>
+<tr><td>L-01</td><td><code>reps/R04_trace_tiering_gate.md</code></td><td>The rep is accurate but misses the most interesting question the tiering code raises (F-03), and does not point at a consume step.</td><td>Add to the Defend step: "Is the pair clause ever decisive with today's axes? What change would make it so?" Point the rep at <a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a> as its reading.</td></tr>
+<tr><td>L-03</td><td><code>maps/comprehension_map.md</code> (ARB evidence row) and <code>maps/system_design_track.md</code> (SD-06)</td><td>Both say the anchor bucket's retention lock is "NOT LOCKED". ARB's live report of 2026-10-16 records <code>test_the_anchor_bucket_retention_is_locked</code> as passed against the real bucket, and the GR1 claims card lists the lock as exercised. The weekly sync carried a stale state.</td><td>Correct both maps; have the weekly sync read the newest <code>governance/reports/live_*.md</code> for binding states instead of older decision text.</td></tr>
+<tr><td>L-02</td><td><code>maps/comprehension_map.md</code></td><td>No row for the approval console (<code>approval_ui/</code>) beyond a name, and none for the gateways' result-hash integrity (D63) or the classifier gate's review queue, all of which are interview-grade topics.</td><td>Add rows; tag them with <a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>, <a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a> and <a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>.</td></tr>
+</tbody></table></div>
+
+<h2 id="verified"><span class="n">G.4</span>Checked and found correct</h2>
+<p>Recorded so the next reader does not re-check them: the line references in <code>R01_trace_golden_path.md</code> (tools, chokepoint, plane, writer, chain) all match the current code; the tiering module is 228 lines as R04 states; both agents' derived tiers and control sets match what the tests assert (CRITICAL with 25 controls plus 3 invariants; MEDIUM with 16 plus 3, run on 2026-10-20); the catalog's enforcement-point counts (26 run-time, 7 design-time, 4 evidence-plane) and ownership roles match <code>RACI.md</code>, which already includes the four roles the evolution phases added.</p>
+<p><strong>Re-checked on 2026-10-21</strong> against ARB <code>main</code> at <code>fa1c0a8</code> (after D76) and pm-agent <code>main</code> at <code>6a31831</code>: F-02, F-03, F-04, F-06, F-07 and F-08 still hold as written; F-01 is narrowed (the writer's own verification and the conformance falsifiers now check signatures, the auditor's path still does not); L-03 still holds (<code>maps/governance_frameworks_track.md</code> repeats "NOT LOCKED").</p>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="appendix-cards.html"><small>Previous</small>F · Card bank</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="appendix-register.html"><small>Next</small>H · Living register</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

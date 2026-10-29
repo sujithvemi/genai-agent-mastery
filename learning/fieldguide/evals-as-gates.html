@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>23 · Evals as gates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 23</div>
+  <ol>
+    <li><a href="#two">Two kinds of proof</a></li>
+    <li><a href="#anatomy">Anatomy of an eval</a></li>
+    <li><a href="#golden">Golden sets and rubrics</a></li>
+    <li><a href="#gate">From measurement to gate</a></li>
+    <li><a href="#live">Live runs, honestly</a></li>
+    <li><a href="#stats">Non-determinism and statistics</a></li>
+    <li><a href="#fairness">Fairness: measured, held</a></li>
+    <li><a href="#tools">Tooling</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 23</div>
+  <h1>Evals as gates</h1>
+  <p class="lede">An evaluation measures behaviour that is statistical; a gate makes a decision that is binary. Turning one into the other honestly takes a committed baseline, a scorer that has been shown to reject a wrong answer, a record of which model actually answered, retries that cannot change an outcome, and a decision rule that can tell noise from signal. Where that last one is missing, the honest gate is held.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · SYSTEMS · TECH</span></div>
+    <div><b>Reps</b><span>SD-09 · T03</span></div>
+    <div><b>Build modules</b><span>ARB evals/ · evals/fairness.py · evals/retry.py · pm evals/{rubric,baseline,ws_e,replay}.py</span></div>
+    <div><b>Decisions</b><span>D56 · D71 · D74 · D-PM-P5-o · D-PM-P5-r · D-PM-P5-s</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your eval reports "25/25 passed" at every release. What single test would make you trust that number?</li>
+    <li>A fairness check compares matched pairs of customers over five runs each and blocks release if any pair's decisions differ. Is that a good gate for a non-deterministic agent?</li>
+    <li>A live eval hits a rate-limit error mid-run. When is it safe to retry?</li>
+  </ol>
+</div>
+
+<h2 id="two"><span class="n">23.1</span>Two kinds of proof</h2>
+<p><span class="tag gen">Generic</span> A release gate for an agent asks two different questions, and conflating them is the most common eval mistake in governance:</p>
+<div class="tw"><table>
+<thead><tr><th></th><th>Conformance</th><th>Evaluation</th></tr></thead>
+<tbody>
+<tr><td>Question</td><td>Does this control fire when it should?</td><td>How well does the agent do its job, and how safely?</td></tr>
+<tr><td>Nature</td><td>Binary, deterministic, per control</td><td>Statistical, over a dataset, with thresholds</td></tr>
+<tr><td>Model in the loop?</td><td>Usually not: a scripted or hostile model drives the plane</td><td>Yes: the pinned model, offline and live</td></tr>
+<tr><td>A 95% result means</td><td>The control is broken</td><td>Possibly fine, depending on the baseline and the task</td></tr>
+<tr><td>Chapter</td><td><a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td><td>This one</td></tr>
+</tbody></table></div>
+<p>The gate needs both. A refusal control that works 95% of the time is not a control; a planning agent that produces the best plan 95% of the time may be excellent. Keep the two in separate suites, with separate reports, so a number from one is never read as the other.</p>
+
+<h2 id="anatomy"><span class="n">23.2</span>Anatomy of an eval</h2>
+<p><span class="tag gen">Generic</span> Every eval has the same parts, and each part has a way to be wrong:</p>
+<div class="tw"><table>
+<thead><tr><th>Part</th><th>What it is</th><th>How it goes wrong</th></tr></thead>
+<tbody>
+<tr><td>Dataset</td><td>Cases: golden (expected outcomes), held-out (never tuned on), adversarial (attack corpus), live (real or seeded systems)</td><td>Tuned on; too small; drawn from the builder's imagination rather than real requests</td></tr>
+<tr><td>Runner</td><td>Executes the agent per case, with a pinned model and recorded configuration</td><td>Model alias moves; another model answers; retries change outcomes</td></tr>
+<tr><td>Scorer</td><td>Decides per case: exact match, rubric, programmatic check, model-as-judge</td><td>Never shown to reject a wrong answer; judge bias</td></tr>
+<tr><td>Metric</td><td>Aggregates: pass rate, mean score, pass^k, cost and latency per task</td><td>Averages hide the critical failures; one number for many behaviours</td></tr>
+<tr><td>Baseline and threshold</td><td>What "good enough" and "no worse than before" mean</td><td>Chosen after seeing results; never committed</td></tr>
+<tr><td>Report</td><td>The artifact the gate reads</td><td>Hand-edited; not tied to the configuration that produced it</td></tr>
+</tbody></table></div>
+<p>For agents, add <strong>trajectory</strong> evaluation: did the agent use the right tools, in a sensible order, with the right arguments, and stop when it should? An agent can reach the right answer by an unsafe path (reading data it did not need, calling a write tool and having it refused), and an outcome-only score will never show it. Evidence records make trajectory scoring cheap, because every tool call and decision is already recorded with a control id.</p>
+
+<h2 id="golden"><span class="n">23.3</span>Golden sets and rubrics</h2>
+<p><span class="tag own">Your build</span> ARB's golden set (<code>evals/golden/</code>) is a set of customer-service cases with expected outcomes, reported as a pass count at every phase tag. D56 is the cautionary tale every eval owner should know. Applying the rule that every proof must be checked by disabling what it proves, the build made the golden scorer return nothing, and every case still passed: since P1, "golden 25/25" had been reported at every tag, yet no test had ever shown the scorer rejecting a wrong outcome. The number was true; nothing showed it could have been false. The fix is a falsifier test that feeds the scorer known-wrong outcomes and requires it to fail them.</p>
+<p><span class="tag own">pm-agent</span> pm-agent scores plans with a rubric (<code>evals/rubric.py</code>, D-PM-P5-o): per run, whether the plan is grounded, what share of items cite only retrieved keys, whether the request was resolved, and whether the plan passed the critic; the mean is the score. A rubric of named, checkable sub-scores beats a single "quality" judgement because each sub-score can regress independently and each has an obvious falsifier.</p>
+
+<h2 id="gate"><span class="n">23.4</span>From measurement to gate</h2>
+<p><span class="tag own">pm-agent</span> pm-agent's WS-E (D-PM-P5-o) is the clearest example of turning an eval into a gate. The problem it fixed: the eval measured, but nothing pinned the measurement, so a weakened guard or a drop in plan quality would pass CI. The fix has four parts:</p>
+<ol>
+  <li><strong>A committed baseline</strong> (<code>evals/baseline/</code>): the expected scores per case, in the repository, changed only by a reviewed commit.</li>
+  <li><strong>A blocking comparison</strong> (<code>evals/baseline.py</code>): CI compares each run to the baseline and fails on regression beyond a stated tolerance.</li>
+  <li><strong>Weakenings pinned</strong> (D-PM-P5-r): known ways of weakening the guard are encoded as cases, so a semantic weakening fails CI instead of passing the baseline. A review had shown one such weakening (W2) passing.</li>
+  <li><strong>Warn-only where the metric is not yet trustworthy</strong>: the guard's block rate is reported and warned on, not gated, because blocking on it would penalise legitimate caution.</li>
+</ol>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 260" role="img" aria-label="Eval as a gate. Datasets (golden, held-out, adversarial) and a pinned configuration feed a runner. The scorer, itself tested by a falsifier, produces per-case scores. Metrics are compared with a committed baseline. Regression beyond tolerance blocks; warn-only metrics are reported. The live leg records the model identity that answered and every retry.">
+  <defs><marker id="a23" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box" x="10" y="40" width="150" height="110" rx="6"/>
+  <text class="tx-b" x="85" y="64" text-anchor="middle">Datasets</text>
+  <text class="tx-s" x="85" y="86" text-anchor="middle">golden</text>
+  <text class="tx-s" x="85" y="104" text-anchor="middle">held-out</text>
+  <text class="tx-s" x="85" y="122" text-anchor="middle">adversarial · live</text>
+  <rect class="box" x="190" y="40" width="150" height="110" rx="6"/>
+  <text class="tx-b" x="265" y="64" text-anchor="middle">Runner</text>
+  <text class="tx-s" x="265" y="86" text-anchor="middle">pinned model</text>
+  <text class="tx-s" x="265" y="104" text-anchor="middle">identity verified</text>
+  <text class="tx-s" x="265" y="122" text-anchor="middle">effect-free retries</text>
+  <rect class="box-acc" x="370" y="40" width="150" height="110" rx="6"/>
+  <text class="tx-acc" x="445" y="64" text-anchor="middle">Scorer</text>
+  <text class="tx-s" x="445" y="86" text-anchor="middle">rubric sub-scores</text>
+  <text class="tx-s" x="445" y="104" text-anchor="middle">falsifier: rejects</text>
+  <text class="tx-s" x="445" y="122" text-anchor="middle">known-wrong cases</text>
+  <rect class="box" x="550" y="40" width="150" height="110" rx="6"/>
+  <text class="tx-b" x="625" y="64" text-anchor="middle">Compare</text>
+  <text class="tx-s" x="625" y="86" text-anchor="middle">committed baseline</text>
+  <text class="tx-s" x="625" y="104" text-anchor="middle">tolerance per metric</text>
+  <text class="tx-s" x="625" y="122" text-anchor="middle">pinned weakenings</text>
+  <rect class="box-no" x="730" y="40" width="160" height="50" rx="6"/>
+  <text class="tx-no" x="810" y="70" text-anchor="middle">block on regression</text>
+  <rect class="box" x="730" y="100" width="160" height="50" rx="6"/>
+  <text class="tx-s" x="810" y="130" text-anchor="middle">warn-only metrics</text>
+  <line class="ln" x1="160" y1="95" x2="186" y2="95" marker-end="url(#a23)"/>
+  <line class="ln" x1="340" y1="95" x2="366" y2="95" marker-end="url(#a23)"/>
+  <line class="ln" x1="520" y1="95" x2="546" y2="95" marker-end="url(#a23)"/>
+  <line class="ln" x1="700" y1="80" x2="726" y2="66" marker-end="url(#a23)"/>
+  <line class="ln" x1="700" y1="110" x2="726" y2="124" marker-end="url(#a23)"/>
+  <rect class="box-ok" x="190" y="180" width="510" height="54" rx="6"/>
+  <text class="tx-ok" x="445" y="203" text-anchor="middle">Live leg: record the model that answered, the model listing, every attempt and error body</text>
+  <text class="tx-s" x="445" y="222" text-anchor="middle">served ≠ requested → excluded · one model loaded · results retained as artifacts</text>
+</svg>
+</div>
+<figcaption><b>Fig 23.1</b>An eval becomes a gate when its baseline is committed, its scorer is falsifiable and its comparison blocks. The live leg is where honesty is hardest, because the model, the quota and the retries are outside your code.</figcaption>
+</figure>
+
+<h2 id="live"><span class="n">23.5</span>Live runs, honestly</h2>
+<p><span class="tag own">pm-agent</span> Offline evals use scripted or fake models; live evals use a real one, and that is where pm-agent found that the eval could be measuring the wrong model. A live summary recorded the <em>requested</em> model id, while the local server had just-in-time loaded a different model to answer; the run could not be told apart from a genuine one. The rulings (D-PM-P5-r, -s):</p>
+<ul>
+  <li><strong>Record the model that answered</strong>, not the one requested, and exclude any run where they differ.</li>
+  <li><strong>One model at a time</strong>: the preflight refuses when the requested model is not listed or more than one chat model is loaded, and records the model listing snapshot with the run.</li>
+  <li><strong>A cause on every block</strong>: each quarantine or block in a live run carries its cause, so a rate is explainable.</li>
+</ul>
+<p><span class="tag own">Your build</span> ARB's live runs on Vertex met rate limits (HTTP 429), and D71 ruled exactly when a retry is allowed, in a way that generalises to any eval against a metered provider:</p>
+<ul>
+  <li>Retry only on the rate-limit error class, and only if no effectful tool call completed in that attempt. A 429 after an effect aborts the case.</li>
+  <li>Each retry runs from a fresh plane; at most three attempts per turn, with backoff of 120, 240 and 480 seconds, and at most ten retries per measurement.</li>
+  <li>Every attempt and the full error body are recorded in the artifact.</li>
+  <li>If the provider shows a fixed per-day or per-minute limit, no retry: request a raise (a human act) and run on a fresh day.</li>
+</ul>
+<p>The reasoning is in one line of D71: the retry is keyed on the error class and never on an outcome, and an attempt that failed produced no decision, so the control is no weaker. A retry keyed on outcome ("run again until it passes") is how evals lie.</p>
+
+<h2 id="stats"><span class="n">23.6</span>Non-determinism and statistics</h2>
+<p><span class="tag gen">Generic</span> An agent's decision on the same input varies between runs: sampling temperature, provider-side batching and non-deterministic kernels all contribute. Three consequences for gating:</p>
+<ul>
+  <li><strong>One run is an anecdote.</strong> Measure each case K times and report the distribution. Distinguish <em>pass@k</em> (at least one of k runs succeeds, a capability measure) from <em>pass^k</em> (all k succeed, a reliability measure). For a governed agent, reliability is usually what matters.</li>
+  <li><strong>Size K for the decision.</strong> To tell a 90% agent from an 80% agent with reasonable confidence you need dozens of runs per comparison, not five.</li>
+  <li><strong>Pre-register the decision rule.</strong> Write the test, the alpha, the minimum effect size and K before running. Choosing a threshold after seeing the result fits the gate to the outcome.</li>
+</ul>
+<p><span class="tag own">Your build</span> D74 is a worked example of what happens without these, and of the right response. The fairness criterion as first specified said a matched pair diverges if its two members' <em>sets</em> of decisions over K = 5 runs differ at all, with a threshold of zero divergent pairs. T1 computed what that criterion does to a perfectly fair agent whose decision on a scenario is simply stochastic with per-run probability p:</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 720 312" role="img" aria-label="Bar chart. For a perfectly fair stochastic agent, the probability that one pair diverges is 48 percent at p equal 0.1, 44 percent at 0.2, 28 percent at 0.3 and 12 percent at 0.5. The probability that at least one of four stochastic pairs diverges is 93, 90, 74 and 40 percent respectively.">
+  <g>
+    <line class="ln-mute" x1="70" y1="250" x2="690" y2="250"/>
+    <line class="ln-mute" x1="70" y1="190" x2="690" y2="190"/>
+    <line class="ln-mute" x1="70" y1="130" x2="690" y2="130"/>
+    <line class="ln-mute" x1="70" y1="70" x2="690" y2="70"/>
+    <line class="ln-mute" x1="70" y1="10" x2="690" y2="10"/>
+    <text class="tx-s" x="60" y="254" text-anchor="end">0%</text>
+    <text class="tx-s" x="60" y="194" text-anchor="end">25%</text>
+    <text class="tx-s" x="60" y="134" text-anchor="end">50%</text>
+    <text class="tx-s" x="60" y="74" text-anchor="end">75%</text>
+    <text class="tx-s" x="60" y="14" text-anchor="end">100%</text>
+  </g>
+  <g>
+    <rect class="fill-med" x="100" y="134.8" width="50" height="115.2"/>
+    <rect class="fill-crit" x="155" y="26.8" width="50" height="223.2"/>
+    <text class="tx-s" x="125" y="128" text-anchor="middle">48%</text>
+    <text class="tx-s" x="180" y="20" text-anchor="middle">93%</text>
+    <text class="tx" x="152" y="272" text-anchor="middle">p = 0.1</text>
+
+    <rect class="fill-med" x="250" y="144.4" width="50" height="105.6"/>
+    <rect class="fill-crit" x="305" y="34" width="50" height="216"/>
+    <text class="tx-s" x="275" y="138" text-anchor="middle">44%</text>
+    <text class="tx-s" x="330" y="28" text-anchor="middle">90%</text>
+    <text class="tx" x="302" y="272" text-anchor="middle">p = 0.2</text>
+
+    <rect class="fill-med" x="400" y="182.8" width="50" height="67.2"/>
+    <rect class="fill-crit" x="455" y="72.4" width="50" height="177.6"/>
+    <text class="tx-s" x="425" y="176" text-anchor="middle">28%</text>
+    <text class="tx-s" x="480" y="66" text-anchor="middle">74%</text>
+    <text class="tx" x="452" y="272" text-anchor="middle">p = 0.3</text>
+
+    <rect class="fill-med" x="550" y="221.2" width="50" height="28.8"/>
+    <rect class="fill-crit" x="605" y="154" width="50" height="96"/>
+    <text class="tx-s" x="575" y="215" text-anchor="middle">12%</text>
+    <text class="tx-s" x="630" y="148" text-anchor="middle">40%</text>
+    <text class="tx" x="602" y="272" text-anchor="middle">p = 0.5</text>
+  </g>
+  <g>
+    <rect class="fill-med" x="420" y="292" width="10" height="8"/><text class="tx-s" x="436" y="300">one pair diverges</text>
+    <rect class="fill-crit" x="560" y="292" width="10" height="8"/><text class="tx-s" x="576" y="300">≥ 1 of 4 pairs diverges</text>
+  </g>
+</svg>
+</div>
+<figcaption><b>Fig 23.2</b>False alarms of the original fairness criterion for a perfectly fair agent (K = 5 runs per member, decisions compared as sets, threshold zero), from D74's computation assuming independent runs. With four stochastic pairs the gate would block a fair agent most of the time.</figcaption>
+</figure>
+
+<p>The first live measurement found divergence in 3 of 8 pairs (0.375). Under that criterion the gate would block, and the block would mean nothing, because it cannot separate sampling noise from a proxy effect. D74 rejected both easy exits (binding the gate, which turns noise into a deployment block; or lowering the threshold after seeing the result, which fits the gate to the outcome) and held the control. It also refused to discard the finding: one pair (FP-08: an English-preference persona escalated to a human in 3 of 5 runs, a Spanish-preference persona in 0 of 4; Fisher two-sided p ≈ 0.17) is not significant at this sample size but concerns exactly the consequential decision the control exists to protect, so it is named as the signal to investigate.</p>
+<p>The new decision rule (backlog BL-40) is the textbook answer, and worth memorising as a template: <strong>A/A null pairs</strong> (identical personas) to measure the noise floor; a <strong>per-pair test</strong> with a stated alpha and minimum effect size; <strong>K sized for power</strong>; decisions compared as <strong>rates, not sets</strong>. A second backlog item (BL-41) records that the noise source is inconsistent decisions on the same case, which is a correctness finding in its own right.</p>
+
+<h2 id="fairness"><span class="n">23.7</span>Fairness: measured, held</h2>
+<p><span class="tag own">Your build</span> The fairness control (CTL-0027, authored and held outside the active catalog) measures matched pairs: personas identical except for an attribute proxy (name origin, preferred language), run through the same scenarios, with the artifact signed and bound to a digest of its inputs (model pin, instructions, tools, population, parameters) so a fairness result is current only while those are unchanged. Its state is the important lesson. D74's wording rule for anyone speaking about it: <em>"Fairness is measured, not yet gated: our first live measurement (2026-10-17, synthetic matched pairs) found differences we are investigating, and the gate criterion is being redesigned to separate sampling noise from bias."</em> Never "fair", "bias-free" or "fairness-gated".</p>
+<p><span class="tag gen">Generic</span> That sentence is a model for any measurement-based claim a governance programme makes. State what was measured, when, on what population, what was found, and what is not yet established. A held gate with an honest sentence is more credible to a regulator than a green gate with a criterion nobody can defend.</p>
+<div class="panel p-future" data-trigger="BL-40's pre-registered fairness rule is ruled and re-measured (GR5, or earlier if a gate asks)">
+  <span class="k">Waiting on the builds</span>
+  <p>When the fairness decision rule is ratified and a re-measurement runs, add the A/A noise floor, the per-pair results under the new rule, and whether CTL-0027 was bound or retired. Replace the false-alarm chart's role as the chapter's main example with the corrected design and its power calculation.</p>
+</div>
+
+<h2 id="tools"><span class="n">23.8</span>Tooling</h2>
+<div class="tw"><table>
+<thead><tr><th>Tool</th><th>Strength</th><th>Used in your builds</th></tr></thead>
+<tbody>
+<tr><td>pytest with committed fixtures and baselines</td><td>Deterministic, CI-native, no lock-in</td><td>Both builds' golden and rubric suites</td></tr>
+<tr><td>DeepEval</td><td>LLM-specific metrics (faithfulness, answer relevance), pytest integration</td><td>ARB (D9)</td></tr>
+<tr><td>Vertex AI Gen AI evaluation <span class="tag ver">Verify</span></td><td>Managed evaluation on GCP, model-based and computed metrics</td><td>ARB at P6</td></tr>
+<tr><td>Ragas</td><td>Retrieval-augmented generation metrics</td><td>TECH lane (T03)</td></tr>
+<tr><td>promptfoo, Inspect AI</td><td>Config-driven test matrices; red-team plugins (promptfoo); rigorous task definitions (Inspect)</td><td>TECH lane</td></tr>
+<tr><td>Langfuse, LangSmith datasets and experiments</td><td>Datasets and scoring tied to traces</td><td>ARB and pm-agent trace to Langfuse</td></tr>
+</tbody></table></div>
+
+<h2 id="alts"><span class="n">23.9</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Scoring</td><td>Exact match · rubric of programmatic checks · model-as-judge · human rating</td><td>Programmatic rubrics are falsifiable and cheap; judges scale to open-ended output but need their own calibration set; humans for ground truth</td></tr>
+<tr><td>Gate shape</td><td>Absolute threshold · regression against committed baseline · both</td><td>Absolute thresholds encode a product decision; regression gates catch drift; use both, and commit both</td></tr>
+<tr><td>Where evals run</td><td>Every PR (offline) · nightly (live) · pre-release (live, larger K)</td><td>Offline on every PR for regressions; live on a schedule and before release, with identity and retries recorded</td></tr>
+<tr><td>Non-determinism</td><td>Temperature 0 · seeded runs · K repetitions with statistics</td><td>Temperature 0 reduces but does not remove variance; repetitions with a pre-registered rule are the honest option</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">23.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Example</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Unfalsified scorer</td><td>"25/25" with a scorer that accepts anything</td><td>Feed known-wrong outcomes; require failure (D56)</td></tr>
+<tr><td>Tuning on the test</td><td>Guard fitted to the corpus; held-out at 56%</td><td>A held-out set written by someone else, refreshed</td></tr>
+<tr><td>Wrong model measured</td><td>A different model answered the live run</td><td>Record and verify the answering model; exclude mismatches</td></tr>
+<tr><td>Outcome-keyed retry</td><td>"Run again until it passes"</td><td>Retry on error class only, never after an effect, bounded, recorded</td></tr>
+<tr><td>Uncommitted baseline</td><td>Regression goes unnoticed</td><td>Commit the baseline; block on regression</td></tr>
+<tr><td>Criterion fitted after the fact</td><td>Threshold moved once results are in</td><td>Pre-register; if it cannot be defended, hold the gate</td></tr>
+<tr><td>Eval read as control proof</td><td>"Refusals pass 97%"</td><td>Separate conformance from evaluation</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">23.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our agent scores 92% on our eval."</strong> Ask: on a held-out set someone else wrote? Against which committed baseline? Has the scorer ever been shown to fail a wrong answer? Which model actually answered?</li>
+    <li><strong>"Is your agent fair?"</strong> Use the D74 sentence: what was measured, when, on what, what was found, and what is not yet established.</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">23.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with SD-09 and T03</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Conformance versus evaluation: five differences.</li>
+    <li><span class="lvl">Recall</span>D71's retry rule, every condition.</li>
+    <li><span class="lvl">Apply</span>Reproduce D74's per-pair false-alarm probability at p = 0.5 and K = 5 from first principles.</li>
+    <li><span class="lvl">Design</span>Write the pre-registered fairness rule for CTL-0027: null pairs, test, alpha, effect size, K, and what result binds the gate.</li>
+    <li><span class="lvl">Trade-off</span>Model-as-judge versus programmatic rubric for scoring pm-agent's plans.</li>
+  </ol>
+  <p class="small">Card candidates: <em>pass@k vs pass^k</em> · <em>scorer needs a falsifier (D56)</em> · <em>retry on error class, never outcome (D71)</em> · <em>D74: noise vs bias; A/A nulls, rates not sets</em> · <em>record the model that answered</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">23.13</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the two chapters on evaluation (methodology, then evaluating AI systems), the best book-length treatment. Ron Kohavi, Diane Tang and Ya Xu, <cite>Trustworthy Online Controlled Experiments</cite> (Cambridge, 2020), for A/A tests, power and pre-registration.</li>
+  <li><b>Your library.</b> "Agentic Evals pt 1" (Yesha Shah, Aug 2026) for pass^k and trajectory grading; AI Engineering from Scratch, phase 5 on evals.</li>
+  <li><span class="tag own">Your build</span> ARB <code>evals/golden/</code>, <code>evals/fairness.py</code>, <code>evals/retry.py</code>, <code>governance/live_report.py</code>; DECISIONS D56, D71, D74. pm-agent <code>evals/{rubric,baseline,ws_e,replay}.py</code>, <code>platform/model/identity.py</code>; D-PM-P5-o, -r, -s.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="evidence-plane.html"><small>Previous</small>22 · The evidence plane</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="proving-controls-fire.html"><small>Next</small>24 · Proving controls fire</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

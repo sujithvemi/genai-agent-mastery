@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>18 · Identity, delegation and capability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 18</div>
+  <ol>
+    <li><a href="#claim">Believing a claim</a></li>
+    <li><a href="#who">Who the agent is</a></li>
+    <li><a href="#whose">On whose authority</a></li>
+    <li><a href="#cap">Capability tokens</a></li>
+    <li><a href="#approval">Approval tokens</a></li>
+    <li><a href="#resolve">Resolve, don't compare</a></li>
+    <li><a href="#signing">Signing and trust domains</a></li>
+    <li><a href="#edges">Identity across agents</a></li>
+    <li><a href="#lifecycle">Identity lifecycle</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 18</div>
+  <h1>Identity, delegation and capability</h1>
+  <p class="lede">Every act an agent takes is taken under some authority. Governance has to know whose, bound it to what the act needs, and be able to prove it afterwards, which means identities that are resolved rather than spelled, capabilities that are signed rather than asserted, and keys held so that the parties who verify cannot forge.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-04 · BT08 · BT14</span></div>
+    <div><b>Build modules</b><span>enforcement/tokens.py · platform/identity · platform/signing{,_kms}.py</span></div>
+    <div><b>Decisions</b><span>D20 · D28 · D33 · D40 · E4-S3 · D-PM-P3-b</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An agent answers employees' questions from HR documents. Should it read documents with its own permissions or with the asking employee's? What goes wrong each way?</li>
+    <li>Your separation-of-duties check compares the approver's name to the executor's name. List three ways an agent could approve its own action and pass.</li>
+    <li>Why might an auditor prefer that the system which writes the log cannot be the system that verifies its signatures?</li>
+  </ol>
+</div>
+
+<h2 id="claim"><span class="n">18.1</span>The original error: believing a claim</h2>
+<p><span class="tag own">Your build</span> Three of the fifteen gaps in ARB's ungoverned agent were about authority: no approval (GAP-04), no separation of duties (GAP-05), and an unauthenticated caller whose principal was whatever string it passed (GAP-08). D20 named what they share: <strong>the system believed a claim because it was made</strong>. A header saying <code>hitl_approved: true</code> is the caller approving itself. The fix is the same for all three: a claim is worth nothing unless it carries a signature the enforcement plane can check for itself, on every call, against its own scope.</p>
+<p>The rest of the chapter is that sentence worked out: who the agent is, whose authority it acts on, how capabilities and approvals are represented, how identities are compared, and how keys are held.</p>
+
+<h2 id="who"><span class="n">18.2</span>Who the agent is</h2>
+<p><span class="tag gen">Generic</span> An agent needs its own identity, distinct from the person who built it and from the users who call it. The most common failure in low-code estates is the opposite: an agent published with its builder's connection credentials, so every user of the agent silently exercises the builder's permissions. The second most common is a shared service account across many agents, so no action can be attributed and no agent can be revoked alone.</p>
+<div class="tw"><table>
+<thead><tr><th>Identity form</th><th>What it gives</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Workload identity (service account, managed identity)</td><td>A non-human principal the cloud's IAM can grant to</td><td>Every cloud; GCP service accounts</td></tr>
+<tr><td>Keyless federation (Workload Identity Federation, OIDC to cloud)</td><td>Short-lived credentials exchanged from an external identity, no stored keys</td><td>CI pipelines, cross-cloud workloads; your M0 work</td></tr>
+<tr><td>SPIFFE / SPIRE</td><td>Cryptographic workload identity and mTLS between services, platform-neutral</td><td>Service meshes, multi-cloud estates</td></tr>
+<tr><td>Agent-specific identity <span class="tag ver">Verify</span></td><td>A directory object per agent with lifecycle, owner and access reviews (for example Microsoft Entra Agent ID, Google's agent identity in its agent platform)</td><td>Vendor agent platforms</td></tr>
+<tr><td>A resolved directory subject</td><td>An immutable id, a kind (human or service), active status and aliases, answered by a directory the plane trusts</td><td>ARB's <code>platform/identity</code> seam (D33)</td></tr>
+</tbody></table></div>
+<p>Whatever the form, the governance requirements are the same: one identity per agent, an accountable owner on it, least privilege on what it can reach, credentials that are short-lived or never leave a key service, and a revocation path that has been tested.</p>
+
+<h2 id="whose"><span class="n">18.3</span>On whose authority</h2>
+<p><span class="tag gen">Generic</span> An agent acting for a user can use one of three authorities, and the choice is a design decision with security consequences.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 290" role="img" aria-label="Three authority models. Agent's own authority: the agent's permissions alone decide; the user can reach anything the agent can, a confused deputy risk. On behalf of the user: a token exchange gives the agent the user's rights narrowed to the agent's purpose; the effective permission is the intersection. Hybrid: the user's rights bound what data is read, the agent's capabilities bound which actions are possible.">
+  <g>
+    <text class="tx-b" x="150" y="28" text-anchor="middle">Agent's own authority</text>
+    <circle cx="150" cy="130" r="80" class="box-no"/>
+    <text class="tx" x="150" y="126" text-anchor="middle">agent's rights</text>
+    <text class="tx-s" x="150" y="146" text-anchor="middle">= what any user gets</text>
+    <text class="tx-no" x="150" y="240" text-anchor="middle">confused-deputy risk</text>
+    <text class="tx-s" x="150" y="260" text-anchor="middle">fine for its own data only</text>
+  </g>
+  <g>
+    <text class="tx-b" x="450" y="28" text-anchor="middle">On behalf of the user</text>
+    <circle cx="415" cy="130" r="72" class="box"/>
+    <circle cx="485" cy="130" r="72" class="box"/>
+    <path d="M450,68 A72,72 0 0,1 450,192 A72,72 0 0,1 450,68 Z" class="box-ok"/>
+    <text class="tx-s" x="378" y="134" text-anchor="middle">user</text>
+    <text class="tx-s" x="522" y="134" text-anchor="middle">agent</text>
+    <text class="tx-ok" x="450" y="134" text-anchor="middle">∩</text>
+    <text class="tx-ok" x="450" y="240" text-anchor="middle">effective = user ∩ agent</text>
+    <text class="tx-s" x="450" y="260" text-anchor="middle">token exchange (RFC 8693)</text>
+  </g>
+  <g>
+    <text class="tx-b" x="750" y="28" text-anchor="middle">Hybrid</text>
+    <rect class="box-ok" x="660" y="60" width="180" height="58" rx="6"/>
+    <text class="tx" x="750" y="84" text-anchor="middle">reads: user's rights</text>
+    <text class="tx-s" x="750" y="104" text-anchor="middle">permission-aware retrieval</text>
+    <rect class="box-acc" x="660" y="138" width="180" height="58" rx="6"/>
+    <text class="tx" x="750" y="162" text-anchor="middle">acts: agent capability</text>
+    <text class="tx-s" x="750" y="182" text-anchor="middle">+ policy + approval</text>
+    <text class="tx-ok" x="750" y="240" text-anchor="middle">most enterprise agents</text>
+    <text class="tx-s" x="750" y="260" text-anchor="middle">both recorded in evidence</text>
+  </g>
+</svg>
+</div>
+<figcaption><b>Fig 18.1</b>Three answers to "whose authority?". The left one is right only for an agent that touches nothing the user could not see anyway; the other two bound the agent by the user's rights where it matters.</figcaption>
+</figure>
+
+<ul>
+  <li><strong>The agent's own authority.</strong> Simple, and right when the agent operates on data and systems no individual user's rights should govern (a reconciliation job). Wrong when users with different rights call the same agent: the agent becomes a <em>confused deputy</em> (Hardy, 1988), a program with more authority than its caller, tricked into using it on the caller's behalf. An HR assistant reading all HR documents with its own permissions will answer one employee's question with another's data.</li>
+  <li><strong>On behalf of the user.</strong> The agent exchanges the user's token for a narrower one (OAuth 2.0 Token Exchange, RFC 8693), carrying both identities: the user as subject, the agent as actor. Effective permission is the intersection: the user's rights, narrowed to the agent's purpose. Every act is attributable to both.</li>
+  <li><strong>Hybrid.</strong> Reads are bounded by the user's rights (permission-aware retrieval, <a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>); acts are bounded by the agent's own signed capabilities plus policy and, where required, a human approval. This is the right default for most enterprise agents, and it is roughly ARB's shape: the customer-service agent acts under its own capability, and the refund is bounded by policy facts and an approval, not by the customer's rights.</li>
+</ul>
+
+<h2 id="cap"><span class="n">18.4</span>Capability tokens</h2>
+<p><span class="tag own">Your build</span> <code>enforcement/tokens.py</code> defines two signed token types with one mechanism. A <code>CapabilityToken</code> says who is calling and what they may do: it is minted by an <code>IdentityService</code> for a principal and a scoped set of tool names, with a nonce and an expiry (15 minutes by default, <code>token_ttl_seconds: 900</code> in params). The PEP verifies it on every call; an unsigned, expired or tampered token makes the principal unverified, and <span class="ctl">GBL-DENY-01</span> takes it from there.</p>
+<p>The same token does a second job that is easy to miss: since P4-S1 it gates reads of the evidence detail store, where the free text removed from the open log is kept (<span class="ctl">CTL-0009</span>). "Who may read the sensitive half of the audit trail" is answered by the same verified-claim mechanism as "who may call this tool", not by a second, weaker one. One mechanism for authority, reused, is easier to reason about than several.</p>
+<p><span class="tag own">pm-agent</span> pm-agent applied the capability idea one level down, to its own architecture. A review found that its tool registry's <code>invoke</code> method was public, so code holding the chokepoint could run a tool around all four of its collaborators with no evidence event. The fix (D-PM-P3-b) made off-PEP execution impossible by construction: the registry mints a secret capability when it is created and hands it to exactly one chokepoint through a one-shot <code>bind()</code>; <code>invoke</code> requires it. This is the object-capability pattern: authority is a reference you hold, not a check someone remembers to make.</p>
+
+<h2 id="approval"><span class="n">18.5</span>Approval tokens</h2>
+<p><span class="tag own">Your build</span> An <code>ApprovalToken</code> says that a named human approved this exact write. It is signed over the order, the amount in minor units, the currency, the approver, a nonce and an expiry, and verified against the call it is presented for. The red team (P5-S3) found three ways a valid signature was worth more than it said, and each fix generalises:</p>
+<div class="tw"><table>
+<thead><tr><th>Finding</th><th>The attack</th><th>The fix</th><th>General rule</th></tr></thead>
+<tbody>
+<tr><td>RT-01</td><td>One $50 sign-off moved $250: five writes differing only in the free-text reason, which is in the dedup key but not in the approval's scope</td><td>A nonce is redeemed against the <em>intent</em> it authorised and refused for any other; the same write presented twice is still collapsed by idempotency</td><td>An approval is spent once, on the act it paid for</td></tr>
+<tr><td>RT-08</td><td><code>"Customer_Service_Ops"</code> and <code>"customer_service_ops "</code> both passed separation of duties, with the evidence recording <code>separation_of_duties_ok: true</code></td><td>First a normalising fold; then (D33) resolution to directory subjects</td><td>Compare identities, not bytes</td></tr>
+<tr><td>RT-09</td><td>A sign-off for 69.90 USD would approve 69.90 of another currency: the token carried the currency and nothing checked it</td><td>The currency is part of the verified scope</td><td>Every field in a token's scope must be checked against the act</td></tr>
+</tbody></table></div>
+<p><a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a> covers the human side: who may approve, the friction that keeps approvals meaningful, and how fatigue is measured.</p>
+
+<h2 id="resolve"><span class="n">18.6</span>Resolve, don't compare</h2>
+<p><span class="tag own">Your build</span> D33 is the most important identity decision in the build, and its reasoning transfers to any system. After RT-08, separation of duties compared two identifiers after folding case, whitespace, format characters and compatibility forms. The red team then used a Cyrillic letter that looks like a Latin one: it folds to itself, so the respelled agent name passed as a different person. A confusables table would win that round and lose the next.</p>
+<p>D33 changed the primitive from comparison to <strong>resolution</strong>. A directory seam (<code>DirectoryService.resolve(identifier) → Subject | None</code>) answers with an immutable <code>subject_id</code>, a primary id, a <code>kind</code> (human or service), an active flag and aliases. The approval service resolves both the approver and the executor, and separation of duties compares two subject ids. The result is falsifiable in both directions:</p>
+<ul>
+  <li>A homoglyph spelling resolves to nobody, so it is refused as not a person (<span class="ctl">CTL-0004</span> answers, because it is not the executor; it is no one).</li>
+  <li>The agent's own service-account email address, which shares no prefix with its name, resolves to the executor's subject and is refused as self-approval. No string normalisation could ever have caught that.</li>
+</ul>
+<p>Two smaller rules make the seam trustworthy. "Not found" (<code>None</code>) is a positive answer; a directory that cannot be reached raises <code>DirectoryUnavailableError</code>, so an outage is never recorded as a forged identity. And since D40, an approver must be a subject of kind <code>human</code>: a service subject can never approve or satisfy separation of duties, which closes agent-approves-agent by construction. The old fold survives only as a second check that can add a refusal, never remove one.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>Normalisation is still needed; it just is not the decision. A directory keys its index on normalised identifiers. The mistake is letting a normalised string <em>be</em> the identity. When a client says their approval workflow checks "approver ≠ requester", ask what it compares.</p>
+</div>
+
+<h2 id="signing"><span class="n">18.7</span>Signing and trust domains</h2>
+<p><span class="tag own">Your build</span> ARB's signing went through three stages, and the reasons for each are the design lesson.</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Mechanism</th><th>Right when</th><th>Limit</th></tr></thead>
+<tbody>
+<tr><td>P3 (D20)</td><td>HMAC-SHA256 over canonical JSON, per-process random key</td><td>One trust domain: the approval service and the PEP are the same process</td><td>Whoever can verify can also forge; a fresh process cannot verify at all</td></tr>
+<tr><td>E4-S3</td><td>Ed25519: a <code>Signer</code> holds the private key; a <code>Verifier</code> holds only the public key and has no <code>sign</code> method</td><td>Verifiers in other trust domains: auditors, gateways, peer agents</td><td>Key custody is now the problem</td></tr>
+<tr><td>E4-S3</td><td>Cloud KMS <code>EC_SIGN_ED25519</code>: the private key never leaves KMS; the runner holds <code>signerVerifier</code> on that key only</td><td>Production: non-repudiation for a key that never leaves its holder</td><td>A network call per signature; KMS availability is on the path</td></tr>
+</tbody></table></div>
+<p>Two details of the KMS binding are worth copying. Every signature KMS returns is verified locally against the public key before it is handed out, so a corrupted, substituted or truncated response becomes an error, never a signature. And one algorithm everywhere means one verify path serves both the local and the KMS binding.</p>
+<p>D28 records the reasoning that made the move necessary, and it is one of the most transferable sentences in the build. Before asymmetric keys, the audit CLI did not check signatures at all, and said so, because a per-process HMAC key cannot be shared with a later process: "claiming to check signatures here, against a key generated fresh in the same call, verifying nothing about the original writer, would have been worse than not checking them." In short: <strong>don't build a check that cannot fail honestly</strong>.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 230" role="img" aria-label="Trust domains. Signing parties (approval service, evidence writer, gateway host channel, sign-off approver) hold private keys, in KMS in production. Verifying parties (PEP, auditor in a fresh process, gateway, peer agents) hold only public keys and cannot sign.">
+  <defs><marker id="a18" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <rect class="box-acc" x="20" y="30" width="330" height="170" rx="8"/>
+  <text class="tx-acc" x="185" y="56" text-anchor="middle">Signers · hold the private key</text>
+  <text class="tx" x="40" y="88">approval service (tokens)</text>
+  <text class="tx" x="40" y="112">evidence writer (records, anchors)</text>
+  <text class="tx" x="40" y="136">host channel (gateway requests)</text>
+  <text class="tx" x="40" y="160">sign-off approver (CTL-0022)</text>
+  <text class="tx-s" x="40" y="186">production: key in Cloud KMS, never exported</text>
+  <line class="ln-acc" x1="350" y1="115" x2="546" y2="115" marker-end="url(#a18)"/>
+  <text class="tx-acc" x="448" y="104" text-anchor="middle">signature</text>
+  <text class="tx-s" x="448" y="134" text-anchor="middle">ed25519:&lt;key_id&gt;:&lt;sig&gt;</text>
+  <rect class="box-ok" x="550" y="30" width="330" height="170" rx="8"/>
+  <text class="tx-ok" x="715" y="56" text-anchor="middle">Verifiers · public key only</text>
+  <text class="tx" x="570" y="88">PEP (every call)</text>
+  <text class="tx" x="570" y="112">auditor, in a fresh process</text>
+  <text class="tx" x="570" y="136">gateway · peer agents</text>
+  <text class="tx" x="570" y="160">gate (sign-off record)</text>
+  <text class="tx-s" x="570" y="186">no sign method; cannot impersonate</text>
+</svg>
+</div>
+<figcaption><b>Fig 18.2</b>The split that asymmetric signing buys. The parties who need to check a claim are never in a position to make one, which is what lets "an auditor can verify the log" and "non-repudiable" be true at the same time.</figcaption>
+</figure>
+
+<h2 id="edges"><span class="n">18.8</span>Identity across agents</h2>
+<p><span class="tag own">Your build</span> When agents talk to each other, the sender of a message is another identity claim. GAP-22 was exactly that: <code>from: knowledge_advisor</code> was an unresolved string, and being registered was treated as being authorised. <span class="ctl">CTL-0017</span> requires the sender to be a resolved subject (through the same directory, kind <code>service</code>) and the channel to be authorised by the declared topology, enforced in Rego, not by a new decision point. The PIP keeps the sender's own statement under a field named <code>sender_asserted</code>, and no rule decides on it. For out-of-process hosts, the gateways authenticate the host channel with signed requests from a resolved, credentialed service subject (<code>gateways/channel.py</code>). <a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a> covers the protocol side.</p>
+
+<h2 id="lifecycle"><span class="n">18.9</span>Identity lifecycle for agents</h2>
+<p><span class="tag gen">Generic</span> Joiner-mover-leaver processes exist for people; agents need the same, and most organisations have nothing.</p>
+<ul>
+  <li><strong>Joiner:</strong> identity created at intake (G0), owner recorded, no permissions until the design gate grants the minimum.</li>
+  <li><strong>Mover:</strong> a new tool or data source is a permission change, reviewed like any other, and a re-tiering trigger.</li>
+  <li><strong>Leaver:</strong> retirement revokes the identity, its capabilities and keys, and removes it from every peer's declared edges.</li>
+  <li><strong>Review:</strong> agents included in access reviews, with the owner attesting; an agent whose owner has left is suspended, not inherited silently.</li>
+  <li><strong>Keys:</strong> rotation on a schedule and on compromise, with old public keys retained for as long as evidence they signed must remain verifiable.</li>
+</ul>
+
+<h2 id="alts"><span class="n">18.10</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Agent credentials</td><td>Builder's credentials · shared service account · per-agent identity · per-agent with keyless federation</td><td>Only the last two allow attribution and single-agent revocation; keyless removes the stored-secret risk</td></tr>
+<tr><td>Authority model</td><td>Agent's own · on-behalf-of · hybrid</td><td>See the figure: own authority invites confused deputies when users differ; on-behalf-of needs token exchange support in every downstream system</td></tr>
+<tr><td>Token binding</td><td>Bearer tokens · sender-constrained tokens (mTLS-bound, RFC 8705; DPoP, RFC 9449)</td><td>Bearer tokens are usable by whoever holds them; sender-constrained tokens tie use to a key the holder proves</td></tr>
+<tr><td>Signature scheme</td><td>HMAC · Ed25519 in process · Ed25519 in KMS/HSM</td><td>HMAC only within one trust domain; KMS for anything an auditor must verify independently</td></tr>
+<tr><td>Identity comparison</td><td>String equality · normalised strings · directory resolution</td><td>Only resolution catches aliases and refuses homoglyphs; it needs a directory the plane can reach, and an explicit outage path</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">18.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Example</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Borrowed authority</td><td>A low-code agent runs on its builder's connection</td><td>Per-agent identity; discovery flags agents with personal credentials</td></tr>
+<tr><td>Confused deputy</td><td>An HR assistant answers with documents the asker may not see</td><td>On-behalf-of or permission-aware retrieval</td></tr>
+<tr><td>Asserted identity</td><td>A principal string or an approval flag in a header</td><td>Signed capabilities and approvals, verified every call</td></tr>
+<tr><td>Spelling-based SoD</td><td>Case, whitespace, homoglyph or alias variants of the executor approve</td><td>Resolve both to subjects; approvers must be human</td></tr>
+<tr><td>Scope not checked</td><td>An approval reused for a different amount, currency or object</td><td>Every scoped field verified against the act; nonce spent per intent</td></tr>
+<tr><td>Verifier can forge</td><td>Shared HMAC secret between the logger and the auditor</td><td>Asymmetric keys; private key in KMS</td></tr>
+<tr><td>Outage read as forgery</td><td>An unreachable directory treated as "unknown user"</td><td>Distinct unavailable error; deny, but say which failure</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">18.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Whose credentials do your agents run on?"</strong> Usually the most revealing question in a discovery session. Ask for the count of agents with personal connections.</li>
+    <li><strong>"How do you know the approver isn't the agent?"</strong> "The approver and the executor are both resolved in the directory to immutable subjects, approvers must be human subjects, and the approval is signed over the exact act. An alias of the agent's own service account is caught as self-approval."</li>
+    <li><strong>"Can your auditors check the signatures?"</strong> "With public keys only. The private keys live in KMS and the verifiers cannot sign, so a verified record is non-repudiable."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">18.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with SD-04, BT08, BT14</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>What does each token type carry, and what does the PEP verify on every call?</li>
+    <li><span class="lvl">Recall</span>State RT-01, RT-08 and RT-09 and the rule each produced.</li>
+    <li><span class="lvl">Apply</span>Explain why D33's resolution catches the service-account alias and a fold never could.</li>
+    <li><span class="lvl">Design</span>Design pm-agent's hosted authority model: whose rights bound Jira reads, whose capabilities bound writes, and how both appear in evidence.</li>
+    <li><span class="lvl">Trade-off</span>Make the case for and against putting KMS on the signing path of every approval token at 1,000 approvals an hour.</li>
+  </ol>
+  <p class="small">Card candidates: <em>believing a claim because it was made (D20)</em> · <em>resolve, don't compare (D33)</em> · <em>approval spent once per intent (RT-01)</em> · <em>don't build a check that cannot fail honestly (D28)</em> · <em>confused deputy and the intersection</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">18.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Justin Richer and Antonio Sanso, <cite>OAuth 2 in Action</cite> (Manning, 2017), for tokens, scopes and delegation from first principles. Ross Anderson, <cite>Security Engineering</cite>, on authentication protocols and the chapter on access control.</li>
+  <li><b>Standards and papers.</b> RFC 8693 (OAuth 2.0 Token Exchange), RFC 9449 (DPoP), RFC 8705 (mTLS-bound tokens); Norm Hardy, "The Confused Deputy" (1988); the SPIFFE specifications (<a href="https://spiffe.io/">spiffe.io</a>); Mark S. Miller, <cite>Robust Composition</cite> (2006), for object capabilities.</li>
+  <li><span class="tag own">Your build</span> Module docstrings of <code>enforcement/tokens.py</code>, <code>platform/identity</code>, <code>platform/signing.py</code>, <code>platform/signing_kms.py</code>; tests <code>test_identity_directory.py</code>, <code>test_e4_signing.py</code>; DECISIONS D20, D28, D33, D40. pm-agent D-PM-P3-b and D-PM-P3-h.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="policy-as-code.html"><small>Previous</small>17 · Policy as code</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="human-oversight.html"><small>Next</small>19 · Human oversight that holds</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

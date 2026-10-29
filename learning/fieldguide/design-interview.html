@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>55 · The design interview for governed agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part X · Practice</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 55</div>
+  <ol>
+    <li><a href="#shape">The shape of the interview</a></li>
+    <li><a href="#s1">Scenario 1 · A refund agent at retail scale</a></li>
+    <li><a href="#s2">Scenario 2 · Procurement with suppliers' agents</a></li>
+    <li><a href="#s3">Scenario 3 · An assistant for relationship managers at an EU bank</a></li>
+    <li><a href="#listen">What strong answers have in common</a></li>
+    <li><a href="#fail">Common mistakes</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART X · CHAPTER 55</div>
+  <h1>The design interview for governed agents</h1>
+  <p class="lede">How to run a system design interview, or a design review, for an agent that can act: the seven steps and their time budget, three worked scenarios with numbers (a refund agent at retail scale, procurement with suppliers' agents, an assistant at an EU bank), the twist an interviewer is likely to add to each, and what separates strong answers from weak ones.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS · PROVE</span></div>
+    <div><b>Reps</b><span>PROVE slot · SD drills</span></div>
+    <div><b>Build links</b><span>ARB CTL-0016–0019, 0021, 0022; D71 retries</span></div>
+    <div><b>Read</b><span>~45 min, then drill</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>"Design a customer-service agent that can issue refunds for a large retailer." What are the first three questions you ask?</li>
+    <li>At half a million conversations a day, which link in the capacity chain do you expect to bind first?</li>
+    <li>Where in a 45-minute interview should governance appear?</li>
+  </ol>
+</div>
+
+<h2 id="shape"><span class="n">55.1</span>The shape of the interview</h2>
+<p><span class="tag gen">Generic</span> A system design interview for governed agents follows the standard shape (clarify, requirements, estimates, API, high-level design, deep dives, trade-offs) with one difference: the interviewer is listening for whether control of the agent's actions is part of the design or a paragraph at the end. The strongest answers make governance a requirement in the first minutes, a set of components in the diagram and the subject of at least one deep dive.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 140" role="img" aria-label="A 45-minute design interview budget: clarify 5 minutes, requirements and governance 6, estimate 5, API 4, high-level design 10, deep dives 10, trade-offs 5. Governance is not a separate segment: it appears as a requirement, as a component and as a deep dive.">
+<rect class="box" x="10" y="36" width="93.7778" height="68" rx="6"/>
+<text class="tx-b" x="56.8889" y="65.5" text-anchor="middle">Clarify</text>
+<text class="tx-s" x="56.8889" y="83.5" text-anchor="middle">5 min</text>
+<rect class="box" x="107.778" y="36" width="113.333" height="68" rx="6"/>
+<text class="tx-b" x="164.444" y="56.5" text-anchor="middle">Requirements</text>
+<text class="tx-s" x="164.444" y="74.5" text-anchor="middle">+ governance</text>
+<text class="tx-s" x="164.444" y="92.5" text-anchor="middle">6 min</text>
+<rect class="box" x="225.111" y="36" width="93.7778" height="68" rx="6"/>
+<text class="tx-b" x="272" y="65.5" text-anchor="middle">Estimate</text>
+<text class="tx-s" x="272" y="83.5" text-anchor="middle">5 min</text>
+<rect class="box" x="322.889" y="36" width="74.2222" height="68" rx="6"/>
+<text class="tx-b" x="360" y="65.5" text-anchor="middle">API</text>
+<text class="tx-s" x="360" y="83.5" text-anchor="middle">4 min</text>
+<rect class="box-strong" x="401.111" y="36" width="191.556" height="68" rx="6"/>
+<text class="tx-b" x="496.889" y="65.5" text-anchor="middle">High-level design</text>
+<text class="tx-s" x="496.889" y="83.5" text-anchor="middle">10 min</text>
+<rect class="box-acc" x="596.667" y="36" width="191.556" height="68" rx="6"/>
+<text class="tx-acc" x="692.444" y="65.5" text-anchor="middle">Deep dives</text>
+<text class="tx-s" x="692.444" y="83.5" text-anchor="middle">10 min</text>
+<rect class="box-ok" x="792.222" y="36" width="93.7778" height="68" rx="6"/>
+<text class="tx-ok" x="839.111" y="65.5" text-anchor="middle">Trade-offs</text>
+<text class="tx-s" x="839.111" y="83.5" text-anchor="middle">5 min</text>
+<text class="tx-s" x="10" y="26" text-anchor="start">A 45-minute budget; scale it to 60 by giving the extra time to deep dives</text>
+<text class="tx-s" x="10" y="128" text-anchor="start">Governance is not a segment: it is a requirement in minute 6, a component in minute 25 and a deep dive in minute 35.</text>
+</svg>
+</div>
+<figcaption><b>Fig 55.1</b>Where the time goes. Candidates lose most often by spending twenty minutes on the high-level design and never reaching a deep dive, which is where seniority shows.</figcaption>
+</figure>
+<div class="tw"><table>
+<thead><tr><th>Step</th><th>What to produce</th><th>What the interviewer listens for</th></tr></thead>
+<tbody>
+<tr><td>Clarify</td><td>Users, actions the agent may take, scale, regions, regulation, what "done" means</td><td>You ask about effects and money before features</td></tr>
+<tr><td>Requirements and governance</td><td>Functional, non-functional, governance requirements in three short lists; the agent's tier</td><td>Approvals, evidence and limits stated as requirements with numbers</td></tr>
+<tr><td>Estimate</td><td>Runs, model calls, tokens per minute at peak, concurrency, writes, evidence volume</td><td>Little's law; the narrowest link named (<a class="xref" data-ch="capacity-cost-regions" data-sec="#chain" href="capacity-cost-regions.html#chain">Chapter 33</a>)</td></tr>
+<tr><td>API</td><td>The run API: start, follow, approve, cancel; idempotency</td><td>Long work leaves the synchronous path (<a class="xref" data-ch="edge-api-design" href="edge-api-design.html">Chapter 25</a>)</td></tr>
+<tr><td>High-level design</td><td>One diagram with the agent, gateways, PEP and PDP, stores, approvals, evidence, registry and gate</td><td>Effects pass one chokepoint; facts come from systems, not the model</td></tr>
+<tr><td>Deep dives</td><td>Two or three, chosen with the interviewer</td><td>Failure modes, concurrency, retries, identity, evaluation</td></tr>
+<tr><td>Trade-offs</td><td>What you chose, what you rejected, what you would revisit</td><td>Honest residuals; what you would measure first</td></tr>
+</tbody></table></div>
+
+<h2 id="s1"><span class="n">55.2</span>Scenario 1 · A refund agent at retail scale</h2>
+<p><strong>Prompt.</strong> "Design a customer-service agent for a large online retailer. It answers policy questions, looks up orders and can issue refunds."</p>
+<h4>Clarify and requirements</h4>
+<ul>
+  <li><strong>Functional.</strong> Answer from the policy knowledge base with citations; look up the customer's own orders; issue refunds within policy; escalate to a person otherwise.</li>
+  <li><strong>Non-functional.</strong> 500,000 conversations a day, peaks three times the average; first streamed token within two seconds at p95; the run API available 99.9%.</li>
+  <li><strong>Governance.</strong> Refunds only on the customer's own orders, never above the order total or the tier's limit; above the limit, a signed human approval; every decision and refund recorded tamper-evidently; EU customers' data processed in the EU. Tier: an irreversible financial write acting on its own makes it CRITICAL under the banding in <a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>; with approval above a limit it is still CRITICAL for that action class.</li>
+</ul>
+<h4>Estimate</h4>
+<p><span class="tag asm">Assumption</span> 5 model calls per conversation, 4,000 input and 250 output tokens per call, 40-second runs, 15% of conversations refund, 8 evidence records per run.</p>
+<div class="tw"><table>
+<thead><tr><th>Quantity</th><th>Result</th><th>So what</th></tr></thead>
+<tbody>
+<tr><td>Peak arrivals</td><td>1,042 runs a minute</td><td>Average 347; size for the peak</td></tr>
+<tr><td>Concurrency at peak (L = λW)</td><td>about 694 runs in flight</td><td>Workers and connection pools; memory per run</td></tr>
+<tr><td>Model load at peak</td><td>20.8M input TPM · 1.3M output TPM · 5,208 RPM</td><td>The binding link: check quota per model and region; reserve the baseline, spill the peak</td></tr>
+<tr><td>Refund writes</td><td>75,000 a day · about 156 a minute at peak</td><td>Compare with the payments API's limit, shared with human agents</td></tr>
+<tr><td>Evidence records</td><td>4M a day · about 139 a second at peak</td><td>Easy for the store; a single global hash chain is the bottleneck to avoid</td></tr>
+</tbody></table></div>
+<h4>API</h4>
+<pre><code>POST /v1/runs                      Idempotency-Key: &lt;uuid&gt;   -&gt; 202 {run_id}
+GET  /v1/runs/{run_id}/events      (SSE; resumable with Last-Event-ID)
+POST /v1/runs/{run_id}/approvals   {grant}                  -&gt; 200 | 409 (stale)
+POST /v1/runs/{run_id}:cancel                               -&gt; 202</code></pre>
+<h4>High-level design</h4>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 316" role="img" aria-label="Scenario 1, a refund agent at retail scale. Customers reach an edge and API gateway (WAF, authentication, quotas) and a run API with workers that return 202, stream events over SSE and checkpoint runs. Model traffic goes through an AI gateway (token limits, backend pools, model pin) to a primary and a fallback model. Tool traffic goes through a tool gateway acting as PEP, with a PDP on trusted facts from the order database and idempotency keys, to an orders read and a payments refund write. Refunds over the limit need signed approvals. Every decision and effect goes to an evidence plane with sharded chains and anchors. A registry and gate hold pins and sign-offs.">
+<defs><marker id="d55" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="140" width="100" height="56" rx="6"/>
+<text class="tx-b" x="60" y="163.5" text-anchor="middle">Customer</text>
+<text class="tx-s" x="60" y="181.5" text-anchor="middle">web · app</text>
+<rect class="box" x="140" y="140" width="120" height="56" rx="6"/>
+<text class="tx-b" x="200" y="163.5" text-anchor="middle">Edge + API</text>
+<text class="tx-s" x="200" y="181.5" text-anchor="middle">WAF · authN · quota</text>
+<rect class="box-strong" x="290" y="120" width="150" height="96" rx="6"/>
+<text class="tx-b" x="365" y="154.5" text-anchor="middle">Run API + workers</text>
+<text class="tx-s" x="365" y="172.5" text-anchor="middle">202 · SSE events</text>
+<text class="tx-s" x="365" y="190.5" text-anchor="middle">checkpoints</text>
+<rect class="box-acc" x="470" y="20" width="170" height="60" rx="6"/>
+<text class="tx-acc" x="555" y="45.5" text-anchor="middle">AI gateway</text>
+<text class="tx-s" x="555" y="63.5" text-anchor="middle">tokens · pools · pin</text>
+<rect class="box" x="680" y="20" width="100" height="60" rx="6"/>
+<text class="tx-b" x="730" y="45.5" text-anchor="middle">Models</text>
+<text class="tx-s" x="730" y="63.5" text-anchor="middle">primary · fallback</text>
+<rect class="box-acc" x="470" y="120" width="170" height="96" rx="6"/>
+<text class="tx-acc" x="555" y="154.5" text-anchor="middle">Tool gateway (PEP)</text>
+<text class="tx-s" x="555" y="172.5" text-anchor="middle">PDP on trusted facts</text>
+<text class="tx-s" x="555" y="190.5" text-anchor="middle">idempotency keys</text>
+<rect class="box" x="680" y="110" width="100" height="50" rx="6"/>
+<text class="tx-b" x="730" y="130.5" text-anchor="middle">Orders</text>
+<text class="tx-s" x="730" y="148.5" text-anchor="middle">read</text>
+<rect class="box" x="680" y="172" width="100" height="50" rx="6"/>
+<text class="tx-b" x="730" y="192.5" text-anchor="middle">Payments</text>
+<text class="tx-s" x="730" y="210.5" text-anchor="middle">refund write</text>
+<rect class="box-ok" x="470" y="250" width="170" height="56" rx="6"/>
+<text class="tx-ok" x="555" y="273.5" text-anchor="middle">Approvals</text>
+<text class="tx-s" x="555" y="291.5" text-anchor="middle">over limit · signed</text>
+<rect class="box-ok" x="680" y="250" width="210" height="56" rx="6"/>
+<text class="tx-ok" x="785" y="273.5" text-anchor="middle">Evidence plane</text>
+<text class="tx-s" x="785" y="291.5" text-anchor="middle">sharded chains · anchors</text>
+<rect class="box" x="800" y="110" width="90" height="112" rx="6"/>
+<text class="tx-b" x="845" y="161.5" text-anchor="middle">Order DB</text>
+<text class="tx-s" x="845" y="179.5" text-anchor="middle">PIP facts</text>
+<rect class="box" x="290" y="250" width="150" height="56" rx="6"/>
+<text class="tx-b" x="365" y="273.5" text-anchor="middle">Registry + gate</text>
+<text class="tx-s" x="365" y="291.5" text-anchor="middle">pins · sign-off</text>
+<line class="ln" x1="110" y1="168" x2="138" y2="168" marker-end="url(#d55)"/>
+<line class="ln" x1="260" y1="168" x2="288" y2="168" marker-end="url(#d55)"/>
+<line class="ln" x1="440" y1="140" x2="468" y2="60" marker-end="url(#d55)"/>
+<line class="ln" x1="640" y1="50" x2="678" y2="50" marker-end="url(#d55)"/>
+<line class="ln" x1="440" y1="168" x2="468" y2="168" marker-end="url(#d55)"/>
+<line class="ln" x1="640" y1="145" x2="678" y2="135" marker-end="url(#d55)"/>
+<line class="ln" x1="640" y1="185" x2="678" y2="197" marker-end="url(#d55)"/>
+<line class="ln" x1="555" y1="248" x2="555" y2="218" marker-end="url(#d55)"/>
+<line class="ln" x1="640" y1="205" x2="700" y2="248" marker-end="url(#d55)" style="stroke-dasharray:4 4"/>
+<line class="ln" x1="780" y1="166" x2="800" y2="166"/>
+<line class="ln" x1="365" y1="216" x2="365" y2="248" style="stroke-dasharray:3 4"/>
+</svg>
+</div>
+<figcaption><b>Fig 55.2</b>Scenario 1's high-level design. Every box is from an earlier chapter; the interview tests whether you place them correctly, size them with numbers and defend what happens when one fails.</figcaption>
+</figure>
+<h4>Deep dives to offer</h4>
+<ul>
+  <li><strong>The refund decision.</strong> The model proposes; the PEP decides on facts the PIP reads from the order system (owner, total, refundable state, amounts already refunded), with a conditional decrement on the refundable remainder so two concurrent refunds cannot overspend (<a class="xref" data-ch="state-data-scale" data-sec="#skew" href="state-data-scale.html#skew">Chapter 28</a>).</li>
+  <li><strong>Evidence at 139 records a second.</strong> Shard the chain by tenant or region, each with one writer, and anchor every shard on a fixed window; verification walks shards independently (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</li>
+  <li><strong>Retries.</strong> Whole-turn retries only on throttling and only if no effect completed in the attempt; refunds carry an idempotency key from run and step (<a class="xref" data-ch="reliability" data-sec="#retries" href="reliability.html#retries">Chapter 29</a>).</li>
+</ul>
+<div class="panel p-gotcha">
+  <span class="k">The twist</span>
+  <p><strong>"It's Black Friday: five times the traffic, and your primary model provider starts returning 429s."</strong> Strong answers: reserved capacity for the baseline with spill-over; the AI gateway's backend pool fails over to a second region or a <em>pre-approved, evaluated</em> fallback model (a fallback is a different model and must be inside the signed-off configuration, <span class="ctl">CTL-0021</span>/<span class="ctl">CTL-0022</span>); degrade before failing (answer policy questions, queue refunds for later with the customer told); per-tenant budgets so one channel cannot starve the rest; and never relax the PEP to stay up. Weak answers add retries everywhere or switch models without evaluation.</p>
+</div>
+
+<h2 id="s2"><span class="n">55.3</span>Scenario 2 · Procurement with suppliers' agents</h2>
+<p><strong>Prompt.</strong> "Design an agent that sources quotes from suppliers' own agents over A2A and raises purchase orders."</p>
+<ul>
+  <li><strong>Requirements.</strong> About 2,000 purchase orders a day; approvals above a value threshold; separation of duties between requester and approver; supplier messages are untrusted.</li>
+  <li><strong>Design centre.</strong> The buyer agent talks to supplier agents through an agent gateway that verifies signed agent cards against a registry of approved suppliers; supplier content is data, never authority; the PO write passes the PEP, which reads catalogue prices, budgets and supplier status from the buyer's own systems (<a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>).</li>
+  <li><strong>Deep dives.</strong> Declared edges and provenance envelopes for cross-agent messages (ARB's <span class="ctl">CTL-0016</span> to <span class="ctl">CTL-0019</span>); idempotent PO creation; evidence that spans two organisations (yours is the record of your decisions; theirs is imported and labelled).</li>
+</ul>
+<div class="panel p-gotcha">
+  <span class="k">The twist</span>
+  <p><strong>"One supplier's agent is compromised. Its quotes now contain instructions and prices 40% above catalogue."</strong> Strong answers: the instructions do nothing because messages carry no authority; the price limit is decided on the buyer's catalogue price from the PIP, so inflated quotes are refused or escalated; anomaly detection is a detective layer that flags the pattern but does not authorise anything; the registry suspends that supplier's edge, which every enforcement point honours; the evidence shows every message and decision for the incident review (<a class="xref" data-ch="observability-agentops" data-sec="#kill" href="observability-agentops.html#kill">Chapter 31</a>).</p>
+</div>
+
+<h2 id="s3"><span class="n">55.4</span>Scenario 3 · An assistant for relationship managers at an EU bank</h2>
+<p><strong>Prompt.</strong> "Design an assistant that answers relationship managers' questions from internal documents, drafts client emails and logs activities in the CRM."</p>
+<ul>
+  <li><strong>Requirements.</strong> Reversible writes only (activity logs, drafts); no credit decisions, which keeps it outside Annex III; EU residency; retention to the bank's record-keeping policy; transparency to recipients where content is AI-generated (<a class="xref" data-ch="standards-law-crosswalk" data-sec="#euaia" href="standards-law-crosswalk.html#euaia">Chapter 48</a>).</li>
+  <li><strong>Design centre.</strong> Permission-aware retrieval that filters by the user's entitlements before the nearest-neighbour search, regional model endpoints with the location in the approved configuration, the model inventoried for model risk, PII kept out of traces (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>, <a class="xref" data-ch="regulated-industries" data-sec="#banking" href="regulated-industries.html#banking">Chapter 49</a>).</li>
+  <li><strong>Deep dives.</strong> Entitlement filters and their failure mode (post-filtering returns too few results or leaks); residency of every store including caches and traces; how a model change is re-validated.</li>
+</ul>
+<div class="panel p-gotcha">
+  <span class="k">The twist</span>
+  <p><strong>"The regulator asks you to reconstruct an answer a relationship manager sent a client nine months ago, with its sources."</strong> Strong answers: traces were sampled and expired, so the answer comes from the evidence plane, which recorded the user, the model pin and version, the prompt and configuration digest, the retrieved document ids with content hashes, and the output hash; documents have changed since, so either the index keeps versions or the record keeps hashes that the document store's history can match; anchors prove the records were not altered. Weak answers say "we would check the logs".</p>
+</div>
+
+<h2 id="listen"><span class="n">55.5</span>What strong answers have in common</h2>
+<ul>
+  <li><strong>Effects first.</strong> They ask what the agent can change before what it can say.</li>
+  <li><strong>Numbers early.</strong> Tokens per minute at peak and concurrency appear before the diagram.</li>
+  <li><strong>Facts from systems.</strong> Every limit is decided on data the model cannot assert.</li>
+  <li><strong>One chokepoint per effect class,</strong> with evidence written before the effect.</li>
+  <li><strong>Failure as design.</strong> Throttling, outages, retries and stuck runs are designed, not apologised for.</li>
+  <li><strong>Platform literacy.</strong> They know what the managed services provide and where those stop (<a class="xref" data-ch="appendix-service-map" href="appendix-service-map.html">Appendix I</a>).</li>
+  <li><strong>Honest residuals.</strong> They end by naming what the design does not cover and what they would measure first.</li>
+</ul>
+
+<h2 id="fail"><span class="n">55.6</span>Common mistakes</h2>
+<div class="tw"><table>
+<thead><tr><th>Mistake</th><th>What it signals</th><th>Instead</th></tr></thead>
+<tbody>
+<tr><td>Guardrails as the governance answer</td><td>Treats a detector as a control</td><td>Authority decided at a PEP on facts; detectors restrict only</td></tr>
+<tr><td>"The LLM checks the policy"</td><td>The model is its own referee</td><td>Deterministic policy outside the model</td></tr>
+<tr><td>Synchronous request for minutes of work</td><td>No run model</td><td>202, events, resumable streams</td></tr>
+<tr><td>Retries everywhere</td><td>Duplicate effects</td><td>Effect-aware retries; idempotency keys</td></tr>
+<tr><td>No numbers</td><td>Cannot size or cost</td><td>Peak TPM, concurrency, write rates</td></tr>
+<tr><td>Logs as audit</td><td>Cannot defend a decision</td><td>Evidence plane separate from telemetry</td></tr>
+<tr><td>Fallback model as a free switch</td><td>Unapproved behaviour change</td><td>A pre-evaluated fallback inside the sign-off</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="pm-agent at scale design (design/pm-agent-at-scale.md) completed, or a new archetype in the builds">
+  <span class="k">Waiting on the builds</span>
+  <p>When <code>learning/design/pm-agent-at-scale.md</code> is complete, add it as a fourth worked scenario with its measured numbers replacing the assumptions here. When the builds add archetypes (a back-office approval agent, a SaaS-hosted agent), add a twist drawn from each.</p>
+</div>
+
+<h2 id="prove"><span class="n">55.7</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Drill · PROVE</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The seven steps and their time budget.</li>
+    <li><span class="lvl">Apply</span>Recompute scenario 1's peak TPM and concurrency with 8 calls per run and 60-second runs.</li>
+    <li><span class="lvl">Apply</span>Draw scenario 1's design from memory in ten minutes, every box labelled with its job.</li>
+    <li><span class="lvl">Design</span>Run scenario 2 aloud for 45 minutes with a timer; record yourself; grade against the table in <a class="sref" href="#listen">55.5</a>.</li>
+    <li><span class="lvl">Trade-off</span>Scenario 3: separate indexes per business unit against one index with entitlement filters.</li>
+  </ol>
+  <p class="small">Cadence: one scenario a month in the PROVE slot, alternating with Capstone B. Card candidates: <em>effects first, numbers early</em> · <em>a fallback model is a different model</em> · <em>reconstruct from evidence, not traces</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">55.8</span>Further reading</h2>
+<ul>
+  <li>Alex Xu, <cite>System Design Interview</cite> (volumes 1 and 2), for the general shape; your library's LLM system design references for model-specific cases.</li>
+  <li>Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite>, 2nd ed., for the deep dives on state and evidence.</li>
+  <li>Part V of this book, chapter by chapter, and <a class="xref" data-ch="defending-your-builds" href="defending-your-builds.html">Chapter 54</a> for the questions about your own builds.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="defending-your-builds.html"><small>Previous</small>54 · Defending your builds</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="appendix-glossary.html"><small>Next</small>A · Glossary</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

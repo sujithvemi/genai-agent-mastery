@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>13 · Fleet-first risk tiering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part III · The rulebook</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 13</div>
+  <ol>
+    <li><a href="#why">Why tier at all</a></li>
+    <li><a href="#axes">The five axes</a></li>
+    <li><a href="#banding">Banding</a></li>
+    <li><a href="#critical">CRITICAL is a treatment</a></li>
+    <li><a href="#derive">The derivation rule</a></li>
+    <li><a href="#two">Two agents, one catalog</a></li>
+    <li><a href="#graph">A fleet is a graph</a></li>
+    <li><a href="#binding">Fleet-first, one layer down</a></li>
+    <li><a href="#change">Re-tiering on change</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">Client translation</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART III · CHAPTER 13</div>
+  <h1>Fleet-first risk tiering</h1>
+  <p class="lede">How one rulebook decides, mechanically and repeatably, which controls each agent in a fleet must carry, and why the rulebook has to be written for the fleet rather than for the first agent you govern.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · FRAMEWORKS</span></div>
+    <div><b>Reps</b><span>R04 · Capstone A2 · B1</span></div>
+    <div><b>Build modules</b><span>governance/tiering · taxonomy · catalog</span></div>
+    <div><b>Decisions</b><span>D14 · D39 · D40</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first · write your answers before reading on</span>
+  <ol>
+    <li>A colleague proposes scoring each agent as a weighted sum of five risk factors. What goes wrong?</li>
+    <li>An internal, read-only assistant answers staff questions from policy documents that contain customer names. Which tier, and does it need human-approval controls?</li>
+    <li>Two agents start talking to each other. Should the tier of either agent change?</li>
+  </ol>
+</div>
+
+<p class="small muted"><span class="tag gen">Generic</span> marks guidance that holds for any organisation. <span class="tag own">Your build</span> marks facts read from aicoe-reference-build (ARB) on the date above. <span class="tag asm">Assumption</span> marks a judgement or example of mine. <span class="tag ver">Verify</span> marks fast-moving facts to check before quoting.</p>
+
+<h2 id="why"><span class="n">13.1</span>Why tier at all</h2>
+<p><span class="tag gen">Generic</span> A governance programme that treats every agent the same fails in both directions. Apply critical-grade controls to a read-only FAQ bot and builders route around you; the shadow agents that result are ungoverned by construction. Apply FAQ-grade controls to an agent that moves money and the first incident sets the programme back a year. Proportionality is the mechanism that lets a small central team govern hundreds of agents: the agent's risk decides the controls, and the controls decide the path to production.</p>
+<p>Most governance programmes say they are "risk-based". Few can show the function that turns an agent into a control list. This chapter is that function, and three properties of it matter more than any particular scoring scheme:</p>
+<ul>
+  <li><strong>Deterministic.</strong> Two assessors scoring the same agent honestly reach the same tier. A tier that depends on who is in the room is a negotiation.</li>
+  <li><strong>Monotone.</strong> Raising any input can never lower the result. If giving an agent more autonomy could ever reduce its control set, the scheme has a hole an attacker or a hurried builder will find.</li>
+  <li><strong>Generative.</strong> The tier does not produce advice; it produces a list of required controls that a gate can check. Tiering that ends in a PDF is not tiering.</li>
+</ul>
+
+<h2 id="axes"><span class="n">13.2</span>The five axes</h2>
+<p><span class="tag own">Your build</span> ARB scores every agent, and each of its tools, on five ordinal axes held in <code>governance/taxonomy/axes.yaml</code>. Values are listed low to high and the position of a value is its score. The file says so in capitals: do not reorder, because the ordinal position is the score.</p>
+<div class="tw"><table>
+<thead><tr><th>Axis</th><th>Values, low → high</th><th>The question it answers</th></tr></thead>
+<tbody>
+<tr><td><code>data_sensitivity</code></td><td>none · internal · PII · sensitive/regulated</td><td>How bad is it if what the agent sees leaks?</td></tr>
+<tr><td><code>action_class</code></td><td>read-only · reversible-write · irreversible/financial-write</td><td>Can it change the world, and can the change be undone?</td></tr>
+<tr><td><code>exposure</code></td><td>internal-only · authenticated-external · public</td><td>Who can reach it, and therefore who can attack it?</td></tr>
+<tr><td><code>autonomy</code></td><td>suggests · acts-with-confirmation · acts-autonomously</td><td>Is a person between the decision and the effect?</td></tr>
+<tr><td><code>blast_radius</code></td><td>single-record · multi-record · systemic</td><td>How far does one mistake spread?</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> Notice what the axes are not. None of them scores the model ("is it GPT or Gemini?") or the use case's business value. Model choice is a control concern (pinning, evaluation, provenance), and value is a portfolio concern. The axes describe the agent's <em>capability to cause harm</em>, which is the thing governance is accountable for. Each axis also maps to a family of controls you will meet later: sensitivity to data controls, action class to write controls, exposure to screening and content safety, autonomy to oversight, blast radius to limits and budgets. That correspondence is why five is enough.</p>
+<p>Two scoring rules keep the axes honest. Score the agent at its <strong>worst reachable case</strong>, not its typical one: a support agent that usually answers questions but can issue a refund is a financial-write agent. And score from the agent's real <strong>tool surface</strong>, not its prompt: if the tool exists and the agent's identity can call it, the capability is there whatever the instructions say.</p>
+
+<h2 id="banding"><span class="n">13.3</span>Banding: scores to a tier</h2>
+<p><span class="tag own">Your build</span> <code>governance/taxonomy/tiers.yaml</code> turns the five scores into one of four tiers with an ordered, first-match rule. The tiering engine (<code>src/aicoe/governance/tiering/engine.py</code>, function <code>derive_tier</code>) implements it exactly.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="Banding is an ordered first-match test. Test 1: irreversible or financial write with autonomous action, or two or more axes at their top value, gives CRITICAL. Otherwise test 2: any axis at its top gives HIGH. Otherwise test 3: any axis above its lowest gives MEDIUM. Otherwise LOW.">
+  <defs>
+    <marker id="a12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+  </defs>
+  <rect class="box" x="10" y="96" width="150" height="64" rx="6"/>
+  <text class="tx-b" x="85" y="122" text-anchor="middle">Five axis scores</text>
+  <text class="tx-s" x="85" y="142" text-anchor="middle">position = score</text>
+
+  <line class="ln" x1="160" y1="128" x2="196" y2="128" marker-end="url(#a12)"/>
+
+  <rect class="box-strong" x="200" y="80" width="180" height="96" rx="6"/>
+  <text class="tx-s" x="290" y="100" text-anchor="middle">TEST 1</text>
+  <text class="tx" x="290" y="120" text-anchor="middle">irreversible write</text>
+  <text class="tx" x="290" y="137" text-anchor="middle">+ acts autonomously</text>
+  <text class="tx" x="290" y="160" text-anchor="middle">or ≥ 2 axes at top</text>
+
+  <line class="ln" x1="380" y1="128" x2="416" y2="128" marker-end="url(#a12)"/>
+  <text class="tx-s" x="398" y="120" text-anchor="middle">no</text>
+
+  <rect class="box-strong" x="420" y="80" width="160" height="96" rx="6"/>
+  <text class="tx-s" x="500" y="100" text-anchor="middle">TEST 2</text>
+  <text class="tx" x="500" y="128" text-anchor="middle">any axis at</text>
+  <text class="tx" x="500" y="145" text-anchor="middle">its top value</text>
+
+  <line class="ln" x1="580" y1="128" x2="616" y2="128" marker-end="url(#a12)"/>
+  <text class="tx-s" x="598" y="120" text-anchor="middle">no</text>
+
+  <rect class="box-strong" x="620" y="80" width="160" height="96" rx="6"/>
+  <text class="tx-s" x="700" y="100" text-anchor="middle">TEST 3</text>
+  <text class="tx" x="700" y="128" text-anchor="middle">any axis above</text>
+  <text class="tx" x="700" y="145" text-anchor="middle">its lowest value</text>
+
+  <line class="ln" x1="780" y1="128" x2="806" y2="128" marker-end="url(#a12)"/>
+  <text class="tx-s" x="793" y="120" text-anchor="middle">no</text>
+  <rect class="fill-low" x="810" y="110" width="80" height="36" rx="4"/>
+  <text class="tx-inv" x="850" y="133" text-anchor="middle">LOW</text>
+  <text class="tx-s" x="850" y="166" text-anchor="middle">fast lane</text>
+
+  <line class="ln" x1="290" y1="176" x2="290" y2="222" marker-end="url(#a12)"/>
+  <text class="tx-s" x="300" y="204">yes</text>
+  <rect class="fill-crit" x="235" y="226" width="110" height="36" rx="4"/>
+  <text class="tx-inv" x="290" y="249" text-anchor="middle">CRITICAL</text>
+  <text class="tx-s" x="290" y="282" text-anchor="middle">treatment hardens</text>
+
+  <line class="ln" x1="500" y1="176" x2="500" y2="222" marker-end="url(#a12)"/>
+  <text class="tx-s" x="510" y="204">yes</text>
+  <rect class="fill-high" x="455" y="226" width="90" height="36" rx="4"/>
+  <text class="tx-inv" x="500" y="249" text-anchor="middle">HIGH</text>
+  <text class="tx-s" x="500" y="282" text-anchor="middle">full gates</text>
+
+  <line class="ln" x1="700" y1="176" x2="700" y2="222" marker-end="url(#a12)"/>
+  <text class="tx-s" x="710" y="204">yes</text>
+  <rect class="fill-med" x="645" y="226" width="110" height="36" rx="4"/>
+  <text class="tx-inv" x="700" y="249" text-anchor="middle">MEDIUM</text>
+  <text class="tx-s" x="700" y="282" text-anchor="middle">standard gates</text>
+</svg>
+</div>
+<figcaption><b>Fig 13.1</b>Banding is a ladder of ordered tests, evaluated top to bottom; the first one that holds decides. Every test only looks for <em>higher</em> scores, which is what makes the result monotone.</figcaption>
+</figure>
+
+<p>Read the ladder as three design decisions, each of which you should be able to defend.</p>
+<h3>Highest-wins, not additive</h3>
+<p><span class="tag gen">Generic</span> An additive or weighted score lets a low value on one axis compensate for a high value on another. "It moves money autonomously, but it is internal-only and touches one record, so it averages out to MEDIUM" is exactly the reasoning that produces incidents. Highest-wins says the agent is as risky as its most dangerous capability. That is conservative by design, and it is the right default for a control system: false positives cost a heavier gate; false negatives cost an unrecoverable action.</p>
+<h3>A pair clause for CRITICAL</h3>
+<p><span class="tag own">Your build</span> CRITICAL is reached by an OR of two clauses. The first is a specific combination: <code>action_class = irreversible/financial-write</code> <em>and</em> <code>autonomy = acts-autonomously</code>. Neither alone is catastrophic (an irreversible write a human confirms, or an autonomous agent that only reads), but together they turn one wrong decision into an unrecoverable loss with no human in the loop. The second clause is breadth: two or more axes at their top value.</p>
+<p>Look closely and you will find something the build never says out loud. With today's value lists, both values in the pair clause are the top values of their axes, so any agent that satisfies the pair also satisfies "two or more at top". The pair clause is logically subsumed. What it still contributes is the reason string: the evidence says the agent is CRITICAL because it <em>moves money autonomously</em>, in business terms, instead of "two axes at top". The comment in <code>tiers.yaml</code> says the pair matters "even if no single axis is at absolute top", which is not true with the current lists. <span class="tag asm">Assumption</span> It was probably written when the action-class scale had a value above financial-write, or before the second clause existed. Take it to R04 as a question, not a bug: if a fourth action class is ever added (say, <code>security-or-identity-change</code>), the pair clause becomes load-bearing again.</p>
+<h3>Ordinal, with no "mid" ambiguity</h3>
+<p>Each test asks a yes/no question about positions. There is no "moderately sensitive" judgement inside the engine; the judgement happens once, when a person scores an axis, and it is recorded with a rationale in the agent's manifest. That separation is what makes the derivation reproducible: arguments about an agent become arguments about one axis value, which is a much smaller disagreement.</p>
+
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>A tier is saturating. Once an agent is CRITICAL, raising another axis changes nothing about the tier. Whether it changes the <em>control set</em> depends on whether some control's <code>applies_when</code> reads that axis. Moving <code>customer_service_ops</code> from authenticated-external to public changes neither its tier nor its controls today, because the only exposure-scoped control (<span class="ctl">CTL-0025</span>, content safety) already applies from authenticated-external. If you think a public agent needs more, that is a catalog decision, not a tiering one.</p>
+</div>
+
+<h2 id="critical"><span class="n">13.4</span>CRITICAL changes treatment, not just count</h2>
+<p><span class="tag own">Your build</span> A common mistake is to treat the tier as a volume knob: more risk, more controls. In ARB the step to CRITICAL changes <em>how</em> controls apply. <code>tiers.yaml</code> carries four treatment flags the gate enforces:</p>
+<div class="tw"><table>
+<thead><tr><th>Flag</th><th>What it means at CRITICAL</th></tr></thead>
+<tbody>
+<tr><td><code>waiver_forbidden</code></td><td>The <code>non_waivable</code> set (<span class="ctl">CTL-0004</span> approval on writes, <span class="ctl">CTL-0005</span> separation of duties, <span class="ctl">GBL-SOD-01</span>) cannot be waived, by anyone.</td></tr>
+<tr><td><code>approval_mandatory</code></td><td>Human approval is mandatory and must be signed.</td></tr>
+<tr><td><code>realtime_oversight</code></td><td>Oversight is live, not a periodic review.</td></tr>
+<tr><td><code>exec_signoff</code></td><td>Deployment needs executive sign-off, bound to a configuration digest (<span class="ctl">CTL-0022</span>, the only control with <code>min_tier: CRITICAL</code>).</td></tr>
+</tbody></table></div>
+<p>The point is that the same control can exist at HIGH with a waiver path and at CRITICAL without one. A HIGH agent whose approval step is temporarily waived during an outage is a managed risk; a CRITICAL agent whose approval step is waived is a different system from the one the risk committee accepted.</p>
+
+<h2 id="derive"><span class="n">13.5</span>The derivation rule</h2>
+<p><span class="tag own">Your build</span> This is the load-bearing sentence of the whole framework, from decision D14:</p>
+<pre><code>required(control) ⇔ min_tier(control) ≤ tier(agent)
+                     AND applies_when(control) holds for the agent
+required(GBL-*)   ⇔ always</code></pre>
+<p>Two fields on the control do the work, and both are properties of the <strong>control</strong>, never of any agent:</p>
+<ul>
+  <li><strong><code>min_tier</code></strong> is the lowest tier at which the control's risk is present. Rate and value budgets matter from MEDIUM (<span class="ctl">CTL-0007</span>); approval on writes matters from HIGH (<span class="ctl">CTL-0004</span>); inventory completeness matters for everyone (<span class="ctl">CTL-0023</span>, LOW).</li>
+  <li><strong><code>applies_when</code></strong> is an optional predicate that scopes the control to a risk <em>shape</em>. <span class="ctl">CTL-0001</span>, the refund ceiling, applies only when <code>action_class = irreversible/financial-write</code>; evidence minimisation (<span class="ctl">CTL-0009</span>) only when <code>data_sensitivity ≥ PII</code>. A control without a predicate applies to every agent at or above its <code>min_tier</code>.</li>
+</ul>
+<p>The three global invariants (<span class="ctl">GBL-DENY-01</span> deny by default, <span class="ctl">GBL-EVID-01</span> no action without evidence, <span class="ctl">GBL-SOD-01</span> executor is never the approver) are required for every agent regardless of tier. They are the floor the rest of the catalog stands on.</p>
+<p>The engine function <code>required_control_ids</code> is a single list comprehension. That brevity is the design: the intelligence lives in authored YAML a governance lead can read, not in code only an engineer can.</p>
+
+<h3>Why D14 exists: the agent-first anti-pattern</h3>
+<p><span class="tag own">Your build</span> While ARB was being built, the implementing model proposed setting <code>min_tier: HIGH</code> on all fifteen controls of the time, so that the CRITICAL customer-service agent would pull the whole set. It would have worked for that agent and been wrong for every other agent the framework would ever meet: a MEDIUM read-only assistant would have pulled nothing, because every control would have sat above its tier. You caught it and named the rule: <strong>fleet-first, not agent-first</strong>. Author each control's <code>min_tier</code> from the control's own risk, then let any particular agent's set fall out. The test that guards it, in <code>tests/test_governance_tiering.py</code>, asserts the control set of a hypothetical MEDIUM read-only PII agent (the <code>STAR_SET</code>), so that fitting the catalog to one agent breaks the build.</p>
+
+<h2 id="two"><span class="n">13.6</span>Two agents, one catalog</h2>
+<p><span class="tag own">Your build</span> The proof that a framework is fleet-first is a second agent with a different shape that onboards without touching the framework. ARB's second archetype, <code>knowledge_advisor</code>, exists for exactly that reason (D39). Here are both agents run through the unchanged engine and the 26-control catalog on 2026-10-20, using <code>derive_for_manifest</code>:</p>
+
+<div class="tw"><table>
+<thead><tr><th>Axis</th><th>customer_service_ops</th><th>knowledge_advisor</th></tr></thead>
+<tbody>
+<tr><td>data_sensitivity</td><td>PII</td><td>PII</td></tr>
+<tr><td>action_class</td><td><strong>irreversible/financial-write</strong> (top)</td><td>read-only</td></tr>
+<tr><td>exposure</td><td>authenticated-external</td><td>internal-only</td></tr>
+<tr><td>autonomy</td><td><strong>acts-autonomously</strong> (top)</td><td>suggests</td></tr>
+<tr><td>blast_radius</td><td>multi-record</td><td>single-record</td></tr>
+<tr><td>Tier · reason</td><td><span class="tier crit">CRITICAL</span> pair clause</td><td><span class="tier med">MEDIUM</span> data_sensitivity above lowest</td></tr>
+<tr><td>Required</td><td>25 controls + 3 GBL</td><td>16 controls + 3 GBL</td></tr>
+</tbody></table></div>
+
+<p>The control-by-control view shows where the two sets diverge and which field made the difference.</p>
+<div class="tw"><table>
+<thead><tr><th>Control</th><th>min_tier</th><th>applies_when</th><th>CSO</th><th>KA</th><th>Why they differ</th></tr></thead>
+<tbody>
+<tr><td><span class="ctl">0001–0003, 0012</span> refund ceiling, ≤ order, preconditions, currency</td><td>HIGH</td><td>irreversible write</td><td>●</td><td>○</td><td>KA is MEDIUM and read-only: fails both gates</td></tr>
+<tr><td><span class="ctl">0004, 0005</span> approval on writes, separation of duties</td><td>HIGH</td><td>≥ reversible write</td><td>●</td><td>○</td><td>Same; at CRITICAL these are non-waivable for CSO</td></tr>
+<tr><td><span class="ctl">0006</span> idempotency on writes</td><td>MEDIUM</td><td>≥ reversible write</td><td>●</td><td>○</td><td>Tier passes for KA; the shape predicate fails</td></tr>
+<tr><td><span class="ctl">0007, 0008, 0010, 0013–0015</span> budget, verified principal, output contract, input validation, injection boundary, grounding</td><td>MEDIUM</td><td>—</td><td>●</td><td>●</td><td>The STAR_SET core: what any MEDIUM agent needs</td></tr>
+<tr><td><span class="ctl">0009</span> evidence minimisation</td><td>MEDIUM</td><td>≥ PII</td><td>●</td><td>●</td><td>Both see PII</td></tr>
+<tr><td><span class="ctl">0011</span> tamper-evident evidence</td><td>HIGH</td><td>—</td><td>●</td><td>○</td><td>Tier gate only. Whether KA's evidence is in practice chained anyway is a question for R08; what the table says is that the gate does not <em>require</em> it</td></tr>
+<tr><td><span class="ctl">0016–0019</span> cross-agent message, sender, topology, provenance</td><td>LOW</td><td>has interaction</td><td>●</td><td>●</td><td>Both declare the edge between them</td></tr>
+<tr><td><span class="ctl">0020, 0021, 0023</span> model budget, model pin, inventory</td><td>LOW / MEDIUM / LOW</td><td>—</td><td>●</td><td>●</td><td>Fleet hygiene: everyone</td></tr>
+<tr><td><span class="ctl">0022</span> sign-off bound to config digest</td><td>CRITICAL</td><td>—</td><td>●</td><td>○</td><td>The CRITICAL treatment, expressed as a control</td></tr>
+<tr><td><span class="ctl">0024</span> MCP tool integrity</td><td>LOW</td><td>has MCP server</td><td>○</td><td>●</td><td>Only KA consumes an external MCP server; the one control CSO lacks</td></tr>
+<tr><td><span class="ctl">0025</span> output content safety</td><td>LOW</td><td>exposure ≥ auth-external</td><td>●</td><td>○</td><td>Only CSO faces outsiders</td></tr>
+<tr><td><span class="ctl">0026</span> semantic groundedness</td><td>MEDIUM</td><td>—</td><td>●</td><td>●</td><td>Both answer from retrieval</td></tr>
+</tbody></table></div>
+<p class="small muted">● required · ○ not required. CSO = customer_service_ops, KA = knowledge_advisor. Read with <code>derive_for_manifest</code> against the catalog on disk, 2026-10-20.</p>
+
+<p>Two things in that table deserve a second look. First, the CRITICAL agent does <em>not</em> pull every control: <span class="ctl">CTL-0024</span> attaches to the read-only MEDIUM agent and not to the CRITICAL one, because the risk it addresses (a poisoned or swapped MCP tool description) exists only where an external MCP server does. Tier is necessary but never sufficient. Second, the MEDIUM agent's set is not a subset carved out by hand; nobody listed it. It fell out of the agent's honest scores, which is what D39 calls the load-bearing result.</p>
+
+<h2 id="graph"><span class="n">13.7</span>A fleet is a graph</h2>
+<p><span class="tag own">Your build</span> When the two agents were wired together (P7-S3), a natural instinct was to compose them: treat the pair as one super-agent whose tier is the maximum of the two. D40 rejected it, and the reasoning is worth owning because clients will propose the same thing.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 870 270" role="img" aria-label="Nodes are tiered by their own axes; edges are governed by shape. customer_service_ops is CRITICAL with 25 controls, knowledge_advisor is MEDIUM with 16. The declared two-way edge between them attaches CTL-0016 to 0019 to both. The advisor's edge to the policy-glossary MCP server attaches CTL-0024. A composed tier equal to the max of both was rejected because onboarding a consumer would reopen upstream gates.">
+  <defs>
+    <marker id="b12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker>
+  </defs>
+  <rect class="box-strong" x="20" y="60" width="230" height="100" rx="8"/>
+  <text class="tx-b" x="135" y="90" text-anchor="middle">customer_service_ops</text>
+  <rect class="fill-crit" x="85" y="104" width="100" height="24" rx="3"/>
+  <text class="tx-inv" x="135" y="121" text-anchor="middle">CRITICAL</text>
+  <text class="tx-s" x="135" y="148" text-anchor="middle">tier from its own five axes</text>
+
+  <rect class="box-strong" x="470" y="60" width="230" height="100" rx="8"/>
+  <text class="tx-b" x="585" y="90" text-anchor="middle">knowledge_advisor</text>
+  <rect class="fill-med" x="535" y="104" width="100" height="24" rx="3"/>
+  <text class="tx-inv" x="585" y="121" text-anchor="middle">MEDIUM</text>
+  <text class="tx-s" x="585" y="148" text-anchor="middle">tier from its own five axes</text>
+
+  <line class="ln-acc" x1="254" y1="100" x2="466" y2="100" marker-start="url(#b12)" marker-end="url(#b12)"/>
+  <text class="tx-acc" x="360" y="88" text-anchor="middle">declared edge · both ways</text>
+  <text class="tx-m" x="360" y="122" text-anchor="middle">CTL-0016 · 0017 · 0018 · 0019</text>
+  <text class="tx-s" x="360" y="140" text-anchor="middle">attach to both, by shape</text>
+
+  <rect class="box" x="740" y="76" width="115" height="50" rx="6"/>
+  <text class="tx" x="797" y="98" text-anchor="middle">policy-glossary</text>
+  <text class="tx-s" x="797" y="115" text-anchor="middle">MCP server</text>
+  <line class="ln-acc" x1="700" y1="101" x2="736" y2="101" marker-end="url(#b12)"/>
+  <text class="tx-m" x="770" y="150" text-anchor="middle">CTL-0024</text>
+
+  <rect class="box-no" x="170" y="200" width="380" height="44" rx="6"/>
+  <text class="tx-no" x="360" y="227" text-anchor="middle">Rejected: one composed tier = max(both)</text>
+  <text class="tx-s" x="565" y="227">would reopen upstream gates (D40)</text>
+</svg>
+</div>
+<figcaption><b>Fig 13.2</b>Govern nodes by tier and edges by interaction shape. Each agent keeps the tier its own capabilities earn; the risk that composition introduces lives on the edge, as controls that attach to every participant of that shape.</figcaption>
+</figure>
+
+<p>The argument has three steps.</p>
+<ol>
+  <li><strong>Max-over-axes derives nothing.</strong> The composed agent's axes would just be the CRITICAL agent's axes. You learn nothing new about the risk of the interaction itself.</li>
+  <li><strong>Re-scoring upstream makes the fleet unstable.</strong> If a consumer can raise its supplier's tier, onboarding any new consumer reopens the supplier's gate. In a fleet of hundreds of agents that is a governance outage every week.</li>
+  <li><strong>The new risk is on the edge, so govern the edge.</strong> An inbound message from another agent can carry an injected instruction; a sender can be spoofed; an undeclared edge can appear; influence can go unrecorded. Those four risks became <span class="ctl">CTL-0016</span>…<span class="ctl">CTL-0019</span>, all at <code>min_tier: LOW</code> with an interaction predicate. They attach to any agent of that shape, of any tier.</li>
+</ol>
+<p>D40 adds the principle that ties the chapter to the rest of the book: <strong>a message has no authority</strong>. A cross-agent message is data, never an instruction or a permission. That is the same rule as "an instruction is not a control", extended from the prompt to the agent boundary. You will see it again in <a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a> (injection) and <a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a> (delegation).</p>
+
+<h2 id="binding"><span class="n">13.8</span>Fleet-first, one layer down</h2>
+<p><span class="tag own">Your build</span> Fleet-first at derivation is necessary but not sufficient. When the advisor onboarded, its derived set was right, but four of its required controls could not fire. The Rego bindings for <span class="ctl">CTL-0007</span>, <span class="ctl">CTL-0010</span>, <span class="ctl">CTL-0013</span> and <span class="ctl">CTL-0014</span> had been written behind an <code>is_write</code> guard, because the first agent's only risk was its write. The catalog said the controls applied; the enforcement could not reach them.</p>
+<p>D39 ruled this a binding gap, not a catalog error, and wrote the standing principle: <strong>an enforcement binding is authored to the control's trigger, not to the first agent's shape</strong>. It is the D14 anti-pattern one layer down. The fix grew each control a read-path half (validate the query, validate the answer contract, refuse a poisoned document steering the answer, rate-limit reads) instead of forking the catalog into read and write variants.</p>
+<p>Two riders came with it, and both are good general rules:</p>
+<ul>
+  <li><strong>Conformance must be positive per agent.</strong> For each required control, show the binding firing for <em>this</em> agent. A control required but unreachable is present, not enforced.</li>
+  <li><strong>Vacuous satisfaction must be explicit, and its precondition tested.</strong> <span class="ctl">GBL-SOD-01</span> holds for the advisor because it has no write to approve. The conformance check records "not applicable, satisfied by shape" and asserts that no approval-requiring write exists, so the day someone adds one, the vacuity assertion fails and forces a re-derivation instead of letting a dormant invariant silently become load-bearing.</li>
+</ul>
+
+<h2 id="change"><span class="n">13.9</span>Re-tiering on change</h2>
+<p><span class="tag gen">Generic</span> A tier is a function of the agent's current capabilities, so any change to capabilities is a risk event. The changes that should trigger re-derivation are exactly the inputs to the function: a new or changed tool (action class, data, blast radius), a new channel or audience (exposure), removing a confirmation step (autonomy), a new peer or MCP server (shape). Changes to the model or instructions do not move the tier, but they do invalidate evidence that the controls work, so they re-enter the lifecycle at the evaluation gate (<a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a>).</p>
+<p><span class="tag own">Your build</span> ARB makes this mechanical in two ways. The tier is derived from the manifest on every gate run, never stored as an attribute someone could forget to update. At CRITICAL, sign-off is bound to a configuration digest (<span class="ctl">CTL-0022</span>): change the manifest, model pin or policy bundle and the digest changes, so the old sign-off no longer matches and the gate refuses. Re-pinning <code>customer_service_ops</code> from a local model to Vertex in E4 went through exactly this re-gate (D66).</p>
+
+<div class="panel p-future" data-trigger="a third agent archetype is onboarded in either build">
+  <span class="k">Waiting on the builds</span>
+  <p>The two-agent table is the chapter's evidence that the catalog is fleet-first. With only two archetypes, it shows that sets differ; it cannot show that the axes are sufficient. When a third archetype lands (for example a reversible-write agent at HIGH, or an agent scored on <code>sensitive/regulated</code> data), re-run <code>derive_for_manifest</code> for all three, extend the table, and check whether any new risk needed a new <code>applies_when</code> predicate rather than a new axis.</p>
+</div>
+<div class="panel p-future" data-trigger="action_class gains a value above irreversible/financial-write">
+  <span class="k">Waiting on the builds</span>
+  <p>If the action scale gains a value above financial writes (identity or security changes are the usual candidate), the CRITICAL pair clause stops being subsumed by the two-at-top clause. Revisit <a class="sref" href="#banding">13.3</a> and the R04 question.</p>
+</div>
+
+<h2 id="alts"><span class="n">13.10</span>Alternatives and trade-offs</h2>
+<p>For an ADR or a client debate, these are the real options for each design choice, with the one ARB took marked.</p>
+<div class="tw"><table>
+<thead><tr><th>Choice</th><th>Options</th><th>Trade-off</th><th>ARB</th></tr></thead>
+<tbody>
+<tr><td>How scores combine</td><td>Weighted sum · risk matrix (likelihood × impact) · highest-wins ordinal banding · ML classifier · committee judgement</td><td>Sums and matrices allow compensation and invite gaming; classifiers are opaque to auditors; committees don't scale and aren't reproducible. Banding is coarse but deterministic, monotone and explainable.</td><td class="rec">Banding</td></tr>
+<tr><td>Number of tiers</td><td>3 · 4 · 5+</td><td>Three loses the CRITICAL treatment jump; five or more creates boundary disputes between adjacent tiers that change little. Four plus a PROHIBITED screen is the common landing.</td><td class="rec">4</td></tr>
+<tr><td>What a tier selects</td><td>Tier → fixed control list · tier → list, plus per-control shape predicate</td><td>Fixed lists force agent-fitting or over-control. Predicates add one field per control and remove both problems.</td><td class="rec">min_tier + applies_when</td></tr>
+<tr><td>Unit of scoring</td><td>Agent only · each tool · agent = max over tools</td><td>Per-tool scoring is finer and lets one risky tool be isolated behind its own controls; agent-level is simpler to reason about. ARB scores both in the manifest and derives the tier from the agent-level axes.</td><td class="rec">Agent axes, tools recorded</td></tr>
+<tr><td>Multi-agent composition</td><td>Composed tier · upstream re-scoring · edge-scoped controls</td><td>See <a class="sref" href="#graph">13.7</a>. Edge controls keep tiers stable and put the new risk where it lives.</td><td class="rec">Edge controls</td></tr>
+<tr><td>Where tier lives</td><td>Stored attribute in a registry · derived on every gate run</td><td>Stored tiers drift from reality; derived tiers need the manifest to be honest and complete, which inventory controls (<span class="ctl">CTL-0023</span>) police.</td><td class="rec">Derived</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">13.11</span>Failure modes to watch for</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>What it looks like</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Score gaming</td><td>A builder scores autonomy as "acts-with-confirmation" because a confirmation dialog exists that users click through.</td><td>Score from the tool surface and identity, not the UI; second-assessor review at HIGH and above; the axis rationale lives in the manifest and is reviewed at the gate.</td></tr>
+<tr><td>Reverse-engineering</td><td>Choosing scores to reach a wanted tier (the D14 anti-pattern applied to scoring instead of authoring).</td><td>Fixture tests on known shapes; the reason string is evidence; an override must be recorded as an override, never as a different score.</td></tr>
+<tr><td>Tier inflation</td><td>Everything lands HIGH "to be safe"; the fast lane is empty; builders route around.</td><td>Watch the tier distribution as a KPI. Most estates are mostly LOW and MEDIUM; if yours isn't, the axes or the culture are wrong.</td></tr>
+<tr><td>Stale scores</td><td>A tool was added last month; the registry still says MEDIUM.</td><td>Derive on every gate run; tool registration is the trigger, not a calendar.</td></tr>
+<tr><td>Unreachable controls</td><td>Required controls whose bindings cannot fire for this agent's shape.</td><td>Positive per-agent conformance (<a class="sref" href="#binding">13.8</a>) and the no-dead-policy test (<a class="xref" data-ch="governed-action" data-sec="#pip" href="governed-action.html#pip">Chapter 16</a>).</td></tr>
+<tr><td>Silent vacuity</td><td>An invariant passes because nothing can trigger it, and nobody notices when something can.</td><td>Record vacuity explicitly and test its precondition.</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">13.12</span>Client translation</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <p>The one-minute version for a client: every agent is registered and scored on five things (how sensitive its data is, whether it can change things, who can reach it, how independently it acts, how far a mistake spreads); the score sets a tier; the tier and the agent's shape decide its controls automatically; a change re-scores it. Three follow-ups come next, and you now have the answers:</p>
+  <ul>
+    <li><strong>"Why not our existing risk matrix?"</strong> Because a matrix lets likelihood offset impact, and for an agent the dangerous capability is present whether or not it is likely to be used. Highest-wins keeps the tier tied to what the agent <em>can</em> do.</li>
+    <li><strong>"Won't this explode into a control list per agent?"</strong> No. Each control declares its own lowest tier and the shape it applies to, once. Agents' lists are derived. Onboarding a new kind of agent is a configuration change, which ARB proves with a second archetype and zero framework edits.</li>
+    <li><strong>"What happens when agents call each other?"</strong> Each agent keeps its own tier; the connection is governed as its own object, with controls that treat every message from another agent as data with no authority.</li>
+  </ul>
+</div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Regulatory risk classes are not operational tiers. The EU AI Act's categories (prohibited practices, high-risk systems under Article 6 and its annexes, transparency obligations, minimal risk) are legal classifications of a <em>system's use</em>; your tiers classify an <em>agent's capability</em>. A high-risk system under the Act will usually land HIGH or CRITICAL, but the mapping runs through the crosswalk (<a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>), not through the tiering engine. Confirm article references against the current consolidated text before putting them in writing.</p>
+</div>
+
+<h2 id="prove"><span class="n">13.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold, then check with the rep prompt · pairs with R04</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>State the derivation rule and the four banding tests in order. Which three ids are required for every agent?</li>
+    <li><span class="lvl">Apply</span>Score a meeting-notes-to-Jira agent (Capstone A candidate): internal data, creates tickets after a person confirms, staff-only, can create many tickets per run. Tier? Which write controls attach and which don't?</li>
+    <li><span class="lvl">Apply</span>Why does <code>knowledge_advisor</code> require <span class="ctl">CTL-0024</span> while the CRITICAL agent does not? What single manifest change would make the CRITICAL agent require it?</li>
+    <li><span class="lvl">Design</span>A bank wants agents that touch credit decisions to get stricter fairness controls, without inventing a fifth tier. Show the catalog change.</li>
+    <li><span class="lvl">Trade-off</span>Make the case for scoring each tool separately and deriving the tier per tool. When does it beat agent-level scoring, and what does it cost the gate?</li>
+    <li><span class="lvl">Defend</span>A risk officer says "your tiering is too simple; real risk is contextual." Answer in under a minute, with one example from your build.</li>
+  </ol>
+  <p class="small">Card candidates (add only after you defend them at B or better): <em>banding order and the pair clause</em> · <em>the derivation rule, D14, and why</em> · <em>nodes by tier, edges by shape (D40)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">13.14</span>Further reading</h2>
+<ul>
+  <li><span class="tag own">Your build</span> <code>docs/governance/P2_Governance_Framework.md</code> §1–§4 and §6a (the authored rationale); <code>governance/taxonomy/{axes,tiers,archetypes}.yaml</code>; <code>src/aicoe/governance/tiering/engine.py</code>; <code>tests/test_governance_tiering.py</code>; DECISIONS D14, D39, D40.</li>
+  <li><span class="tag own">Your build</span> pm-agent carries its own <code>governance/tiering/</code> (215 lines). Diff it against ARB's after R04 and note what changed and why.</li>
+    <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), the chapters on evaluation methodology and on guardrails, for the view from the application builder's side of the same trade-off between control and usefulness. Adam Shostack, <cite>Threat Modeling: Designing for Security</cite> (Wiley, 2014), for scoring by capability rather than likelihood, which is the argument behind highest-wins.</li>
+  <li><span class="tag gen">Generic</span> NIST AI RMF 1.0, the MAP function (context and categorisation before measurement); ISO/IEC 42001 clause 6.1 (actions to address risks). Read both for the vocabulary auditors will use about your tiering.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="reference-model.html"><small>Previous</small>12 · A reference model: planes, layers, enforcement points</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="control-as-contract.html"><small>Next</small>14 · The control as a contract</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

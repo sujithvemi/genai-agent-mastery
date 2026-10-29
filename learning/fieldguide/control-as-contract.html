@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>14 · The control as a contract</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part III · The rulebook</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 14</div>
+  <ol>
+    <li><a href="#what">What a control is</a></li>
+    <li><a href="#anatomy">Anatomy of a control file</a></li>
+    <li><a href="#trigger">Writing the trigger</a></li>
+    <li><a href="#evidence">Evidence and test</a></li>
+    <li><a href="#exception">The exception path</a></li>
+    <li><a href="#honesty">Fields that admit limits</a></li>
+    <li><a href="#halves">Derivable and declared halves</a></li>
+    <li><a href="#ladder">The posture ladder</a></li>
+    <li><a href="#catalog">Growing a catalog</a></li>
+    <li><a href="#alts">Where controls live</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART III · CHAPTER 14</div>
+  <h1>The control as a contract</h1>
+  <p class="lede">A control is a promise with terms: what risk it removes, the exact condition under which it must act, who answers for it, what record proves it acted, how a test shows it can, and what happens when someone wants an exception. Written that way, every field has a consumer, and a control that cannot keep its promise is visible.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · FRAMEWORKS</span></div>
+    <div><b>Reps</b><span>R04 · R09 · Capstone A2</span></div>
+    <div><b>Build modules</b><span>governance/catalog · _schemas · validate.py</span></div>
+    <div><b>Decisions</b><span>D16 · D22 · D23 · D34–D36 · D49 · D55 · D56</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Write a one-sentence control for "the agent must not exceed its authority". Now list what someone would need to know to implement and test it. How many of those did your sentence give them?</li>
+    <li>A control is enforced in code and its test passes. Can it still be useless? Give one way.</li>
+    <li>When should a control be allowed to have a waiver, and who should grant it?</li>
+  </ol>
+</div>
+
+<h2 id="what"><span class="n">14.1</span>What a control is, and what it is not</h2>
+<p><span class="tag gen">Generic</span> Organisations write three kinds of statement and call all of them controls. A <strong>principle</strong> ("AI will be used responsibly") sets direction and cannot be tested. A <strong>policy statement</strong> ("refunds above a threshold require approval") states a requirement and can be audited only by sampling. A <strong>control</strong> is a mechanism that makes a policy statement true, with enough attached to it that anyone can check whether it does. The difference is not wording; it is whether someone could build it, test it and prove it from the text alone.</p>
+<p>The standard control-design checklist (objective, trigger, owner, evidence, test method, exception path) exists to force that. Each field answers a question someone downstream will ask:</p>
+<div class="tw"><table>
+<thead><tr><th>Field</th><th>Question it answers</th><th>Who asks</th></tr></thead>
+<tbody>
+<tr><td>Objective</td><td>Which risk does this remove?</td><td>Risk owner, auditor, the next engineer deciding whether it can go</td></tr>
+<tr><td>Trigger</td><td>Under exactly what condition must it act?</td><td>The engineer writing the rule; the tester writing the case</td></tr>
+<tr><td>Owner</td><td>Who answers for it and approves changes to it?</td><td>Risk committee, incident commander</td></tr>
+<tr><td>Evidence</td><td>Which record proves it acted?</td><td>Auditor, investigator</td></tr>
+<tr><td>Test method</td><td>How do we show it can act?</td><td>The gate, the conformance suite, the red team</td></tr>
+<tr><td>Exception path</td><td>How is it waived, by whom, for how long, and when never?</td><td>Delivery teams under pressure; the risk committee</td></tr>
+</tbody></table></div>
+
+<h2 id="anatomy"><span class="n">14.2</span>Anatomy of a control file</h2>
+<p><span class="tag own">Your build</span> ARB authors each control as a YAML file in <code>governance/catalog/</code>, validated against a JSON Schema (2020-12) in <code>governance/_schemas/control.schema.yaml</code>. D16 chose JSON Schema over Python models deliberately: the schema file is itself an artifact an auditor reads, the field specification made executable. Here is separation of duties, complete:</p>
+<pre><code>id: CTL-0005
+title: Separation of duties
+objective: Requester ≠ approver of a write
+trigger: approver == executor principal
+owner_role: Security
+evidence: approver identity ≠ executor in evidence
+test_method: "same-principal approve → blocked"
+exception_path: none (GBL-SOD-01)
+min_tier: HIGH
+applies_when: "action_class ≥ reversible-write"
+enforcement_point:
+  - design-time gate
+  - runtime PEP
+standards:
+  nist_ai_rmf: "MAP-3 human oversight process (3.5); MANAGE-4 override/appeal (4.1)"
+  iso_42001: "[Verify] human oversight"
+  owasp: null
+  eu_ai_act: "[Verified 2026-09-05] Art. 14 human oversight"
+gap_ref: GAP-05
+status: ratified</code></pre>
+<p>Every field has at least one consumer in the build, which is what makes the file a contract rather than documentation. The figure maps them.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 400" role="img" aria-label="Each field of a control file has a consumer. min_tier and applies_when feed the tiering engine. trigger is translated into a Rego rule in the policy decision point. enforcement_point tells the gate, the PEP and the evidence plane where it bites. evidence defines the record schema. test_method defines the conformance check. exception_path feeds waivers and the CRITICAL non-waivable set. owner_role feeds the RACI. standards feeds the crosswalk. gap_ref traces back to the measured gap. status records ratification.">
+  <defs><marker id="a14" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <rect class="box-acc" x="330" y="40" width="240" height="320" rx="10"/>
+  <text class="tx-acc" x="450" y="66" text-anchor="middle">CTL-####.yaml</text>
+  <g>
+    <text class="tx-m" x="350" y="98">min_tier · applies_when</text>
+    <text class="tx-m" x="350" y="128">trigger</text>
+    <text class="tx-m" x="350" y="158">enforcement_point[]</text>
+    <text class="tx-m" x="350" y="188">evidence</text>
+    <text class="tx-m" x="350" y="218">test_method</text>
+    <text class="tx-m" x="350" y="248">exception_path</text>
+    <text class="tx-m" x="350" y="278">owner_role</text>
+    <text class="tx-m" x="350" y="308">standards</text>
+    <text class="tx-m" x="350" y="338">gap_ref · status</text>
+  </g>
+  <g>
+    <rect class="box" x="20" y="80" width="260" height="30" rx="5"/><text class="tx" x="30" y="100">tiering engine → required set</text>
+    <rect class="box" x="20" y="140" width="260" height="30" rx="5"/><text class="tx" x="30" y="160">gate · PEP · evidence plane</text>
+    <rect class="box" x="20" y="200" width="260" height="30" rx="5"/><text class="tx" x="30" y="220">conformance check (D27)</text>
+    <rect class="box" x="20" y="260" width="260" height="30" rx="5"/><text class="tx" x="30" y="280">RACI overlay (D45)</text>
+    <rect class="box" x="20" y="320" width="260" height="30" rx="5"/><text class="tx" x="30" y="340">CONTROL_GAPS · ratification</text>
+    <rect class="box" x="620" y="110" width="260" height="30" rx="5"/><text class="tx" x="630" y="130">Rego / Cedar rule (PDP)</text>
+    <rect class="box" x="620" y="170" width="260" height="30" rx="5"/><text class="tx" x="630" y="190">evidence event schema</text>
+    <rect class="box" x="620" y="230" width="260" height="30" rx="5"/><text class="tx" x="630" y="250">waivers · non-waivable set</text>
+    <rect class="box" x="620" y="290" width="260" height="30" rx="5"/><text class="tx" x="630" y="310">standards crosswalk</text>
+  </g>
+  <g>
+    <line class="ln-acc" x1="346" y1="94" x2="284" y2="94" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="346" y1="154" x2="284" y2="154" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="346" y1="214" x2="284" y2="214" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="346" y1="274" x2="284" y2="274" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="346" y1="334" x2="284" y2="334" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="554" y1="124" x2="616" y2="124" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="554" y1="184" x2="616" y2="184" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="554" y1="244" x2="616" y2="244" marker-end="url(#a14)"/>
+    <line class="ln-acc" x1="554" y1="304" x2="616" y2="304" marker-end="url(#a14)"/>
+  </g>
+</svg>
+</div>
+<figcaption><b>Fig 14.1</b>A control file has no field without a reader. If a field has no consumer it is decoration, and if a consumer reads something not in the file the control's real definition lives somewhere nobody reviews.</figcaption>
+</figure>
+
+<p><code>validate.py</code> adds the checks a schema cannot express: <code>id</code> equals the filename; every <code>applies_when</code> names a real axis and value (the bridge to the tiering engine); <code>gap_ref</code> values are unique and resolve. D16 kept this as its own make target and CI step, <code>gov-validate</code>, separate from <code>make check</code>, so "the catalog is well-formed" reads as a distinct signal from "the code is green".</p>
+
+<h2 id="trigger"><span class="n">14.3</span>Writing the trigger</h2>
+<p><span class="tag gen">Generic</span> The trigger is the field most often written badly, because it is where policy language meets code. A good trigger is a predicate over facts the system can establish at the moment of the act. Compare:</p>
+<div class="tw"><table>
+<thead><tr><th>Weak</th><th>Why it fails</th><th>Strong</th></tr></thead>
+<tbody>
+<tr><td>"Appropriate human oversight of high-impact actions"</td><td>Neither "appropriate" nor "high-impact" is a fact the system has</td><td>"Any call to a tool whose action class ≥ reversible-write, at tier ≥ HIGH, without a verified approval token bound to this call's arguments"</td></tr>
+<tr><td>"Refunds must be reasonable"</td><td>No threshold, no reference value</td><td>"amount_minor &gt; order.total_minor − refunded_minor, read from the order system"</td></tr>
+<tr><td>"The agent should not be manipulated"</td><td>Describes an outcome, not a condition</td><td>"A tool result from an untrusted source reaches a decision input without being demoted to a data channel"</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> ARB enforces traceability in both directions. Every rule in <code>tool_call.rego</code> must be a mechanical translation of one control's trigger (the bundle header says that a rule which cannot be traced back to an authored trigger does not belong, and escalates). And since D30, every rule must also be <em>reachable</em>: every fact it reads must have a producer in the PIP, which <code>tests/test_no_dead_policy.py</code> checks mechanically (<a class="xref" data-ch="governed-action" data-sec="#pip" href="governed-action.html#pip">Chapter 16</a>). Traceable is necessary; reachable is the other half.</p>
+
+<h2 id="evidence"><span class="n">14.4</span>Evidence and test method</h2>
+<p><span class="tag gen">Generic</span> "Evidence" in a control is not "we log it". It is the specific record whose existence, content and integrity prove the control acted on a particular occasion. For separation of duties, it is the approver's resolved identity and the executor's, both in the record, and different. An auditor should be able to read the evidence field and write the query.</p>
+<p>"Test method" is not "we have tests". It is the specific case that shows the control can act. Good test methods have two halves: a positive case (the bad act is refused) and a <strong>falsifier</strong> (remove or disable the mechanism, and the positive case must now fail). Without the falsifier, a passing test may be passing for an unrelated reason.</p>
+<p><span class="tag own">Your build</span> D56 is the cautionary tale. Applying the rule "every proof is checked by disabling what it proves", the build disabled three mechanisms one at a time and ran the full suite of 912 tests. All three survived. One was the golden-set scorer: since P1, "golden 25/25" had been reported at every phase tag, yet no test had ever shown the scorer rejecting a wrong outcome. A scorer returning nothing would have scored every case as passing. The number was true; nothing showed it could have been false. D56 authorised falsifier tests for all three, and the rule is now standing: a crosswalk row marked implemented or mechanism (D55) needs a test that fails when the mechanism is removed.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>A test that a control fires and a test that a <em>specific mechanism</em> made it fire are different tests. pm-agent hit this in P4 (D-PM-P4-n): removing the approver-versus-executor comparison passed every test, because every separation-of-duties probe self-approved with the service account, which a different rule also refused, under the same control id. The fix required each self-approval row to be refused <em>by the SoD comparison itself</em>, identified by reason, not just by control id. Attribute refusals to the mechanism, not only to the control.</p>
+</div>
+
+<h2 id="exception"><span class="n">14.5</span>The exception path</h2>
+<p><span class="tag gen">Generic</span> Every real control programme has exceptions; the question is whether they are designed or improvised. A designed exception path names who may grant a waiver, for how long, with what compensating measure, and where the waiver is recorded so the gate can see it. It also names where no waiver is possible.</p>
+<p><span class="tag own">Your build</span> Three rules from the builds are worth adopting anywhere:</p>
+<ul>
+  <li><strong>Some controls have no exception path at the top tier.</strong> At CRITICAL, approval on writes, separation of duties and <span class="ctl">GBL-SOD-01</span> are non-waivable; the gate blocks an agent that carries an active waiver on any of them (<a class="xref" data-ch="risk-tiering" data-sec="#critical" href="risk-tiering.html#critical">Chapter 13</a>).</li>
+  <li><strong>A waiver never makes a control met.</strong> pm-agent's D-PM-P4-j considered letting a waiver satisfy its control and rejected it as a new governance rule: waivers are reported, they expire, and at CRITICAL an active waiver on the non-waivable set blocks. The gate's "met" stays a technical fact (bound and proven).</li>
+  <li><strong>Accepting residual risk is a human act, never inferred.</strong> Executive sign-off is an authored, signed record, and the gate refuses to infer it from a green run (D22). A test pins it: everything enforced, everything proven, sign-off withdrawn, gate blocked.</li>
+</ul>
+
+<h2 id="honesty"><span class="n">14.6</span>Fields that admit limits</h2>
+<p><span class="tag own">Your build</span> The most distinctive thing about ARB's control schema is a family of optional fields whose only job is to state, inside the control, what the control does <em>not</em> do. They were added one at a time as the red team found limits, and each comes with a test that keeps the statement true.</p>
+<div class="tw"><table>
+<thead><tr><th>Field</th><th>States</th><th>On</th><th>Origin</th></tr></thead>
+<tbody>
+<tr><td><code>detection_window</code></td><td>A detective control's blind spot and its size, by naming the params key that sets it (never restating the number)</td><td><span class="ctl">CTL-0011</span> (truncation detected only back to the last anchor), and six E-phase controls (<span class="ctl">CTL-0020</span>–<span class="ctl">0023</span>, <span class="ctl">0025</span>, <span class="ctl">0026</span>)</td><td>D30, D34</td></tr>
+<tr><td><code>deferred_scope</code></td><td>The part of the objective the active plane does not cover, why, the preserved spec of the deferred half, and when it lands</td><td><span class="ctl">CTL-0012</span> (the stated-currency half)</td><td>D30, D36</td></tr>
+<tr><td><code>human_factors</code></td><td>Where the real failure is human (approval fatigue), the authored friction against it and its params key</td><td><span class="ctl">CTL-0004</span></td><td>D31, D35</td></tr>
+<tr><td><code>classifier</code></td><td>That a model-based classifier sits on the path, that it is monotone-restrictive, what it does when unavailable (hold or deny, never pass), and which eval reports its accuracy</td><td><span class="ctl">CTL-0025</span>, <span class="ctl">CTL-0026</span></td><td>D52, D54</td></tr>
+</tbody></table></div>
+<p>The schema's own description of <code>detection_window</code> carries the principle: absent means the control makes no such exclusion, not that it has none, and an undeclared blind spot is worse than a declared one because only the second can be reasoned about. When you design a client catalog, include these fields from day one. An auditor who finds a limit you documented trusts the rest of the catalog more; one who finds a limit you didn't trusts none of it.</p>
+
+<h2 id="halves"><span class="n">14.7</span>Derivable and declared halves</h2>
+<p><span class="tag own">Your build</span> D23 drew a distinction that applies to most controls on writes. Some of a control can be <strong>derived</strong> by the system from trusted state; some needs the caller to <strong>declare</strong> something the system then checks. For the currency control: the derivable half is "the refund's currency is the order's currency, and an order that cannot be resolved denies"; the declared half is "the caller states a currency, and a disagreement with the order is caught". The derivable half removes the hazard (the system never guesses a currency). The declared half only adds detection of a confused caller.</p>
+<p>D23 also set a preference that generalises: <strong>provable-preventive over inferable-detective</strong>. Its other ruling in the same entry, on evidence minimisation, chose structural separation (free text never enters the open log; it goes wholesale to an access-controlled store and only its hash stays) over an entity recogniser that tries to spot names. The first can be asserted by a test that holds by construction; the second is a detector with an error rate. When a control can be made true by structure, do that, and keep detection for what structure cannot reach.</p>
+
+<h2 id="ladder"><span class="n">14.8</span>The posture ladder</h2>
+<p><span class="tag own">Your build</span> A control's state is not binary. ARB's build story uses a ladder, and each rung is a different claim with different evidence:</p>
+<div class="tw"><table>
+<thead><tr><th>Rung</th><th>Claim</th><th>Evidence that earns it</th></tr></thead>
+<tbody>
+<tr><td>Unguarded</td><td>The risk exists and is known</td><td>A gap with a location and a demonstrating test (<code>CONTROL_GAPS.md</code>)</td></tr>
+<tr><td>Specified</td><td>A control is defined and required where it applies</td><td>A schema-valid catalog entry; the gate blocks while it is unmet</td></tr>
+<tr><td>Enforced</td><td>Code refuses the bad act</td><td>A binding plus a passing conformance check against the real plane, generated this run (D27)</td></tr>
+<tr><td>Verified</td><td>It held under attack</td><td>A red-team corpus run with each finding closed by a regression test, residuals named (D30)</td></tr>
+<tr><td>Portable</td><td>It holds on any binding</td><td>The same decisions across fake, local and cloud bindings; a firewall test (D32)</td></tr>
+<tr><td>Fleet</td><td>It generalises</td><td>A different archetype derives a different set from the unchanged catalog (D39)</td></tr>
+<tr><td>Operable and defensible</td><td>People can run and explain it</td><td>Runbooks, RACI, governance SLOs, a defence pack (D45, D46)</td></tr>
+</tbody></table></div>
+<p>The ladder is the honest answer to "is this agent governed?": ask which rung each required control is on. In client work it is also a roadmap shape: most estates have controls at "specified" and need to climb, not to write more.</p>
+
+<h2 id="catalog"><span class="n">14.9</span>Growing a catalog</h2>
+<p><span class="tag own">Your build</span> Four practices kept ARB's catalog coherent from 15 controls to 26 plus 3 invariants:</p>
+<ol>
+  <li><strong>Gap-first.</strong> Every control traces to a measured gap (<code>gap_ref</code>), and every gap to a file, a line and a demonstrating test. Nothing enters the catalog because a framework lists it; framework coverage is a crosswalk question (<a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>).</li>
+  <li><strong>Author once, bind per shape.</strong> A control is defined once; its bindings realise it for each agent shape. D39 rejected "read variants" of controls because they would fork one control into two and reintroduce agent-fitting.</li>
+  <li><strong>Re-scope honestly rather than retire silently.</strong> When <span class="ctl">CTL-0012</span>'s declared half could not be reached, D36 removed the unreachable rule and the fact it read together, recorded the deferred half in <code>deferred_scope</code> with its preserved text, and kept the derived half enforced. The conformance count stayed 18/18, and D36 explains why that is right: the control lost the appearance of coverage it never had, not coverage.</li>
+  <li><strong>Ratification is a human act on the set.</strong> D49 flipped all 22 files from <code>draft</code> to <code>ratified</code> on your word, and states what it does not claim: ratifying the catalog's design is not a claim that the build is production-ready.</li>
+</ol>
+<div class="panel p-future" data-trigger="CTL-0027 (fairness) leaves HELD, or a new control family is authored">
+  <span class="k">Waiting on the builds</span>
+  <p>CTL-0027, the fairness control, is authored but held outside the active catalog (<code>docs/governance/held/</code>) because its criterion cannot separate noise from bias (D74). When it is either ratified with a defensible criterion or retired, add it to the honesty-fields table (its <code>fairness_digest_inputs</code> field is the first that binds a measurement artifact to configuration) and to the ladder discussion as the worked example of a control that stopped at "specified" on purpose.</p>
+</div>
+
+<h2 id="alts"><span class="n">14.10</span>Where controls live: alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Strengths</th><th>Weaknesses</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td>In application code (if-statements in tools)</td><td>Fast to write; close to the act</td><td>Invisible to reviewers; each agent re-implements; no catalog, no crosswalk</td><td>Never as the only home</td></tr>
+<tr><td>In the policy engine only (Rego with comments)</td><td>Executable; testable</td><td>The engine becomes the definition; swapping it changes the rules; non-engineers cannot review</td><td>Small teams with one engine and no audit audience</td></tr>
+<tr><td>In a GRC tool</td><td>Familiar to risk and audit; workflow for attestations</td><td>Disconnected from enforcement; drifts; evidence is attested, not generated</td><td>As a mirror of the catalog for the second line, fed from it</td></tr>
+<tr><td class="rec">Authored catalog in version control, schema-validated, compiled into engine rules, with generated conformance</td><td>Reviewable, diffable, testable both ways; engine-independent (the Cedar parity test proves it, D22)</td><td>Needs engineering discipline and tooling; two artifacts to keep in sync (catalog and rules)</td><td>Any programme that must prove its controls</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">14.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Symptom</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Aspirational control</td><td>A trigger no system can evaluate</td><td>Rewrite as a predicate over facts the PIP can produce</td></tr>
+<tr><td>Dead control</td><td>A rule that traces to a trigger and can never fire</td><td>Reachability test (no dead policy)</td></tr>
+<tr><td>Vacuous pass</td><td>A test that passes for an unrelated reason</td><td>Falsifiers; attribute refusals to the mechanism</td></tr>
+<tr><td>Unowned control</td><td>Nobody approves changes; nobody answers in an incident</td><td><code>owner_role</code> required by schema; RACI overlay</td></tr>
+<tr><td>Agent-fitted catalog</td><td>The second agent pulls nothing, or everything</td><td>Fleet-first <code>min_tier</code> and <code>applies_when</code>; a fixture for a different archetype</td></tr>
+<tr><td>Hidden limits</td><td>A blind spot an auditor finds first</td><td>Honesty fields with tests that keep them true</td></tr>
+<tr><td>Waiver creep</td><td>Waivers become the normal path</td><td>Expiry, reporting, non-waivable sets, waivers never "meet" a control</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">14.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We have a control library of 200 items."</strong> Ask how many have a trigger a system can evaluate, and for how many a test would fail if the mechanism were removed. The honest count is usually small, and that is the starting point, not a criticism.</li>
+    <li><strong>"Our framework lists all the right controls."</strong> Listing is the specified rung. Ask for the enforced and verified rungs for the five highest-risk agents.</li>
+    <li><strong>On limits:</strong> "Every control we ship states its own blind spot where it has one. You will find our limits in the catalog, not in an incident report."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">14.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R04 and R09</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name every field of an ARB control file and its consumer.</li>
+    <li><span class="lvl">Apply</span>Rewrite "agents must not leak customer data" as a control with all six core fields and an <code>applies_when</code>, against ARB's axes.</li>
+    <li><span class="lvl">Apply</span>Explain D56's finding about the golden scorer, and write the falsifier test that closes it.</li>
+    <li><span class="lvl">Design</span>For a client whose agents run inside a SaaS platform you cannot instrument, which fields of a control change meaning, and how would you write <code>enforcement_point</code> and <code>evidence</code> honestly?</li>
+    <li><span class="lvl">Trade-off</span>Defend D36's choice to remove a live rule rather than keep it "just in case".</li>
+  </ol>
+  <p class="small">Card candidates: <em>six fields and their consumers</em> · <em>traceable and reachable</em> · <em>a test needs a falsifier (D56)</em> · <em>derivable vs declared halves; preventive over detective (D23)</em> · <em>the posture ladder</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">14.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Neal Ford, Rebecca Parsons and Patrick Kua, <cite>Building Evolutionary Architectures</cite> (O'Reilly), on fitness functions: a conformance check is a fitness function for a governance property. Ross Anderson, <cite>Security Engineering</cite>, the chapter on assurance and evaluation, for why a claim needs evidence that could have failed.</li>
+  <li><b>Standards.</b> ISO/IEC 42001:2023 Annex A (the control objectives a certifier will map to); the COSO internal-control framework's control-activity concepts, which is the vocabulary your client's second line uses.</li>
+  <li><span class="tag own">Your build</span> <code>governance/_schemas/control.schema.yaml</code> (read the field descriptions; they are the spec), <code>src/aicoe/governance/validate.py</code>, <code>docs/governance/CONTROL_GAPS.md</code>, DECISIONS D16, D22, D23, D34–D36, D49, D55, D56; pm-agent D-PM-P4-j and D-PM-P4-n.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="risk-tiering.html"><small>Previous</small>13 · Fleet-first risk tiering</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="lifecycle-gates.html"><small>Next</small>15 · The lifecycle and its gates</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

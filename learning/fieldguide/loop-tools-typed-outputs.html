@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>2 · The loop, tools and typed outputs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 2</div>
+  <ol>
+    <li><a href="#loop">The loop</a></li>
+    <li><a href="#calling">How tool calling works</a></li>
+    <li><a href="#design">Designing tools</a></li>
+    <li><a href="#refusal">Refusals the model can read</a></li>
+    <li><a href="#structured">Structured outputs</a></li>
+    <li><a href="#contract">The typed answer contract</a></li>
+    <li><a href="#slips">Shape slips and coercion</a></li>
+    <li><a href="#stop">Stopping the loop</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 2</div>
+  <h1>The loop, tools and typed outputs</h1>
+  <p class="lede">An agent's loop is simple: call the model, run the tools it asks for, feed back the results, repeat until it answers. The engineering is in the edges: how tools are described and validated, how a refusal is shown to the model, how an answer is forced into a shape the system can check, and how the loop is made to stop.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · Rebuild</span></div>
+    <div><b>Reps</b><span>BT02 · BT03 · R01</span></div>
+    <div><b>Build modules</b><span>agents/tools.py · enforcement/wiring · answer_contract.py · platform/model/structured.py · pm contracts/</span></div>
+    <div><b>Decisions</b><span>D19 · D71 · D63 · D-PM-P0-d · D-PM-P1-h</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>When a model "calls a tool", what actually happens, and who executes the tool?</li>
+    <li>The policy engine refuses a tool call. Should the agent's turn end with an error, or should the model be told? Why?</li>
+    <li>You ask the provider for JSON that matches a schema. Can you now trust the answer's shape?</li>
+  </ol>
+</div>
+
+<h2 id="loop"><span class="n">2.1</span>The loop</h2>
+<p><span class="tag gen">Generic</span> Strip any agent framework down and the core is a loop (the pattern the ReAct paper named in 2022: reason, act, observe):</p>
+<pre><code>messages = [system, user]
+while True:
+    reply = model(messages, tools=tool_schemas)
+    if reply.tool_calls:
+        for call in reply.tool_calls:
+            result = run(call.name, call.arguments)     # ← the harness runs it
+            messages += [reply, tool_result(call.id, result)]
+        continue
+    return reply.text                                     # ← a final answer</code></pre>
+<p>Everything else (memory, retrieval, planning, sub-agents) is an elaboration of what goes into <code>messages</code>, what <code>run</code> is allowed to do, and when the loop stops. For governance, the line that matters is <code>run</code>: the model never executes anything. It emits a request, and the harness decides. That is why the chokepoint can exist at all (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 270" role="img" aria-label="One turn. The model proposes a tool call; the harness validates arguments against the schema; the PEP decides; the tool runs; the result is fenced as data and appended; the loop repeats until the model answers. A separate final request asks for the typed answer, which the contract parser accepts or replaces with a fixed refusal.">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <g>
+    <rect class="box" x="10" y="40" width="120" height="70" rx="6"/><text class="tx-b" x="70" y="68" text-anchor="middle">Model</text><text class="tx-s" x="70" y="88" text-anchor="middle">proposes a call</text>
+    <rect class="box" x="160" y="40" width="130" height="70" rx="6"/><text class="tx-b" x="225" y="68" text-anchor="middle">Validate</text><text class="tx-s" x="225" y="88" text-anchor="middle">schema · types</text>
+    <rect class="box-acc" x="320" y="40" width="120" height="70" rx="6"/><text class="tx-acc" x="380" y="68" text-anchor="middle">PEP</text><text class="tx-s" x="380" y="88" text-anchor="middle">allow · deny</text>
+    <rect class="box-ok" x="470" y="40" width="120" height="70" rx="6"/><text class="tx-b" x="530" y="68" text-anchor="middle">Tool runs</text><text class="tx-s" x="530" y="88" text-anchor="middle">harness executes</text>
+    <rect class="box" x="620" y="40" width="130" height="70" rx="6"/><text class="tx-b" x="685" y="68" text-anchor="middle">Fence result</text><text class="tx-s" x="685" y="88" text-anchor="middle">data, not instruction</text>
+  </g>
+  <g>
+    <line class="ln" x1="130" y1="75" x2="156" y2="75" marker-end="url(#a2)"/>
+    <line class="ln" x1="290" y1="75" x2="316" y2="75" marker-end="url(#a2)"/>
+    <line class="ln" x1="440" y1="75" x2="466" y2="75" marker-end="url(#a2)"/>
+    <line class="ln" x1="590" y1="75" x2="616" y2="75" marker-end="url(#a2)"/>
+    <polyline class="ln" points="750,75 780,75 780,20 70,20 70,36" marker-end="url(#a2)"/>
+    <text class="tx-s" x="425" y="14" text-anchor="middle">append and loop · bounded by a per-turn call cap</text>
+  </g>
+  <line class="ln-no" x1="380" y1="110" x2="380" y2="146"/>
+  <text class="tx-no" x="390" y="140">refusal as a tool result</text>
+  <rect class="box-strong" x="10" y="170" width="250" height="70" rx="6"/>
+  <text class="tx-b" x="135" y="196" text-anchor="middle">Final typed request</text>
+  <text class="tx-s" x="135" y="216" text-anchor="middle">{answer, citations} schema</text>
+  <rect class="box-acc" x="300" y="170" width="250" height="70" rx="6"/>
+  <text class="tx-acc" x="425" y="196" text-anchor="middle">Contract parser</text>
+  <text class="tx-s" x="425" y="216" text-anchor="middle">citations ⊆ this turn's retrieval</text>
+  <rect class="box-ok" x="590" y="160" width="160" height="40" rx="6"/><text class="tx-ok" x="670" y="185" text-anchor="middle">deliver answer</text>
+  <rect class="box-no" x="590" y="210" width="160" height="40" rx="6"/><text class="tx-no" x="670" y="235" text-anchor="middle">fixed refusal</text>
+  <line class="ln" x1="260" y1="205" x2="296" y2="205" marker-end="url(#a2)"/>
+  <line class="ln" x1="550" y1="196" x2="586" y2="182" marker-end="url(#a2)"/>
+  <line class="ln" x1="550" y1="214" x2="586" y2="228" marker-end="url(#a2)"/>
+  <line class="ln" x1="70" y1="110" x2="70" y2="166" marker-end="url(#a2)"/>
+</svg>
+</div>
+<figcaption><b>Fig 2.1</b>A governed turn in ARB since E5.1. The tool loop runs first, every call through the PEP; the answer is then requested in a typed shape and parsed; anything that is not exactly that shape, with citations the turn really retrieved, becomes the fixed refusal.</figcaption>
+</figure>
+
+<h2 id="calling"><span class="n">2.2</span>How tool calling works</h2>
+<p><span class="tag gen">Generic</span> Function or tool calling is a convention between harness and model provider. The harness sends tool definitions (a name, a description and a JSON Schema for the arguments) with each request; the model, trained to use them, returns a structured request naming a tool and its arguments instead of, or as well as, text; the harness executes it and returns the result in a message tied to the call's id. Three consequences follow:</p>
+<ul>
+  <li><strong>The description is part of the prompt.</strong> Tool names and descriptions steer the model as much as the system prompt does, which is why a changed tool description from an MCP server is an attack (<a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>).</li>
+  <li><strong>Arguments are model output.</strong> They can be malformed, out of range or adversarial. Validate them against the schema and then against policy, never trust them because they parsed.</li>
+  <li><strong>Results are model input.</strong> Whatever the tool returns enters the context and can steer the next step. Fence it (<a class="xref" data-ch="guardrails-injection" data-sec="#fence" href="guardrails-injection.html#fence">Chapter 20</a>).</li>
+</ul>
+<p><span class="tag own">Your build</span> ARB's gateway, which serves tools to out-of-process hosts, adds semantics the in-process path gets for free: it only executes calls the model actually issued, serially and in order, and they expire (D63 items 7 and 24). The gateway is the only component that knows what the model asked for, so it owns those rules, and a host that rewrites the model's arguments or runs calls concurrently is an escalation, never something the gateway relaxes to accommodate.</p>
+
+<h2 id="design"><span class="n">2.3</span>Designing tools</h2>
+<p><span class="tag gen">Generic</span> Anthropic's guidance on writing tools for agents, and the source-code study of harnesses in <a class="xref" data-ch="harness-anatomy" href="harness-anatomy.html">Chapter 1</a>, converge on a few rules that also make tools easier to govern:</p>
+<ul>
+  <li><strong>Few, high-signal tools.</strong> A tool per meaningful operation, not per API endpoint. Fewer tools mean fewer descriptions to steer the model wrongly and fewer policy rules to write.</li>
+  <li><strong>Separate reads from writes.</strong> A tool that both reads and writes cannot be given a clean action class; split it so tiering and policy can treat them differently.</li>
+  <li><strong>Narrow, typed arguments.</strong> An order id and an amount, not a free-text "instruction". ARB's <code>issue_refund(order_id, amount, reason)</code> is a deliberately narrow contract; GAP-17 showed the cost of a field the contract lacked.</li>
+  <li><strong>Return structure, not prose.</strong> Structured results can be classified for evidence (D21) and checked by an output contract (<span class="ctl">CTL-0010</span>).</li>
+  <li><strong>Make tools idempotent where they write</strong>, or give the harness an idempotency key (<span class="ctl">CTL-0006</span>).</li>
+</ul>
+<p><span class="tag own">pm-agent</span> pm-agent took tool design to its logical end for effects: the model does not call write tools at all; it proposes typed actions from a closed union, and the system turns approved actions into tool calls (ADR-0005). Its contracts are Pydantic models that carry planning-facing strings rather than domain enums, so the wire format does not couple to the domain model at the MCP boundary (D-PM-P0-d).</p>
+
+<h2 id="refusal"><span class="n">2.4</span>Refusals the model can read</h2>
+<p><span class="tag own">Your build</span> When the PEP refuses a call, there are two audiences, and D19 gave each its own shape. Code that calls a tool directly gets an exception (<code>PolicyDenied</code>), so a programmatic caller cannot ignore a refusal. The model gets a tool <em>result</em>: <code>{"error": "policy_denied", "control_id", "reason", "guidance"}</code>, produced by a model-facing wrapper around the chokepoint. The reason is practical: an exception thrown through the framework's tool boundary ends the turn, so the effect is refused but the customer hears nothing, which is worse as a product and worse as an audit story than a refusal the agent can explain. The wrapper lives in <code>enforcement/</code>, so agent code is unchanged.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>A model that reads a refusal may try again with different arguments: split the refund, change the reason, try another tool. That is fine only because the refusal is enforced on every call, not remembered by the model. Never rely on "the model was told no".</p>
+</div>
+
+<h2 id="structured"><span class="n">2.5</span>Structured outputs</h2>
+<p><span class="tag gen">Generic</span> There are three levels of asking a model for structured output, with different guarantees:</p>
+<div class="tw"><table>
+<thead><tr><th>Level</th><th>How</th><th>Guarantee</th></tr></thead>
+<tbody>
+<tr><td>Prompted</td><td>"Reply in JSON with fields…"</td><td>None</td></tr>
+<tr><td>JSON mode</td><td>The provider guarantees syntactically valid JSON</td><td>Parses; any shape</td></tr>
+<tr><td>Schema-constrained</td><td>The provider constrains decoding to a JSON Schema (grammar-constrained sampling: tokens that would violate the schema are masked)</td><td>Matches the schema's syntax; content still unverified</td></tr>
+</tbody></table></div>
+<p>Even the strongest level constrains <em>form</em>, not <em>truth</em>: a schema can require a citations array; it cannot require that the citations exist. And constrained decoding has an interaction worth knowing: a server that enforces a JSON grammar on every reply makes tool calls impossible, because a tool call is a different shape.</p>
+<p><span class="tag own">Your build</span> ARB's E5.1 (D71) met both points. Live, 14 of 26 Vertex answers were not in the typed shape, so the fixed refusal went out. The fix asks the provider for the shape (on Vertex, a JSON response type with a response schema; on the model gateway, a JSON-schema response format), but only on the final answer turn and only for bindings that combine structured output with function calling; the local server's pin is left alone because its grammar would block tool calls. The module states the principle in its first paragraph: <strong>this is a request to the model, never trusted</strong>. The contract parser is unchanged and remains the enforcement.</p>
+
+<h2 id="contract"><span class="n">2.6</span>The typed answer contract</h2>
+<p><span class="tag own">Your build</span> <span class="ctl">CTL-0026</span> changes what an answer <em>is</em>, which is a stronger move than checking answers. A user-facing answer is exactly one of two things: the typed shape <code>{"answer": "...", "citations": ["..."]}</code> with at least one citation, every citation an id this turn actually retrieved or read; or a fixed refusal, verbatim (including the plane's own fixed refusals for budget and inventory). Anything else (free text, no citation, an extra key, a citation that is not an id) is rejected and the fixed refusal is delivered. Nothing is repaired or guessed; one Markdown JSON fence is tolerated because models emit it unprompted and it changes nothing. A monotone support classifier may then hold an answer whose cited passage does not support it, but can never deliver one the parser rejected.</p>
+<p>The reason for the design is a residual the earlier citation check could not close (RESID-03): an answer that states policy without citing anything slipped past a check that only inspected the citations it could see. Making "uncited prose" impossible as an answer shape closes it by construction.</p>
+
+<h2 id="slips"><span class="n">2.7</span>Shape slips and coercion</h2>
+<p><span class="tag own">pm-agent</span> Small local models slip shapes often. In pm-agent's first live run a 7B model returned a field as a list where a string was expected, which crashed the intent parser and aborted the run. The fix (D-PM-P1-h) coerces every model-supplied JSON field so a slip degrades to the deterministic fallback instead of aborting, and, more importantly, <strong>grounds identifiers in the request</strong>: the model's project or issue key is trusted only if it appears in the request, otherwise the request's own key wins. The live model had emitted a fixture key instead of the real one. Coercion keeps the run alive; grounding keeps it honest.</p>
+<p>There is a tension with ARB's "nothing is repaired" rule, and it resolves cleanly: coerce internal planning fields where a fallback exists and the result is checked downstream; never repair what is delivered to a user or executed as an effect.</p>
+
+<h2 id="stop"><span class="n">2.8</span>Stopping the loop</h2>
+<p><span class="tag gen">Generic</span> A loop with no bound is a cost and safety incident waiting for a model that never stops calling tools, or an injected "keep going". Bounds belong in the harness, enforced, not in the prompt:</p>
+<ul>
+  <li>A cap on model calls per turn (ARB: <code>max_model_calls_per_turn: 8</code>, part of <span class="ctl">CTL-0020</span>).</li>
+  <li>Token and cost budgets per agent and per principal, with an unreported usage charged at the ceiling rather than as zero (<code>make demo-budget</code>).</li>
+  <li>A wall-clock timeout per turn and per run, and a cancel that actually stops effects (<a class="xref" data-ch="human-oversight" data-sec="#pause" href="human-oversight.html#pause">Chapter 19</a>).</li>
+  <li>Verify-on-stop: before accepting "done", check the stop condition deterministically (tests pass, the typed answer parses), a pattern the harness study found in several production harnesses.</li>
+</ul>
+
+<h2 id="alts"><span class="n">2.9</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>How the model affects the world</td><td>Direct tool calls · typed action proposals executed by the system</td><td>Tool calls are simple; typed proposals let policy and approval sit between intent and effect for every effect type</td></tr>
+<tr><td>Answer shape</td><td>Free text with checks · typed contract with fixed refusal</td><td>Free text is friendlier; the contract makes whole classes of failure impossible</td></tr>
+<tr><td>Structured output</td><td>Prompted · JSON mode · schema-constrained</td><td>Use the strongest the binding supports on the final turn only; always parse and verify</td></tr>
+<tr><td>Refusal surfacing</td><td>Exception · tool result</td><td>Both, by audience (D19)</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">2.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Trusting arguments because they parsed</td><td>Schema validation, then policy on trusted facts</td></tr>
+<tr><td>Tool descriptions as an attack surface</td><td>Pin descriptions; review changes</td></tr>
+<tr><td>Silent turn death on refusal</td><td>Model-facing refusal results</td></tr>
+<tr><td>Trusting provider-side schemas</td><td>Request the shape; enforce with your own parser</td></tr>
+<tr><td>Grammar blocks tool calls</td><td>Constrain only the final answer turn</td></tr>
+<tr><td>Runaway loops</td><td>Per-turn call caps, budgets, timeouts, effective cancel</td></tr>
+<tr><td>Model-invented identifiers</td><td>Ground ids in the request or retrieval</td></tr>
+</tbody></table></div>
+
+<h2 id="prove"><span class="n">2.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with BT02, BT03, R01</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Write the core loop from memory and mark where the PEP sits.</li>
+    <li><span class="lvl">Recall</span>The three levels of structured output and what each guarantees.</li>
+    <li><span class="lvl">Apply</span>Why does ARB request structured output only on the final turn, and only for some bindings?</li>
+    <li><span class="lvl">Design</span>Design the tool set for Capstone A's expense pre-approval agent: names, arguments, read/write split, result shapes.</li>
+    <li><span class="lvl">Trade-off</span>Coerce or reject: when is each right?</li>
+  </ol>
+  <p class="small">Card candidates: <em>the model never executes; the harness runs tools</em> · <em>a schema constrains form, not truth</em> · <em>D19: two audiences for a refusal</em> · <em>typed answer or fixed refusal (CTL-0026)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">2.12</span>Further reading</h2>
+<ul>
+  <li><b>Papers.</b> Shunyu Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (2022, <a href="https://arxiv.org/abs/2210.03629">arXiv:2210.03629</a>); Timo Schick et al., "Toolformer" (2023).</li>
+  <li><b>Guidance.</b> Anthropic, "Writing effective tools for AI agents" (September 2025).</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the sections on structured outputs and on agents' tools; Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite>, the chapter on constrained generation.</li>
+  <li><b>Your library.</b> AI Engineering from Scratch, phase 5 (constrained decoding) and phase 14 (the agent loop).</li>
+  <li><span class="tag own">Your build</span> <code>agents/tools.py</code>, <code>enforcement/wiring</code>, <code>enforcement/answer_contract.py</code>, <code>platform/model/structured.py</code>; D19, D63, D71. pm-agent <code>contracts/</code>, D-PM-P0-d, D-PM-P1-h.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="harness-anatomy.html"><small>Previous</small>1 · Anatomy of an agent harness</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="context-memory-state.html"><small>Next</small>3 · Context, memory and state</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>34 · The agent development lifecycle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 34</div>
+  <ol>
+    <li><a href="#why">Why agents need their own lifecycle</a></li>
+    <li><a href="#glance">The lifecycle at a glance</a></li>
+    <li><a href="#intake">Intake and framing</a></li>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#build">Build: the inner loop</a></li>
+    <li><a href="#ascode">Prompts and configuration as code</a></li>
+    <li><a href="#later">Evaluate, release, operate, improve, retire</a></li>
+    <li><a href="#roles">Roles and decision rights</a></li>
+    <li><a href="#withagents">Building agents with agents</a></li>
+    <li><a href="#platforms">What the platforms provide</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 34</div>
+  <h1>The agent development lifecycle</h1>
+  <p class="lede">An agent is software, a model integration, a set of permissions and a product, all at once, and its behaviour is measured rather than specified. That combination needs a lifecycle of its own: one that starts with whether the work should be an agent at all, puts evaluation before code, treats prompts and pins as versioned configuration, and runs after release as a continuous improvement loop rather than a handover to operations.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · LIFECYCLE</span></div>
+    <div><b>Reps</b><span>LL1 · capstone A</span></div>
+    <div><b>Build links</b><span>ARB THREAD_MODEL.md · docs/operating/RACI.md · RUNBOOKS.md §3 · pm-agent docs/product · skills/</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Which artefact should exist before the first line of agent code: the prompt, the tool list or the golden set?</li>
+    <li>Your team ships a new system prompt that fixes a complaint. Is that a code change, a configuration change or a content change, and who approves it?</li>
+    <li>A coding agent wrote most of your agent. Who is accountable for its governance decisions?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">34.1</span>Why agents need their own lifecycle</h2>
+<p><span class="tag gen">Generic</span> Classic software lifecycles assume behaviour follows from specification: write it, test it against the spec, ship it. Classic machine-learning lifecycles assume a model is trained on data you own and validated before deployment. An agent breaks both assumptions:</p>
+<ul>
+  <li><strong>Behaviour is emergent.</strong> It comes from a model you did not train, instructions written in prose, tools, retrieved content and the user. You cannot fully specify it; you can only measure it against cases.</li>
+  <li><strong>Small changes have large effects.</strong> A sentence in a prompt, a tool description or a model version can change outcomes as much as a code change.</li>
+  <li><strong>It acts.</strong> Effects on real systems make permissions, oversight and evidence part of the product, not an afterthought (Part IV).</li>
+  <li><strong>It drifts without anyone touching it.</strong> Providers update models, data changes, users find new requests. Quality must be measured continuously.</li>
+</ul>
+<p>So the lifecycle borrows from three traditions: product management for framing and value, software engineering for build and release discipline, and model risk management for evaluation, monitoring and change control. <a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a> described the governance <em>gates</em> on this lifecycle. This chapter describes the lifecycle itself.</p>
+
+<h2 id="glance"><span class="n">34.2</span>The lifecycle at a glance</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="The agent development lifecycle as nine stages: intake, design, build, evaluate, release, operate, improve, and retire, with an improvement loop from operate back through evaluate and release. Each stage lists its main artefacts: intake has the use-case brief and the agent-or-workflow decision; design has the agent spec, the tool and effect inventory, the tier and the golden set; build has code, prompts, manifest and tools; evaluate has eval reports, red-team results and conformance; release has a versioned bundle, gate verdict and sign-off; operate has traces, evidence, SLOs and runbooks; improve has failure clusters and proposed changes; retire has a decommission record.">
+  <defs><marker id="a34" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+  <marker id="a34a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <g>
+    <rect class="box" x="10" y="40" width="100" height="56" rx="6"/><text class="tx-b" x="60" y="66" text-anchor="middle">Intake</text><text class="tx-s" x="60" y="84" text-anchor="middle">frame · qualify</text>
+    <rect class="box" x="122" y="40" width="100" height="56" rx="6"/><text class="tx-b" x="172" y="66" text-anchor="middle">Design</text><text class="tx-s" x="172" y="84" text-anchor="middle">spec · tier</text>
+    <rect class="box" x="234" y="40" width="100" height="56" rx="6"/><text class="tx-b" x="284" y="66" text-anchor="middle">Build</text><text class="tx-s" x="284" y="84" text-anchor="middle">inner loop</text>
+    <rect class="box-acc" x="346" y="40" width="100" height="56" rx="6"/><text class="tx-acc" x="396" y="66" text-anchor="middle">Evaluate</text><text class="tx-s" x="396" y="84" text-anchor="middle">evals · red team</text>
+    <rect class="box-acc" x="458" y="40" width="100" height="56" rx="6"/><text class="tx-acc" x="508" y="66" text-anchor="middle">Release</text><text class="tx-s" x="508" y="84" text-anchor="middle">gate · promote</text>
+    <rect class="box-ok" x="570" y="40" width="100" height="56" rx="6"/><text class="tx-ok" x="620" y="66" text-anchor="middle">Operate</text><text class="tx-s" x="620" y="84" text-anchor="middle">SLOs · evidence</text>
+    <rect class="box-ok" x="682" y="40" width="100" height="56" rx="6"/><text class="tx-ok" x="732" y="66" text-anchor="middle">Improve</text><text class="tx-s" x="732" y="84" text-anchor="middle">failures → fixes</text>
+    <rect class="box-no" x="794" y="40" width="96" height="56" rx="6"/><text class="tx-no" x="842" y="66" text-anchor="middle">Retire</text><text class="tx-s" x="842" y="84" text-anchor="middle">decommission</text>
+  </g>
+  <line class="ln" x1="110" y1="68" x2="118" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="222" y1="68" x2="230" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="334" y1="68" x2="342" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="446" y1="68" x2="454" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="558" y1="68" x2="566" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="670" y1="68" x2="678" y2="68" marker-end="url(#a34)"/>
+  <line class="ln" x1="782" y1="68" x2="790" y2="68" marker-end="url(#a34)"/>
+  <polyline class="ln-acc" points="732,96 732,124 396,124 396,100" marker-end="url(#a34a)"/>
+  <text class="tx-acc" x="564" y="118" text-anchor="middle">every change re-enters evaluation</text>
+
+  <text class="tx-s" x="10" y="160" font-weight="700">Artefacts</text>
+  <g class="tx-s">
+    <text class="tx-s" x="10" y="184">brief · value case</text>
+    <text class="tx-s" x="10" y="202">agent or workflow?</text>
+    <text class="tx-s" x="122" y="184">agent spec</text>
+    <text class="tx-s" x="122" y="202">tools and effects</text>
+    <text class="tx-s" x="122" y="220">golden set first</text>
+    <text class="tx-s" x="234" y="184">code · prompts</text>
+    <text class="tx-s" x="234" y="202">manifest · pins</text>
+    <text class="tx-s" x="234" y="220">early tracing</text>
+    <text class="tx-s" x="346" y="184">eval report</text>
+    <text class="tx-s" x="346" y="202">red-team result</text>
+    <text class="tx-s" x="346" y="220">conformance</text>
+    <text class="tx-s" x="458" y="184">versioned bundle</text>
+    <text class="tx-s" x="458" y="202">gate verdict</text>
+    <text class="tx-s" x="458" y="220">sign-off digest</text>
+    <text class="tx-s" x="570" y="184">traces · evidence</text>
+    <text class="tx-s" x="570" y="202">SLOs · runbooks</text>
+    <text class="tx-s" x="570" y="220">feedback</text>
+    <text class="tx-s" x="682" y="184">failure clusters</text>
+    <text class="tx-s" x="682" y="202">candidate change</text>
+    <text class="tx-s" x="794" y="184">retirement record</text>
+    <text class="tx-s" x="794" y="202">revoked identity</text>
+  </g>
+  <line class="ln-mute" x1="10" y1="244" x2="890" y2="244"/>
+  <text class="tx-s" x="10" y="270">Governance overlay: gates at design (tier derived), before release (conformance, sign-off), and on every change (re-derive, re-gate).</text>
+  <text class="tx-s" x="10" y="292">This part has a chapter each on frameworks, tools, runtimes, versioning and release, evaluation and optimization, and maintenance.</text>
+</svg>
+</div>
+<figcaption><b>Fig 34.1</b>The agent development lifecycle. The loop from Improve back to Evaluate is the part classic software lifecycles lack: a prompt edit, a model re-pin or a new tool is a release, and it is measured before it ships.</figcaption>
+</figure>
+
+<h2 id="intake"><span class="n">34.3</span>Intake and framing</h2>
+<p><span class="tag gen">Generic</span> Most failed agent projects fail here, by automating the wrong thing or the right thing in the wrong shape. Intake answers five questions before anyone chooses a framework:</p>
+<ol>
+  <li><strong>What job, for whom, measured how?</strong> Name the user, the task and the outcome metric (resolution rate, cycle time, cost per case, human minutes saved), with today's baseline.</li>
+  <li><strong>Should it be an agent at all?</strong> Walk down the ladder from <a class="xref" data-ch="orchestration-meta-harness" href="orchestration-meta-harness.html">Chapter 6</a>: a single model call, a fixed workflow with model steps, then an agent. Use an agent only where the path genuinely cannot be fixed in advance. Many "agent" requests are a workflow with one judgement step.</li>
+  <li><strong>What will it touch?</strong> Systems, data classes, effects (read, reversible write, irreversible or financial write), and who it acts for. This is the raw input to tiering (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>).</li>
+  <li><strong>How autonomous?</strong> Suggest only, act with approval, act within limits, or act and report. Start lower than the business wants; earn autonomy with evidence (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>).</li>
+  <li><strong>Is the data ready?</strong> Can the agent retrieve what it needs with the user's permissions, and is that content current and owned?</li>
+</ol>
+<p>The output is a one-page brief and a decision: proceed, reshape (often to a workflow), or stop. An AICoE should keep these briefs as the start of the agent's record, because every later artefact traces back to the claims made here.</p>
+
+<h2 id="design"><span class="n">34.4</span>Design</h2>
+<p><span class="tag gen">Generic</span> The design stage produces an <strong>agent specification</strong>: goal and non-goals, users and channels, autonomy level, tools with their effects and contracts, data sources and their permissions, the model per task (<a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>), the context strategy (<a class="xref" data-ch="context-memory-state" href="context-memory-state.html">Chapter 3</a>), oversight points, failure behaviour, and the derived tier with its control set.</p>
+<p>Two practices separate mature teams from the rest:</p>
+<ul>
+  <li><strong>The golden set comes first.</strong> Write 20–50 representative cases, including the hard and adversarial ones, with what a correct outcome looks like, <em>before</em> writing prompts. It turns "the agent should be good at refunds" into something testable, and it is the first answer to the first prediction question. Hamel Husain and Shreya Shankar's practical writing on evals makes the same argument: error analysis on real cases, not generic metrics, drives quality.</li>
+  <li><strong>Tools are designed as contracts.</strong> Each tool has a typed schema, a stated effect class, preconditions the enforcement plane can check, and an idempotency rule (<a class="xref" data-ch="loop-tools-typed-outputs" href="loop-tools-typed-outputs.html">Chapter 2</a>, <a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>). Tool design is the highest-leverage design work in an agent: the model can only do what the tools let it do.</li>
+</ul>
+<p><span class="tag own">Reference build</span> In ARB the design artefacts are machine-readable: an agent manifest (<code>governance/agents/&lt;agent&gt;.yaml</code>) declares tools, effects, data, model pin and owner, and the tier and control set are <em>derived</em> from it on every gate run. Onboarding the second archetype, the knowledge advisor, needed "zero framework edits" (D39): a new manifest, a new golden set and the same gate.</p>
+
+<h2 id="build"><span class="n">34.5</span>Build: the inner loop</h2>
+<p><span class="tag gen">Generic</span> The inner loop is how fast a developer can change something and see what the agent does. Good loops share four properties:</p>
+<ul>
+  <li><strong>Runs locally on fakes.</strong> The whole governed path runs offline with fake models and fake systems, deterministically (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>). Live models are a second, slower loop.</li>
+  <li><strong>Traces from the first run.</strong> Every step, tool call and model call is visible. Each framework now ships a local developer UI for this: ADK's web UI, LangGraph Studio, Microsoft Agent Framework's DevUI, AgentCore's Agent Inspector, and the Foundry Toolkit for VS Code <span class="tag ver">Verify</span>.</li>
+  <li><strong>Evals in the loop.</strong> The golden set runs on every change, at least offline. A failing case is a better bug report than a complaint.</li>
+  <li><strong>The real gate runs locally.</strong> In ARB, <code>make check</code>, <code>make eval</code> and <code>make gov-fleet</code> are the same commands CI runs, so "it passed on my machine" means the controls were exercised (<code>docs/operating/GATE_AS_PROMOTION.md</code>).</li>
+</ul>
+
+<h2 id="ascode"><span class="n">34.6</span>Prompts and configuration as code</h2>
+<p><span class="tag gen">Generic</span> The second prediction question has a firm answer: a system prompt is behaviour, so it is versioned, reviewed, evaluated and released like code, whatever tool stores it. The same goes for tool descriptions, model pins, routing rules, thresholds and policy parameters. Three storage patterns exist:</p>
+<div class="tw"><table>
+<thead><tr><th>Pattern</th><th>Example</th><th>Strength</th><th>Risk</th></tr></thead>
+<tbody>
+<tr><td>In the repository, beside the code</td><td>pm-agent's <code>src/pm_agent/prompts/*.txt</code>, loaded package-relative; ARB's manifests and <code>params.yaml</code></td><td>One review, one version, one release; digests cover them</td><td>Non-engineers cannot edit; changes need a deploy</td></tr>
+<tr><td>Prompt-management service</td><td>Langfuse prompt management, LangSmith, Vertex prompt management, Bedrock prompt management</td><td>Fast iteration, labels per environment, A/B</td><td>Behaviour can change without a code release; needs the same gate</td></tr>
+<tr><td>Platform-native configuration</td><td>Low-code studios (Agent Studio, Copilot Studio, Agentforce Builder)</td><td>Business teams can build</td><td>Versioning and review depend on the platform; export to code where possible</td></tr>
+</tbody></table></div>
+<p>Whichever you choose, the rule is the same: the configuration that governs behaviour is inside the release unit and inside the sign-off digest (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>). ARB's CTL-0022 binds a sign-off to a digest of the governing configuration so that a changed parameter re-gates by itself; a prompt service that bypasses that digest is a bypass of the control.</p>
+
+<h2 id="later"><span class="n">34.7</span>Evaluate, release, operate, improve, retire</h2>
+<p>The remaining stages each have a chapter; the lifecycle view is how they connect:</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Question it answers</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Evaluate</td><td>Is it good enough, safe enough and within its controls, measured over repeated runs?</td><td><a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a>, <a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a>, <a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td></tr>
+<tr><td>Release</td><td>Which exact bundle is promoted, to whom, how fast, and how do we roll back?</td><td><a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>, <a class="xref" data-ch="deployment-cicd" href="deployment-cicd.html">Chapter 30</a></td></tr>
+<tr><td>Operate</td><td>Is it meeting its objectives now, and what happens when it does not?</td><td><a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>, <a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a></td></tr>
+<tr><td>Improve</td><td>Which failures matter most, and what change fixes them without breaking others?</td><td><a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a></td></tr>
+<tr><td>Retire</td><td>How does the agent stop, and what happens to its identity, data, memory and evidence?</td><td><a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a></td></tr>
+</tbody></table></div>
+
+<h2 id="roles"><span class="n">34.8</span>Roles and decision rights</h2>
+<p><span class="tag gen">Generic</span> An agent needs more owners than a service does. A workable set:</p>
+<div class="tw"><table>
+<thead><tr><th>Role</th><th>Owns</th></tr></thead>
+<tbody>
+<tr><td>Agent product owner</td><td>The brief, the outcome metric, the golden set's definition of correct, release decisions on quality</td></tr>
+<tr><td>Agent engineer</td><td>Prompts, tools, orchestration, the inner loop</td></tr>
+<tr><td>Evaluation engineer</td><td>Eval design, judges and their calibration, red-team cases, baselines</td></tr>
+<tr><td>Platform engineer</td><td>Runtime, gateways, enforcement plane, observability, CI wiring</td></tr>
+<tr><td>Business process owner</td><td>The process the agent acts in, approval policies, exception handling</td></tr>
+<tr><td>Risk, security and data owners</td><td>Tier, controls, sign-off at high tiers, data entitlements</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Reference build</span> ARB's RACI (<code>docs/operating/RACI.md</code>) maps every control's authored <code>owner_role</code> to five functional roles (Director of Engineering, CDO, CISO, agent owner, platform) and adds the per-agent <code>owner</code> from each manifest. It changes no governance semantics; it is a lens over fields that already exist, which is the right way to introduce an operating model to a codebase.</p>
+
+<h2 id="withagents"><span class="n">34.9</span>Building agents with agents</h2>
+<p><span class="tag own">Your builds</span> Both builds were written mostly by coding agents. The third prediction question is answered by how the work was divided (<code>THREAD_MODEL.md</code>):</p>
+<ul>
+  <li><strong>T1, architect and governance design</strong>, owns the plan and the decision log, designs controls (objective, trigger, owner, evidence, test, exception) and rules on escalations. Since D72, T1 runs in exactly one thread.</li>
+  <li><strong>T2, build</strong>, implements against ratified specifications and prompt chains, and "makes <strong>no</strong> governance-semantic calls". Where a build choice touches semantics, it takes the most fail-closed option, logs it as a numbered addendum, and T1 rules on it at phase close.</li>
+  <li><strong>T6, red team and assurance</strong>, attacks what was built.</li>
+  <li><strong>You</strong> ratify governance semantics and hold the sign-offs; whole-catalog ratification was "withheld as an accountable human's signature, never a build self-inference" (D49).</li>
+</ul>
+<p>This is separation of duties applied to AI-assisted development: the agent that writes the code does not rule on what the controls mean, a different agent attacks it, and a human signs. Accountability stays with the people who ratify, whoever typed the code. Two supporting habits are worth copying: a decision log in which dated records are never rewritten and living documents are corrected with a pointer (D50), and repository skills that encode the house method (pm-agent ships <code>skills/adr-author</code>, <code>skills/phase-gate-review</code> and <code>skills/artifact-discipline</code> for the coding agents that work in it).</p>
+
+<h2 id="platforms"><span class="n">34.10</span>What the platforms provide</h2>
+<p><span class="tag gen">Generic</span> Every major platform now sells support for this lifecycle, in different shapes <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Google (GEAP)</th><th>AWS</th><th>Microsoft</th><th>Others</th></tr></thead>
+<tbody>
+<tr><td>Start and design</td><td>Agent Garden templates; Agent Studio (low-code, exports to ADK)</td><td>AgentCore CLI <code>create</code>; AgentCore Harness (declare model, tools, instructions)</td><td>Foundry templates; Copilot Studio; Foundry Toolkit for VS Code</td><td>Agentforce Builder and Agent Script; Databricks Agent Bricks</td></tr>
+<tr><td>Build</td><td>ADK; 3P frameworks</td><td>Strands; any framework on Runtime</td><td>Microsoft Agent Framework</td><td>LangGraph, OpenAI Agents SDK, Claude Agent SDK</td></tr>
+<tr><td>Evaluate</td><td>Gen AI evaluation, simulation</td><td>AgentCore Evaluations</td><td>Foundry evaluations, AI Red Teaming Agent, ASSERT</td><td>Agentforce testing, MLflow</td></tr>
+<tr><td>Release</td><td>Agent Runtime revisions and traffic splitting</td><td>Optimization A/B testing, versioned configuration bundles</td><td>Foundry agent versions</td><td>Agentforce A/B experimentation</td></tr>
+<tr><td>Operate and improve</td><td>Observability, online monitors, Agent Optimizer</td><td>Observability, Optimization recommendations</td><td>Foundry Control Plane, Agent Optimizer</td><td>Agentforce health monitoring and optimizer</td></tr>
+<tr><td>Register and retire</td><td>Agent Registry</td><td>AWS Agent Registry</td><td>Agent 365 registry, Entra Agent ID lifecycle</td><td>ServiceNow AI Control Tower</td></tr>
+</tbody></table></div>
+<p>The details, statuses and gaps are in Part VII. The architectural point is that platform lifecycle tools cover one platform's agents. An enterprise with agents on three platforms still needs one lifecycle and one registry of record above them (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>).</p>
+
+<h2 id="fail"><span class="n">34.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>An agent where a workflow would do</td><td>The agent-or-workflow decision at intake</td></tr>
+<tr><td>Prompts first, evals never</td><td>Golden set before code; evals in the inner loop</td></tr>
+<tr><td>Prompt changes outside the release</td><td>Prompts inside the release unit and the sign-off digest</td></tr>
+<tr><td>Demo-driven development: one impressive run</td><td>Repeated runs, pass^k, hard and adversarial cases</td></tr>
+<tr><td>Autonomy granted up front</td><td>Start with approval; earn autonomy with evidence</td></tr>
+<tr><td>No owner after launch</td><td>Named product owner and operating budget before release</td></tr>
+<tr><td>Coding agents making semantic calls</td><td>Separate building from ruling; log and review build-time choices</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">34.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We want to build 50 agents this year."</strong> "Start with an intake that says no or 'make it a workflow' to half of them. The rest share one lifecycle, one registry and one set of gates, so agent fifty costs a fraction of agent one."</li>
+    <li><strong>"Can business users build agents in a studio?"</strong> "Yes, inside a lifecycle: the studio's output is versioned, evaluated against a golden set and gated like any other agent. The studio changes who builds, not what must be proven."</li>
+    <li><strong>"What does an agent team look like?"</strong> "A product owner, agent and evaluation engineers, a platform team shared across agents, and named business, risk and data owners. Evaluation engineering is the role most teams forget to staff."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">34.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · LL1</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The five intake questions and the artefact each produces.</li>
+    <li><span class="lvl">Apply</span>Take one request from a client (for example, "an agent that answers HR policy questions and updates leave balances") through intake and design. Where does it split into a workflow and an agent?</li>
+    <li><span class="lvl">Apply</span>Write ten golden cases for it, including three adversarial ones.</li>
+    <li><span class="lvl">Design</span>A prompt-change process for a team that uses a prompt-management service but must keep ARB-style sign-off digests honest.</li>
+    <li><span class="lvl">Trade-off</span>The T1/T2/T6 split against a single coding agent with human review only.</li>
+  </ol>
+  <p class="small">Card candidates: <em>golden set before code</em> · <em>a prompt is a release</em> · <em>the builder does not rule on semantics</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">34.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapters 1 (planning AI applications) and 10 (architecture and user feedback).</li>
+  <li><b>Guidance.</b> Anthropic, "Building effective agents" (2024). Hamel Husain and Shreya Shankar's writing and course material on evals and error analysis. Eugene Yan, "Patterns for Building LLM-based Systems and Products" (2023).</li>
+  <li><b>Platform documentation.</b> GEAP overview; AgentCore developer guide (CLI, Harness); Microsoft Foundry Agent Service; Salesforce Agentforce Builder.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>THREAD_MODEL.md</code>, <code>docs/operating/RACI.md</code>, <code>RUNBOOKS.md</code> §3 (onboarding an agent), D39, D49, D50, D72; pm-agent <code>docs/product/</code>, <code>skills/</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="capacity-cost-regions.html"><small>Previous</small>33 · Capacity, cost and multi-region</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="frameworks-sdks-studios.html"><small>Next</small>35 · Frameworks, SDKs and studios</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

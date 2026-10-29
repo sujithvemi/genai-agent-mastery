@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>52 · Capstone A: govern a new agent by hand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part X · Practice</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 52</div>
+  <ol>
+    <li><a href="#what">What this capstone proves</a></li>
+    <li><a href="#a0">A0 · The agent card</a></li>
+    <li><a href="#a1">A1 · The ungoverned agent</a></li>
+    <li><a href="#a2">A2 · Tier it and choose the controls</a></li>
+    <li><a href="#a3">A3 · The PEP, the policy and the evidence, by hand</a></li>
+    <li><a href="#a4">A4 · AGT parity</a></li>
+    <li><a href="#a5">A5 · The gate and a keyless pipeline</a></li>
+    <li><a href="#a6">A6 · Red team and the defence note</a></li>
+    <li><a href="#rubric">How to grade yourself</a></li>
+    <li><a href="#fail">Where people get stuck</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART X · CHAPTER 52</div>
+  <h1>Capstone A: govern a new agent by hand</h1>
+  <p class="lede">The proof that you, not the builds, can govern an agent: a new agent with one real write, taken from an agent card to a tiered control set, a hand-written chokepoint, policy and evidence chain, an AGT parity table, a keyless pipeline with the gate as a required check, five attacks and a two-page defence. Stage by stage, with checkpoints, traps and a rubric.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · PROVE</span></div>
+    <div><b>Reps</b><span>GF-L2 · R10, R24, R25</span></div>
+    <div><b>Build links</b><span>ARB manifests, tool_call.rego, ci.yml; GAM infra/terraform</span></div>
+    <div><b>Time</b><span>6–12 reps over 2–4 months</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your new agent has two read tools and one write. Which of ARB's controls do you expect it to pull in, before you run the tiering rule?</li>
+    <li>What is the smallest test that proves your chokepoint is the only path to the write?</li>
+    <li>Which stage will take you longest, and why?</li>
+  </ol>
+</div>
+
+<h2 id="what"><span class="n">52.1</span>What this capstone proves</h2>
+<p><span class="tag gen">Generic</span> The builds prove that a governed agent can be built. Capstone A proves that <em>you</em> can do it, on an agent the framework has never seen, with your own hands. It is level GF-L2 of the governance frameworks track: apply, not just understand. The rules come from <code>learning/capstones/A_govern_a_new_agent.md</code>:</p>
+<ul>
+  <li>You write the code and the governance artefacts. Claude coaches and reviews; it does not author. Stages A3 and A5 are hand-built without assistance.</li>
+  <li>Reuse ARB's catalog semantics and ideas; do not copy its code.</li>
+  <li>Synthetic data only. Work in <code>genai-agent-mastery</code>, under <code>agents/&lt;your_agent&gt;/</code> and <code>governance/</code>.</li>
+  <li>Pick an agent with exactly one real write. That write is the whole governance story.</li>
+</ul>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 196" role="img" aria-label="Capstone A in seven stages, each with its artefact: A0 agent card; A1 an ungoverned agent with five harms listed; A2 tier and controls with the derivation defended; A3 a hand-written PEP, Rego policy and hash-chained evidence, where the write is blocked without approval and the chain verifies; A4 AGT parity, a two-engine table; A5 a gate and keyless CI, where a pull request shows the plan and the gate result; A6 red team and the defence note.">
+<defs><marker id="s52" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="40" width="117" height="100" rx="6"/>
+<text class="tx-b" x="68.5" y="76.5" text-anchor="middle">A0</text>
+<text class="tx-s" x="68.5" y="94.5" text-anchor="middle">Agent card</text>
+<text class="tx-s" x="68.5" y="112.5" text-anchor="middle">card.yaml</text>
+<line class="ln" x1="127" y1="90" x2="135" y2="90" marker-end="url(#s52)"/>
+<rect class="box" x="137" y="40" width="117" height="100" rx="6"/>
+<text class="tx-b" x="195.5" y="76.5" text-anchor="middle">A1</text>
+<text class="tx-s" x="195.5" y="94.5" text-anchor="middle">Ungoverned</text>
+<text class="tx-s" x="195.5" y="112.5" text-anchor="middle">5 harms listed</text>
+<line class="ln" x1="254" y1="90" x2="262" y2="90" marker-end="url(#s52)"/>
+<rect class="box" x="264" y="40" width="117" height="100" rx="6"/>
+<text class="tx-b" x="322.5" y="76.5" text-anchor="middle">A2</text>
+<text class="tx-s" x="322.5" y="94.5" text-anchor="middle">Tier + controls</text>
+<text class="tx-s" x="322.5" y="112.5" text-anchor="middle">defended</text>
+<line class="ln" x1="381" y1="90" x2="389" y2="90" marker-end="url(#s52)"/>
+<rect class="box-acc" x="391" y="40" width="117" height="100" rx="6"/>
+<text class="tx-acc" x="449.5" y="76.5" text-anchor="middle">A3</text>
+<text class="tx-s" x="449.5" y="94.5" text-anchor="middle">PEP · policy</text>
+<text class="tx-s" x="449.5" y="112.5" text-anchor="middle">evidence chain</text>
+<line class="ln" x1="508" y1="90" x2="516" y2="90" marker-end="url(#s52)"/>
+<rect class="box" x="518" y="40" width="117" height="100" rx="6"/>
+<text class="tx-b" x="576.5" y="76.5" text-anchor="middle">A4</text>
+<text class="tx-s" x="576.5" y="94.5" text-anchor="middle">AGT parity</text>
+<text class="tx-s" x="576.5" y="112.5" text-anchor="middle">two engines</text>
+<line class="ln" x1="635" y1="90" x2="643" y2="90" marker-end="url(#s52)"/>
+<rect class="box-acc" x="645" y="40" width="117" height="100" rx="6"/>
+<text class="tx-acc" x="703.5" y="76.5" text-anchor="middle">A5</text>
+<text class="tx-s" x="703.5" y="94.5" text-anchor="middle">Keyless CI</text>
+<text class="tx-s" x="703.5" y="112.5" text-anchor="middle">gate required</text>
+<line class="ln" x1="762" y1="90" x2="770" y2="90" marker-end="url(#s52)"/>
+<rect class="box-ok" x="772" y="40" width="117" height="100" rx="6"/>
+<text class="tx-ok" x="830.5" y="76.5" text-anchor="middle">A6</text>
+<text class="tx-s" x="830.5" y="94.5" text-anchor="middle">Red team</text>
+<text class="tx-s" x="830.5" y="112.5" text-anchor="middle">DEFENCE.md</text>
+<text class="tx-s" x="10" y="24" text-anchor="start">One real write carries the whole story; A3 and A5 are the two hand-built cores</text>
+<text class="tx-s" x="10" y="166" text-anchor="start">Checkpoints: card reviewed · harms mapped to ASI ids · tier matches the engine · red-before-green tests</text>
+<text class="tx-s" x="10" y="184" text-anchor="start">parity table with the AGT version · gate as a required check · five attacks, each with evidence</text>
+</svg>
+</div>
+<figcaption><b>Fig 52.1</b>Capstone A from card to defence. A3 and A5 are the stages you write by hand without assistance; the others you may pair on, with Claude as coach and reviewer, never as author.</figcaption>
+</figure>
+
+<h2 id="a0"><span class="n">52.2</span>A0 · The agent card</h2>
+<p>Two suggested agents: an <strong>expense pre-approval agent</strong> that reads a claim, checks policy and can submit it, or a <strong>meeting-notes to Jira agent</strong> that proposes tickets and creates them only with approval. Choose the one whose write you understand best. Write the card in the shape of an ARB manifest, because the tiering rule will read it:</p>
+<pre><code>name: expense_preapproval            # or notes_to_jira
+owner: you@example.com
+description: &gt;-
+  One paragraph: purpose, users, what it may do.
+axes:                                # one value per axis, with a reason comment each
+  data_sensitivity: ...              # none | internal | PII | sensitive/regulated
+  action_class: ...                  # read-only | reversible-write | irreversible/financial-write
+  exposure: ...                      # internal-only | authenticated-external | public
+  autonomy: ...                      # suggests | acts-with-confirmation | acts-autonomously
+  blast_radius: ...                  # single-record | multi-record | systemic
+tools:
+  - name: ...                        # two reads, then the one write with writes: true
+model: {provider: ..., model: ..., version: ...}</code></pre>
+<p><strong>Checkpoint.</strong> Every axis value has a one-line reason that names a tool or a data field, as ARB's <code>customer_service_ops.yaml</code> does. If a reason says "probably", the value is not decided yet.</p>
+
+<h2 id="a1"><span class="n">52.3</span>A1 · The ungoverned agent</h2>
+<p>Grow <code>agents/hello_agent</code> into the real agent on ADK, with the two reads and the write, running on a local model or Vertex. No controls yet; that is the point. Then list five ways it can do harm, each tied to an OWASP agentic risk id (<a class="xref" data-ch="security-multitenancy" data-sec="#owasp" href="security-multitenancy.html#owasp">Chapter 32</a>): for example, an injected instruction in a claim's free-text field that submits a different claim (ASI01), a submission above the policy limit (ASI02), acting for a user who did not ask (ASI03), a retry that submits twice, and an approval faked by the model's own text.</p>
+<p><strong>Checkpoint.</strong> You can make at least two of the five happen in a scripted run. A harm you cannot demonstrate is a hypothesis; mark it so.</p>
+
+<h2 id="a2"><span class="n">52.4</span>A2 · Tier it and choose the controls</h2>
+<p>Apply ARB's rule by hand before you run any engine: score each axis, apply highest-wins banding, check the CRITICAL clauses (the irreversible or financial write acting autonomously, or two axes at the top), then select the controls whose <code>min_tier</code> and <code>applies_when</code> match (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>). Only then run ARB's engine on your card, if you want a check, and explain any difference.</p>
+<p>Defend each control's presence in one sentence, and each absence too. An expense agent that submits for human approval may not need ARB's refund ceiling, but it needs something like it: a policy limit decided on trusted facts, not on the amount the model asserts (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</p>
+<p><strong>Checkpoint.</strong> Tier and control list written, with the derivation shown and each inclusion and exclusion defended.</p>
+
+<h2 id="a3"><span class="n">52.5</span>A3 · The PEP, the policy and the evidence, by hand</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="The governed agent you build in Capstone A. A user calls an ADK agent with two read tools and one write, on a local model or Vertex. Every tool call passes one chokepoint, the PEP, which reads trusted facts through a PIP, decides with a deny-by-default Rego PDP, runs AGT in shadow for stage A4 and attaches an idempotency key. Reads go to policy and history tools; the one write needs a signed approval grant. Every decision and effect is written to a hash-chained JSONL evidence log that verifies. A gate in CI checks the manifest, tier and conformance, inside a keyless pipeline with workload identity federation, plan on pull request and apply on merge.">
+<defs><marker id="a52" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="120" width="110" height="60" rx="6"/>
+<text class="tx-b" x="65" y="145.5" text-anchor="middle">User</text>
+<text class="tx-s" x="65" y="163.5" text-anchor="middle">employee</text>
+<rect class="box-strong" x="150" y="110" width="150" height="80" rx="6"/>
+<text class="tx-b" x="225" y="136.5" text-anchor="middle">Agent (ADK)</text>
+<text class="tx-s" x="225" y="154.5" text-anchor="middle">2 reads · 1 write</text>
+<text class="tx-s" x="225" y="172.5" text-anchor="middle">local model or Vertex</text>
+<rect class="box-acc" x="330" y="60" width="200" height="180" rx="8"/>
+<text class="tx-acc" x="430" y="84" text-anchor="middle">Chokepoint (PEP)</text>
+<text class="tx-s" x="344" y="108" text-anchor="start">one entry for every tool</text>
+<text class="tx-s" x="344" y="132" text-anchor="start">PIP: trusted facts</text>
+<text class="tx-s" x="344" y="156" text-anchor="start">PDP: Rego (deny default)</text>
+<text class="tx-s" x="344" y="180" text-anchor="start">AGT in shadow (A4)</text>
+<text class="tx-s" x="344" y="204" text-anchor="start">idempotency key</text>
+<rect class="box" x="570" y="30" width="150" height="54" rx="6"/>
+<text class="tx-b" x="645" y="52.5" text-anchor="middle">Read tools</text>
+<text class="tx-s" x="645" y="70.5" text-anchor="middle">policy · history</text>
+<rect class="box" x="570" y="110" width="150" height="54" rx="6"/>
+<text class="tx-b" x="645" y="132.5" text-anchor="middle">The one write</text>
+<text class="tx-s" x="645" y="150.5" text-anchor="middle">submit · create</text>
+<rect class="box-ok" x="570" y="190" width="150" height="54" rx="6"/>
+<text class="tx-ok" x="645" y="212.5" text-anchor="middle">Approval</text>
+<text class="tx-s" x="645" y="230.5" text-anchor="middle">signed grant</text>
+<rect class="box-ok" x="750" y="110" width="140" height="80" rx="6"/>
+<text class="tx-ok" x="820" y="136.5" text-anchor="middle">Evidence</text>
+<text class="tx-s" x="820" y="154.5" text-anchor="middle">hash-chained</text>
+<text class="tx-s" x="820" y="172.5" text-anchor="middle">JSONL · verify</text>
+<rect class="box" x="330" y="270" width="200" height="50" rx="6"/>
+<text class="tx-b" x="430" y="290.5" text-anchor="middle">Gate in CI</text>
+<text class="tx-s" x="430" y="308.5" text-anchor="middle">manifest · tier · checks</text>
+<rect class="box" x="570" y="270" width="320" height="50" rx="6"/>
+<text class="tx-b" x="730" y="290.5" text-anchor="middle">Keyless pipeline</text>
+<text class="tx-s" x="730" y="308.5" text-anchor="middle">WIF · plan on PR · apply on merge</text>
+<line class="ln" x1="120" y1="150" x2="148" y2="150" marker-end="url(#a52)"/>
+<line class="ln" x1="300" y1="150" x2="328" y2="150" marker-end="url(#a52)"/>
+<line class="ln" x1="530" y1="100" x2="568" y2="60" marker-end="url(#a52)"/>
+<line class="ln" x1="530" y1="140" x2="568" y2="137" marker-end="url(#a52)"/>
+<line class="ln" x1="568" y1="210" x2="532" y2="190" marker-end="url(#a52)"/>
+<line class="ln" x1="720" y1="137" x2="748" y2="145" marker-end="url(#a52)"/>
+<path class="ln" d="M 530 68 C 640 -6, 770 -6, 820 106" style="fill:none;stroke-dasharray:4 4" marker-end="url(#a52)"/>
+<text class="tx-s" x="676" y="12" text-anchor="middle">every decision and effect</text>
+<line class="ln" x1="430" y1="240" x2="430" y2="268" style="stroke-dasharray:3 4"/>
+<line class="ln" x1="530" y1="295" x2="568" y2="295"/>
+</svg>
+</div>
+<figcaption><b>Fig 52.2</b>What Capstone A produces: the reference model of <a class="xref" data-ch="reference-model" href="reference-model.html">Chapter 12</a> at the smallest size that still has every plane. Nothing here is new to you; what is new is that you wrote all of it.</figcaption>
+</figure>
+<p>The core of the capstone. Build it in this order, tests first, and keep each piece small enough to explain from memory (Rebuild rep R10 is the warm-up: a chokepoint and a hash-chained log in under 120 lines).</p>
+<ol>
+  <li><strong>The chokepoint.</strong> One function every tool call passes through; tools are not callable any other way. Write the test that proves it: monkeypatch the write tool and assert that calling the agent's tool list directly cannot reach it.</li>
+  <li><strong>The PIP.</strong> Fetch the facts the policy needs (the claim's real amount, the user's limit, whether an approval exists) from your synthetic sources, never from the model's arguments.</li>
+  <li><strong>The PDP in Rego.</strong> Three controls, deny by default, every fact read through <code>object.get</code> with a conservative default, one decision entrypoint returning <code>allow</code> and a list of violations each naming its control (<a class="xref" data-ch="policy-as-code" data-sec="#failclosed" href="policy-as-code.html#failclosed">Chapter 17</a>). Include the empty-request test.</li>
+  <li><strong>The approval.</strong> A signed grant bound to the exact action (its hash) and verified at the PEP before the write; the approver may not be the requester.</li>
+  <li><strong>The evidence.</strong> Append-only JSONL, each record carrying the previous record's hash; a <code>verify</code> command; a tamper test that edits one record and watches verify fail (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>). Write the evidence record before the effect, and refuse the effect if the write fails.</li>
+  <li><strong>Idempotency.</strong> A key derived from the run and the step, honoured by the write tool.</li>
+</ol>
+<p><strong>Checkpoint.</strong> The write is blocked without approval; it succeeds with a valid grant; a replayed grant is refused; every case leaves evidence; <code>verify</code> passes, and fails after tampering. Each test was red before it was green.</p>
+
+<h2 id="a4"><span class="n">52.6</span>A4 · AGT parity</h2>
+<p>Express the controls AGT can express as AGT policies, in their own environment, default deny with one positive allow each, and run both engines on the same cases. Record which controls are expressible, the parity result, and a single-rule mutation per policy (<a class="xref" data-ch="agt-through-your-build" data-sec="#apply" href="agt-through-your-build.html#apply">Chapter 47</a>).</p>
+<p><strong>Checkpoint.</strong> A two-engine parity table for your agent, stated with the AGT version.</p>
+
+<h2 id="a5"><span class="n">52.7</span>A5 · The gate and a keyless pipeline</h2>
+<p>This stage is also the M1 Rebuild (rep R24): Terraform plan on every pull request and apply on merge, authenticated by workload identity federation, with your gate as a required check. Your M0 work in <code>infra/terraform/wif.tf</code> already has the pool and provider; M1 makes CI use them.</p>
+<ol>
+  <li><strong>Trust only this repository and branch.</strong> On the provider, an attribute condition such as <code>assertion.repository == "&lt;you&gt;/genai-agent-mastery"</code>, and on the service-account binding, the principal set for that repository. Apply only from <code>refs/heads/main</code>.</li>
+  <li><strong>Two service accounts.</strong> A read-only planner for pull requests and an applier for main, each with the narrowest roles the Terraform needs.</li>
+  <li><strong>The workflow.</strong> <code>permissions: id-token: write</code>; authenticate with the federation action; <code>terraform plan</code> posted to the pull request; your gate (manifest validation, tier derivation, conformance tests) as a separate job; <code>apply</code> only on push to main, in a protected environment that needs your approval.</li>
+  <li><strong>Branch protection.</strong> Make the gate and the plan required checks, so a failing gate cannot merge (<a class="xref" data-ch="deployment-cicd" data-sec="#gate" href="deployment-cicd.html#gate">Chapter 30</a>).</li>
+</ol>
+<p><strong>Checkpoint.</strong> A pull request shows the plan and the gate result; breaking one control's test turns the gate red and blocks the merge; merging deploys; no key exists anywhere.</p>
+
+<h2 id="a6"><span class="n">52.8</span>A6 · Red team and the defence note</h2>
+<div class="tw"><table>
+<thead><tr><th>Attack</th><th>How to run it</th><th>Expected result</th><th>Evidence to show</th></tr></thead>
+<tbody>
+<tr><td>Injection in data</td><td>An instruction inside a claim or meeting note</td><td>No effect outside the user's request; the instruction is treated as data</td><td>The refused or unchanged call and its record</td></tr>
+<tr><td>Confused deputy</td><td>Ask the agent to act for another user</td><td>Refused: the principal is resolved, not asserted</td><td>The violation naming the control</td></tr>
+<tr><td>Over limit</td><td>A write above the policy limit, with the model claiming a lower amount</td><td>Refused on the PIP's fact</td><td>The decision with both amounts</td></tr>
+<tr><td>Missing or forged approval</td><td>Write without a grant; with a grant for a different action; replayed grant</td><td>All refused</td><td>Three records</td></tr>
+<tr><td>Evidence tamper</td><td>Edit one record</td><td><code>verify</code> fails at that record</td><td>The verify output</td></tr>
+</tbody></table></div>
+<p>Then write <code>governance/DEFENCE.md</code>, at most two pages, the answer to "walk me through how this agent is governed":</p>
+<ol>
+  <li>The agent and its one write, in three sentences.</li>
+  <li>Its tier and why, with the axis values.</li>
+  <li>The controls, each with where it is enforced and the test that proves it fires.</li>
+  <li>The five attacks and what stopped each.</li>
+  <li>Residuals: what is not covered, stated where the claim is made (ARB's D61 rule).</li>
+  <li>How a change is re-gated.</li>
+</ol>
+
+<h2 id="rubric"><span class="n">52.9</span>How to grade yourself</h2>
+<div class="tw"><table>
+<thead><tr><th>Area</th><th>Not yet</th><th>Done</th><th>Strong</th></tr></thead>
+<tbody>
+<tr><td>Card and tier</td><td>Values without reasons</td><td>Every value reasoned; tier matches the rule</td><td>You can say which single change would move the tier</td></tr>
+<tr><td>Enforcement</td><td>Checks inside tools</td><td>One chokepoint; deny by default; facts from the PIP</td><td>A test proves the chokepoint is the only path</td></tr>
+<tr><td>Evidence</td><td>Logs</td><td>Chained records; verify; tamper test</td><td>Evidence written before the effect, effect refused on write failure</td></tr>
+<tr><td>Pipeline</td><td>Manual deploy</td><td>Keyless plan and apply; gate required</td><td>A broken control blocks the merge, demonstrated</td></tr>
+<tr><td>Defence</td><td>Claims without tests</td><td>Every claim points at a test or record</td><td>Residuals named beside the claims they qualify</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">52.10</span>Where people get stuck</h2>
+<div class="tw"><table>
+<thead><tr><th>Trap</th><th>Symptom</th><th>Way out</th></tr></thead>
+<tbody>
+<tr><td>Starting with the policy</td><td>Rego written before you know the facts it needs</td><td>Write the PIP's fact list first, from the controls' triggers</td></tr>
+<tr><td>Trusting the model's arguments</td><td>The limit check reads <code>amount</code> from the tool call</td><td>Read the amount from the source system via the PIP</td></tr>
+<tr><td>Approval as a boolean</td><td><code>approved: true</code> in the request</td><td>A signed grant bound to the action's hash</td></tr>
+<tr><td>Federation that trusts too much</td><td>Any repository in your account can deploy</td><td>An attribute condition on repository and ref</td></tr>
+<tr><td>Copying ARB</td><td>Code you cannot explain</td><td>Close the reference repo while you write A3 and A5</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="Capstone A stage completed, or ARB or pm-agent adds an archetype close to your agent">
+  <span class="k">Waiting on the builds</span>
+  <p>When you finish a stage, link its artefacts here and record what surprised you. When the builds add an archetype close to your agent (an approval-heavy back-office agent, for example), add a comparison of your tiering and controls with theirs.</p>
+</div>
+
+<h2 id="prove"><span class="n">52.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · GF-L2</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The seven stages and the artefact each produces.</li>
+    <li><span class="lvl">Apply</span>Derive your agent's tier aloud from its card, then name the one axis change that would make it CRITICAL.</li>
+    <li><span class="lvl">Apply</span>Show the test that proves your chokepoint is the only path to the write.</li>
+    <li><span class="lvl">Design</span>Explain your federation trust conditions and what an attacker with a fork of your repository can and cannot do.</li>
+    <li><span class="lvl">Trade-off</span>Evidence before the effect (refuse on failure) against evidence after (never block the user). Which, and why, for your write?</li>
+  </ol>
+  <p class="small">Reps: R10 (Rebuild warm-up), R24 (M1), R25 (AGT), then the stages. Card candidates: <em>one write carries the story</em> · <em>facts from the PIP, never the arguments</em> · <em>approval is a signed grant bound to an action</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">52.12</span>Further reading</h2>
+<ul>
+  <li>The chapters each stage leans on: <a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>, <a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>, <a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a>, <a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>, <a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>, <a class="xref" data-ch="deployment-cicd" href="deployment-cicd.html">Chapter 30</a>.</li>
+  <li>Google Cloud documentation on workload identity federation with deployment pipelines; the <code>google-github-actions/auth</code> action.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/agents/customer_service_ops.yaml</code> (a card done well), <code>governance/policies/rego/tool_call.rego</code> (read the header), <code>.github/workflows/ci.yml</code>; GAM <code>infra/terraform/wif.tf</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="readiness-first-90-days.html"><small>Previous</small>51 · Readiness and the first 90 days</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="capstone-b.html"><small>Next</small>53 · Capstone B: a framework for a client estate</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

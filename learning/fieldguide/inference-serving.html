@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>9 · Inference and serving</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part II · The model layer</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 9</div>
+  <ol>
+    <li><a href="#phases">Two phases: prefill and decode</a></li>
+    <li><a href="#metrics">The latency vocabulary</a></li>
+    <li><a href="#roofline">Why decode is memory-bound</a></li>
+    <li><a href="#kv">The KV cache, sized</a></li>
+    <li><a href="#batching">Batching and paged attention</a></li>
+    <li><a href="#prefix">Prefix and prompt caching</a></li>
+    <li><a href="#spec">Speculative decoding</a></li>
+    <li><a href="#quant">Quantisation</a></li>
+    <li><a href="#scale">Parallelism and disaggregation</a></li>
+    <li><a href="#stacks">Serving stacks</a></li>
+    <li><a href="#quota">What quotas really constrain</a></li>
+    <li><a href="#agents">What this means for agents</a></li>
+    <li><a href="#build">Build it</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART II · CHAPTER 9</div>
+  <h1>Inference and serving</h1>
+  <p class="lede">Whether you call a hosted model or run one yourself, the same physics sets latency, throughput and cost. This chapter explains that physics (prefill and decode, the KV cache, batching, caching, speculative decoding and quantisation) and then the commercial layer on top of it: the quotas, tiers and reservations that decide whether an agent gets an answer or a 429.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>MODEL · TC-04</span></div>
+    <div><b>Reps</b><span>T10 · AI System Design Playbook #2, #5, #10</span></div>
+    <div><b>Build links</b><span>ARB D71 (429 handling) · knowledge_advisor pin (Qwen2.5-7B Q4_K_M) · pm identity preflight</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Doubling the prompt length roughly doubles which: time to first token, or time per output token?</li>
+    <li>A GPU serves one user at 40 tokens per second. Roughly how fast does it serve each of 16 users at once?</li>
+    <li>Your agent gets a 429 from a hosted model halfway through a turn, after it has issued a refund. Should it retry the turn?</li>
+  </ol>
+</div>
+
+<h2 id="phases"><span class="n">9.1</span>Two phases: prefill and decode</h2>
+<p><span class="tag gen">Generic</span> Every request runs in two phases with different bottlenecks.</p>
+<ul>
+  <li><strong>Prefill</strong> processes the whole prompt in one parallel forward pass, computing the keys and values for every prompt token. It is <em>compute-bound</em>: lots of matrix multiplication done in parallel. Its cost grows with prompt length (linearly for the weights, quadratically for attention). It sets the time to the first token.</li>
+  <li><strong>Decode</strong> then produces output one token per forward pass, each pass reading the model weights and the KV cache. It is <em>memory-bandwidth-bound</em>: little arithmetic per byte moved. It sets the time between tokens, and output length multiplies it.</li>
+</ul>
+<p>So the answer to the first prediction question is time to first token. A rough rule for dense models is about 2 × parameters floating-point operations per token processed: prefilling a 4,000-token prompt on a 7.6-billion-parameter model is about 6 × 10<sup>13</sup> operations, well under a second on a data-centre GPU and closer to a minute on a laptop CPU. That difference is why local evaluation runs are slow when prompts are long. pm-agent's full live evaluation on a local 7B model took about eleven hours (ADR-0006).</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 250" role="img" aria-label="Timeline of one request. Time in the queue, then prefill of the whole prompt in one pass, ending at the first token: time to first token. Then decode produces one token per step; the gap between tokens is time per output token. End-to-end latency is time to first token plus time per output token times the remaining output tokens. Prefill is compute-bound and grows with prompt length; decode is memory-bandwidth-bound and grows with output length.">
+  <defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <line class="ln-mute" x1="20" y1="120" x2="744" y2="120"/>
+  <rect class="box" x="20" y="90" width="90" height="60" rx="4"/>
+  <text class="tx-s" x="65" y="124" text-anchor="middle">queue</text>
+  <rect class="box-acc" x="110" y="90" width="230" height="60" rx="4"/>
+  <text class="tx-acc" x="225" y="116" text-anchor="middle">prefill</text>
+  <text class="tx-s" x="225" y="136" text-anchor="middle">one pass · compute-bound</text>
+  <g>
+    <rect class="box-ok" x="346" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="386" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="426" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="466" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="506" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="546" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="586" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="626" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="666" y="90" width="34" height="60" rx="3"/>
+    <rect class="box-ok" x="706" y="90" width="34" height="60" rx="3"/>
+  </g>
+  <text class="tx-s" x="790" y="116">… one token</text>
+  <text class="tx-s" x="790" y="134">per step</text>
+  <text class="tx-ok" x="543" y="76" text-anchor="middle">decode · memory-bandwidth-bound</text>
+  <line class="ln" x1="20" y1="180" x2="342" y2="180" marker-start="url(#a9)" marker-end="url(#a9)"/>
+  <text class="tx-b" x="181" y="202" text-anchor="middle">TTFT</text>
+  <text class="tx-s" x="181" y="220" text-anchor="middle">grows with prompt length and queueing</text>
+  <line class="ln" x1="386" y1="180" x2="420" y2="180" marker-start="url(#a9)" marker-end="url(#a9)"/>
+  <text class="tx-b" x="403" y="202" text-anchor="middle">TPOT</text>
+  <text class="tx-s" x="560" y="220" text-anchor="middle">E2E ≈ TTFT + TPOT × (output tokens − 1)</text>
+  <text class="tx-s" x="20" y="40">One request. An agent turn is several of these in sequence, plus tool time between them.</text>
+</svg>
+</div>
+<figcaption><b>Fig 9.1</b>The two phases of a request and the metrics they set. Long prompts hurt TTFT; long outputs hurt end-to-end latency.</figcaption>
+</figure>
+
+<h2 id="metrics"><span class="n">9.2</span>The latency vocabulary</h2>
+<div class="tw"><table>
+<thead><tr><th>Metric</th><th>Meaning</th><th>Driven by</th></tr></thead>
+<tbody>
+<tr><td>TTFT</td><td>Time to first token</td><td>Queueing, prompt length, prefix-cache hits</td></tr>
+<tr><td>TPOT / ITL</td><td>Time per output token; inter-token latency</td><td>Model size, memory bandwidth, batch size, speculative decoding</td></tr>
+<tr><td>End-to-end latency</td><td>TTFT + TPOT × remaining output tokens</td><td>Output length above all</td></tr>
+<tr><td>Throughput</td><td>Tokens per second across all requests</td><td>Batching, KV memory, hardware</td></tr>
+<tr><td>Goodput</td><td>Requests per second that meet their latency targets (DistServe's definition)</td><td>The trade-off between batching and per-request latency</td></tr>
+</tbody></table></div>
+<p>Report percentiles (p50, p95, p99), not averages. Agents have long-tailed latencies because turns and output lengths vary.</p>
+
+<h2 id="roofline"><span class="n">9.3</span>Why decode is memory-bound</h2>
+<p><span class="tag gen">Generic</span> At batch size one, every decode step reads every weight once to produce one token. So an upper bound on single-stream speed is memory bandwidth divided by model size in bytes. Your knowledge advisor's pinned weights file is 4.68 GB (Qwen2.5-7B-Instruct, Q4_K_M):</p>
+<div class="tw"><table>
+<thead><tr><th>Hardware (memory bandwidth, approximate)</th><th>Upper bound, batch 1</th></tr></thead>
+<tbody>
+<tr><td>Laptop CPU, dual-channel DDR5 (~80–100 GB/s)</td><td>≈ 17–21 tokens/s</td></tr>
+<tr><td>High-end consumer GPU (~1,000 GB/s)</td><td>≈ 210 tokens/s</td></tr>
+<tr><td>Data-centre GPU, HBM3 (~3,350 GB/s)</td><td>≈ 700 tokens/s</td></tr>
+</tbody></table></div>
+<p class="small muted">Upper bounds only: KV-cache reads, kernel overheads and sampling all reduce them. <span class="tag asm">Assumption</span> bandwidth figures are typical, not measured on your hardware.</p>
+<p>Batching changes the arithmetic. Sixteen sequences decoded together share one read of the weights, so aggregate throughput rises almost sixteen-fold while each user's speed drops only a little, until the step becomes compute-bound or KV memory runs out. That answers the second prediction question: each of the 16 users sees somewhat less than 40 tokens per second, not 2.5. This is why providers batch aggressively, why your request's speed depends on other customers' traffic, and why a reserved capacity product exists.</p>
+
+<h2 id="kv"><span class="n">9.4</span>The KV cache, sized</h2>
+<p><span class="tag gen">Generic</span> The KV cache stores keys and values for every past token, in every layer, for every key-value head:</p>
+<pre><code>KV bytes per token = 2 (K and V) × layers × kv_heads × head_dim × bytes per value</code></pre>
+<p>Worked from the published configuration files (read 2026-10-21):</p>
+<div class="tw"><table>
+<thead><tr><th>Model</th><th>Layers · KV heads · head dim</th><th>KV per token (16-bit)</th><th>One 32k-token sequence</th></tr></thead>
+<tbody>
+<tr><td>Qwen2.5-7B-Instruct (your local pin)</td><td>28 · 4 · 128</td><td>57,344 B (56 KiB)</td><td>≈ 1.75 GiB</td></tr>
+<tr><td>Qwen2.5-72B-Instruct</td><td>80 · 8 · 128</td><td>327,680 B (320 KiB)</td><td>≈ 10 GiB</td></tr>
+</tbody></table></div>
+<p>Without grouped-query attention the 7B model would need 28 KV heads instead of 4, seven times as much cache. The cache, not the weights, usually limits how many conversations a server can hold at once.</p>
+<div class="panel p-note">
+  <span class="k">Worked example · concurrency is a memory budget</span>
+  <p>Serve Qwen2.5-72B in 8-bit weights (about 73 GB) on two 80 GB GPUs. Roughly 80 GB remains for the cache. At 320 KiB per token that is about 244,000 tokens: about 30 concurrent conversations at 8,000 tokens each, or 7 at 32,000. Store the cache in 8 bits and both figures double. <span class="tag asm">Assumption</span> activations, fragmentation and framework overhead are ignored; real headroom is lower.</p>
+</div>
+
+<h2 id="batching"><span class="n">9.5</span>Batching and paged attention</h2>
+<p><span class="tag gen">Generic</span> Three ideas turned LLM serving from wasteful to efficient:</p>
+<ul>
+  <li><strong>Continuous batching.</strong> Static batching waits for the longest sequence in a batch to finish. Iteration-level scheduling (Orca, Yu et al., OSDI 2022) adds and removes sequences at every decode step, so short requests leave early and new ones join immediately.</li>
+  <li><strong>Paged attention.</strong> Allocating each sequence a contiguous cache for its maximum length wastes most of the memory. PagedAttention (Kwon et al., 2023, the paper behind vLLM) stores the cache in fixed-size blocks mapped through a table, as an operating system pages memory. The authors measured 60–80% of KV memory wasted in earlier systems and under 4% with paging, and reported 2–4× throughput at the same latency.</li>
+  <li><strong>Chunked prefill.</strong> A long prefill stalls every decode in the batch. Splitting prefills into chunks and interleaving them with decode steps (Sarathi-Serve, Agrawal et al., 2024) keeps inter-token latency smooth.</li>
+</ul>
+
+<h2 id="prefix"><span class="n">9.6</span>Prefix and prompt caching</h2>
+<p><span class="tag gen">Generic</span> Agents resend the same long prefix on every call: system instructions, tool declarations, policies, earlier turns. If the server keeps the KV cache for a prefix it has seen, the next request skips that part of prefill. Self-hosted engines do this automatically (vLLM's prefix caching; SGLang's RadixAttention, Zheng et al., 2023). Hosted APIs sell it as prompt or context caching, with cached input tokens billed at a large discount and a shorter TTFT; some providers apply it implicitly, others require marking cacheable blocks.</p>
+<ul>
+  <li><strong>Design for it.</strong> Put stable content first (system prompt, tool schemas, policy text) and variable content last. A timestamp or request id at the top of the prompt defeats every cache.</li>
+  <li><strong>Count it.</strong> Cached tokens may still count towards throughput limits. AWS's documentation, for example, says Reserved-tier sizing must include cache-write input tokens.</li>
+  <li><strong>Isolate it.</strong> A shared prefix cache can leak through timing: a cache hit is measurably faster, which reveals that someone else sent the same prefix. Gu et al. ("Auditing Prompt Caching in Language Model APIs", 2025) detected cross-user cache sharing at several API providers this way. Ask a hosted provider how its caches are scoped (to an organisation, a project or a key) and get the answer in writing; in a self-hosted multi-tenant deployment, scope prefix caches per tenant (<a class="xref" data-ch="security-multitenancy" href="security-multitenancy.html">Chapter 32</a>).</li>
+</ul>
+<p>Prompt caching should not be confused with response caching, which returns a stored <em>answer</em> and needs permission scoping to be safe (<a class="xref" data-ch="model-choice-risk" data-sec="#caching" href="model-choice-risk.html#caching">Chapter 10</a>).</p>
+
+<h2 id="spec"><span class="n">9.7</span>Speculative decoding</h2>
+<p><span class="tag gen">Generic</span> Decode is memory-bound, so a forward pass that checks several tokens costs little more than one that produces one. Speculative decoding (Leviathan et al., 2022; Chen et al., 2023) uses a small draft model to propose k tokens, then has the large model verify them in one pass, accepting the longest correct prefix. A rejection-sampling rule makes the output distribution <em>identical</em> to the large model's. Speedups of 2–3× are typical where the draft guesses well (code, boilerplate, structured output). Variants replace the draft model with extra prediction heads (Medusa) or feature-level drafting (EAGLE). For a buyer it is invisible, except as lower TPOT.</p>
+
+<h2 id="quant"><span class="n">9.8</span>Quantisation</h2>
+<p><span class="tag gen">Generic</span> Storing weights in fewer bits shrinks memory and, because decode is bandwidth-bound, speeds it up almost proportionally. Common schemes are 8-bit (LLM.int8(), FP8 on recent GPUs) and 4-bit (GPTQ, AWQ, and llama.cpp's "k-quants" in the GGUF format). Q4_K_M, your local pin, mixes 4- and 6-bit blocks: 4.68 GB for about 7.6 billion parameters is roughly 4.9 bits per weight, against 16 for the original. The KV cache can be quantised too. Quality loss is usually small at 8 bits and noticeable at 4 bits on harder tasks, so measure on your own evaluation set.</p>
+<div class="panel p-gotcha">
+  <span class="k">Governance consequence · quantisation changes identity</span>
+  <p>Two files called "Qwen2.5-7B-Instruct" at different quantisations are different models with different behaviour. ARB's pin for the knowledge advisor records the weights file, the quantisation and a SHA-256 of the exact file, and a live preflight re-hashes it before a run (D57). A model id alone is not an identity (<a class="xref" data-ch="model-choice-risk" data-sec="#pinning" href="model-choice-risk.html#pinning">Chapter 10</a>).</p>
+</div>
+
+<h2 id="scale"><span class="n">9.9</span>Parallelism and disaggregation</h2>
+<p><span class="tag gen">Generic</span> Models too large for one accelerator are split: <strong>tensor parallelism</strong> splits each layer's matrices across devices (fast interconnect needed), <strong>pipeline parallelism</strong> places different layers on different devices, and <strong>expert parallelism</strong> spreads a mixture-of-experts model's experts. The newest step is <strong>disaggregated serving</strong>: run prefill and decode on separate pools, because one is compute-bound and the other bandwidth-bound, and move the KV cache between them (DistServe and Splitwise, 2024). Open projects such as NVIDIA Dynamo and llm-d, and Kubernetes-level routing such as GKE Inference Gateway, package these ideas <span class="tag ver">Verify</span>. You need this depth when a client wants to self-host at scale or argues about cost per token; most enterprise agents consume a hosted endpoint.</p>
+
+<h2 id="stacks"><span class="n">9.10</span>Serving stacks</h2>
+<div class="tw"><table>
+<thead><tr><th>Stack</th><th>Typical use</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>llama.cpp (and LM Studio, Ollama on top)</td><td>Local and edge, CPU or consumer GPU</td><td>GGUF quantised models; your builds' local path</td></tr>
+<tr><td>vLLM</td><td>Self-hosted GPU serving, the default open choice</td><td>Paged attention, continuous batching, prefix caching, OpenAI-compatible API</td></tr>
+<tr><td>SGLang</td><td>High-throughput serving, structured output, agent workloads</td><td>RadixAttention prefix sharing</td></tr>
+<tr><td>TensorRT-LLM, NVIDIA Dynamo</td><td>Maximum performance on NVIDIA hardware</td><td>Compiled engines; disaggregated serving</td></tr>
+<tr><td>Hugging Face TGI</td><td>Hugging Face ecosystem deployments</td><td><span class="tag ver">Verify</span> current maintenance status before recommending</td></tr>
+<tr><td>Managed endpoints</td><td>Vertex AI / GEAP Model Garden, Amazon Bedrock, Azure AI Foundry, plus specialist hosts</td><td>You buy quota and tiers, not GPUs (<a class="sref" href="#quota">9.11</a>)</td></tr>
+</tbody></table></div>
+<p><span class="tag own">pm-agent</span> Local serving has its own identity trap. pm-agent's live harness once recorded the model it <em>requested</em> while LM Studio was serving whatever model it had loaded. The fix has two parts: a preflight that lists the endpoint's loaded models and refuses the run unless exactly the requested chat model is loaded, and a per-response check that compares the served model id with the requested one and excludes mismatched runs from the measured rates (<code>platform/model/identity.py</code>).</p>
+
+<h2 id="quota"><span class="n">9.11</span>What quotas really constrain</h2>
+<p><span class="tag gen">Generic</span> On a hosted endpoint you do not see GPUs. You see limits, usually requests per minute and input and output tokens per minute, and a menu of consumption options that trade price for priority. The three major clouds now offer the same shape under different names <span class="tag ver">Verify</span>:</p>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Google (GEAP / Vertex AI)</th><th>AWS (Bedrock)</th><th>Microsoft (Foundry / Azure OpenAI)</th></tr></thead>
+<tbody>
+<tr><td>Shared, pay per token</td><td>Standard PayGo: dynamic shared quota; spend-based usage tiers set a baseline throughput, with best-effort bursting above it</td><td>Standard tier (the default); on-demand quota per model</td><td>Global Standard, Data Zone Standard, Standard (regional) deployments</td></tr>
+<tr><td>Pay more, served first</td><td>Priority PayGo (request header)</td><td>Priority tier (<code>service_tier: priority</code>)</td><td>Priority processing (request level)</td></tr>
+<tr><td>Pay less, wait longer</td><td>Flex PayGo; batch (about 24 h)</td><td>Flex tier; batch inference</td><td>Flex processing; Global and Data Zone Batch (24 h target, about 50% off)</td></tr>
+<tr><td>Reserved capacity</td><td>Provisioned Throughput, the only option isolated from the shared pool</td><td>Reserved tier (1 or 3 months, minimum 100k input and 10k output TPM; overflow to Standard) and Provisioned Throughput</td><td>Provisioned deployments (global, data zone, regional) bought in PTUs</td></tr>
+<tr><td>Where data is processed</td><td>Global endpoint or regional endpoints</td><td>In-region, or cross-region inference profiles</td><td>Global, data zone (US, EU, APAC) or geography</td></tr>
+</tbody></table></div>
+<p class="small muted">Sources: Google Cloud blog, "Reduce 429 errors on Vertex AI" (12 March 2026); Amazon Bedrock User Guide, "Service tiers"; Microsoft Learn, "Deployment types for Foundry Models" (updated 12 August 2026). All read 2026-10-21.</p>
+<p>Three consequences for design:</p>
+<ol>
+  <li><strong>Tokens per minute is the binding constraint for agents.</strong> One user request becomes many model calls, each resending a long context. Capacity planning starts from tokens per task × tasks per minute, not from users (<a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>).</li>
+  <li><strong>On shared capacity, a 429 is weather, not a bug.</strong> Google's guidance is exponential backoff with jitter, not an immediate retry, plus the global endpoint to spread load. For guaranteed real-time capacity, reserve it.</li>
+  <li><strong>Residency is a deployment choice.</strong> "Global" options may process data in any region. A client with residency obligations needs data-zone or regional options, at some cost in quota and price (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</li>
+</ol>
+<div class="panel p-gotcha">
+  <span class="k">Retries that respect effects · ARB D71</span>
+  <p>The third prediction question has a governed answer. When the CRITICAL agent met 429s on live Vertex, D71 ruled a <strong>bounded whole-turn retry</strong>: only on 429 or RESOURCE_EXHAUSTED, only if no effectful tool call completed in that attempt, each retry on a fresh enforcement plane, at most three attempts with 120, 240 and 480 second backoff, at most ten retries per measurement, and the full error body recorded. A 429 after an effectful call <em>aborts</em>, because repeating the turn could repeat the refund. Where a fixed daily or per-minute limit is listed instead, there is no retry: raising a limit is a human act. The retry is keyed on the error class, never on the outcome, so it cannot be used to shop for a different decision (<a class="xref" data-ch="reliability" href="reliability.html">Chapter 29</a>).</p>
+</div>
+
+<h2 id="agents"><span class="n">9.12</span>What this means for agents</h2>
+<p><span class="tag gen">Generic</span> An agent turn is a chain of requests. <span class="tag asm">Assumption</span> With five model calls, each 0.8 s TTFT and 300 output tokens at 25 ms per token, the model time alone is about 5 × 8.3 ≈ 42 seconds before any tool runs. That single estimate explains several architectural choices made elsewhere in this book:</p>
+<ul>
+  <li>Long-running turns need an asynchronous run API (accept, return a run id, stream or poll), not a request held open (<a class="xref" data-ch="edge-api-design" href="edge-api-design.html">Chapter 25</a>).</li>
+  <li>Output ceilings and bounded loops are latency and cost controls as much as safety controls.</li>
+  <li>Stable prefixes make prompt caching pay on every call after the first.</li>
+  <li>Small, fast models for routing and extraction, large ones for planning, cut both latency and cost (<a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>).</li>
+  <li>Thinking tokens are output tokens: a reasoning budget is a latency budget too (D71's explicit <code>thinking_budget</code>).</li>
+</ul>
+
+<h2 id="build"><span class="n">9.13</span>Build it</h2>
+<div class="panel p-build">
+  <span class="k">Build it · T10, about four hours</span>
+  <ol>
+    <li>With the knowledge advisor's local model in LM Studio, measure TTFT and tokens per second for prompts of 500, 2,000 and 8,000 tokens and outputs of 50 and 500 tokens. Plot TTFT against prompt length and explain the shape.</li>
+    <li>Compare measured single-stream speed with the bandwidth bound for your machine.</li>
+    <li>Optional, on a rented GPU: run vLLM with the same model, load it with 1, 8 and 32 concurrent clients, and record per-user and aggregate tokens per second.</li>
+    <li>Turn on prefix caching (or a hosted provider's prompt caching) with a stable 3,000-token system prefix and measure the TTFT change.</li>
+    <li>Read Ramchandani's <cite>AI System Design Playbook</cite> cases 2 (vLLM), 5 (prompt caching) and 10 (KV cache), and check each against this chapter.</li>
+  </ol>
+</div>
+
+<h2 id="prove"><span class="n">9.14</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Why prefill is compute-bound and decode is memory-bound.</li>
+    <li><span class="lvl">Apply</span>Size the KV cache for 50 concurrent 16k-token sessions on Qwen2.5-72B, then with an 8-bit cache.</li>
+    <li><span class="lvl">Apply</span>A client's agent hits 429s every afternoon on Standard PayGo. Give three options in order of cost, with the trade-off of each.</li>
+    <li><span class="lvl">Design</span>Restructure an agent's prompt so prompt caching saves at least 60% of input cost. What must stay out of the prefix?</li>
+    <li><span class="lvl">Trade-off</span>Self-host a 70B model or buy provisioned throughput, for 2 million agent tasks a month.</li>
+  </ol>
+  <p class="small">Card candidates: <em>TTFT ← prompt, TPOT ← bandwidth</em> · <em>KV bytes per token formula</em> · <em>a 429 after an effect aborts (D71)</em> · <em>quantisation changes identity</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">9.15</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapter 9 on inference optimisation. Stas Bekman, <cite>Machine Learning Engineering</cite> (open book on GitHub), chapters on inference, hardware and networking.</li>
+  <li><b>Papers.</b> Kwon et al., PagedAttention / vLLM (arXiv 2309.06180). Yu et al., Orca (OSDI 2022). Agrawal et al., Sarathi-Serve (arXiv 2403.02310). Zhong et al., DistServe (arXiv 2401.09670). Patel et al., Splitwise (arXiv 2311.18677). Leviathan et al., speculative decoding (arXiv 2211.17192). Zheng et al., SGLang (arXiv 2312.07104). Frantar et al., GPTQ (arXiv 2210.17323). Lin et al., AWQ (arXiv 2306.00978). Gu et al., "Auditing Prompt Caching in Language Model APIs" (arXiv 2502.07776).</li>
+  <li><b>Provider documentation.</b> Google Cloud, consumption options and "Reduce 429 errors on Vertex AI"; Amazon Bedrock, service tiers and quotas; Microsoft Learn, Foundry deployment types and quotas.</li>
+  <li><b>Your library.</b> Ramchandani, <cite>AI System Design Playbook</cite>, cases 2, 5, 10 and 11 (mixture of experts); AI Engineering from Scratch, phase 7.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="transformers-tokens.html"><small>Previous</small>8 · Transformers and tokens for architects</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="model-choice-risk.html"><small>Next</small>10 · Model choice, routing and model risk</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

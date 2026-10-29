@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>1 · Anatomy of an agent harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 1</div>
+  <ol>
+    <li><a href="#def">Model plus harness</a></li>
+    <li><a href="#seven">The seven subsystems</a></li>
+    <li><a href="#builds">Your builds on the map</a></li>
+    <li><a href="#autonomy">The autonomy ladder</a></li>
+    <li><a href="#findings">What the field's code shows</a></li>
+    <li><a href="#attach">Where governance attaches</a></li>
+    <li><a href="#choose">Choosing a harness</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 1</div>
+  <h1>Anatomy of an agent harness</h1>
+  <p class="lede">An agent is a model plus a harness, and almost everything an architect decides and a governance programme controls lives in the harness: the loop, the tools, the context, the permissions, the extensions, the orchestration. Knowing its anatomy tells you where a control can attach and where it cannot.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>LL10 · BT03 · R01</span></div>
+    <div><b>Build modules</b><span>agents/ · platform/runtime · hosts/ · pm platform/runtime</span></div>
+    <div><b>Decisions</b><span>D53 · D-PM-2 · ADR-0001 (pm)</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Two agents use the same model and the same prompt. Name four things that could still make them behave differently.</li>
+    <li>Of the leading open and vendor coding agents, how many do you think are built on a general-purpose agent framework such as LangGraph?</li>
+    <li>Where in an agent would you put a control so that it cannot be bypassed by a cleverer prompt?</li>
+  </ol>
+</div>
+
+<h2 id="def"><span class="n">1.1</span>Model plus harness</h2>
+<p><span class="tag gen">Generic</span> The cleanest definition comes from a 2026 source-code study of eleven production coding agents (Barbaste et al.): <em>an agent is a model plus a harness; the harness is everything except the model</em>, the runtime that couples a model to the world through a loop, tools, context management, safety controls, orchestration and extension surfaces. The study is careful about four things a harness is not, and the distinctions are useful in client conversations:</p>
+<div class="tw"><table>
+<thead><tr><th>Term</th><th>What it is</th><th>Relation to a harness</th></tr></thead>
+<tbody>
+<tr><td>Scaffold</td><td>The structural code: the loop and the registries</td><td>Near-synonym; the harness is the shipped runtime that embeds a scaffold</td></tr>
+<tr><td>Agent framework</td><td>A library a developer imports to build an agent (LangGraph, ADK, CrewAI)</td><td>Used to build harnesses; the line is blurring as harnesses become importable SDKs and framework vendors ship harnesses</td></tr>
+<tr><td>Evaluation harness</td><td>Wraps an agent to run it against tasks</td><td>Same word, opposite direction of wrapping</td></tr>
+<tr><td>Orchestrator or meta-harness</td><td>Coordinates harnesses from above, with no editing loop of its own</td><td>A consumer of harnesses; pm-agent's executor role is one (<a class="xref" data-ch="orchestration-meta-harness" href="orchestration-meta-harness.html">Chapter 6</a>)</td></tr>
+</tbody></table></div>
+<p>Two consequences matter for governance. First, two agents on the same model can behave very differently because of their harnesses, so governing "the model" governs little. Second, the harness is where a control can sit on the path to an act; the model can only be asked.</p>
+
+<h2 id="seven"><span class="n">1.2</span>The seven subsystems</h2>
+<p><span class="tag gen">Generic</span> Every system in the study, from a 100-line research baseline to a million-line product, takes a position on the same seven subsystems, plus an interface layer through which humans and programs drive it. The figure adds, in amber, the governance mechanism that attaches to each.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 400" role="img" aria-label="The harness anatomy. An interface layer (terminal, IDE, SDK, server) sits above an agent loop surrounded by six subsystems: LLM integration, memory and context, tool and action system, safety and permissions, extensibility (hooks, skills, plugins, MCP), and orchestration (sub-agents, protocols). Governance attaches to each: approval and identity at the interface, model gateway pin and budget at LLM integration, data boundaries at memory, the PEP chokepoint at tools, policy at safety, integrity pinning at extensibility, edge controls at orchestration.">
+  <rect class="box" x="60" y="16" width="780" height="46" rx="6"/>
+  <text class="tx-b" x="450" y="38" text-anchor="middle">Interface layer · terminal · IDE · SDK · server</text>
+  <text class="tx-acc" x="450" y="55" text-anchor="middle">identity of the caller · approval surface</text>
+
+  <circle cx="450" cy="226" r="62" class="box-acc"/>
+  <text class="tx-acc" x="450" y="222" text-anchor="middle">Agent loop</text>
+  <text class="tx-s" x="450" y="242" text-anchor="middle">think · act · observe</text>
+
+  <g>
+    <rect class="box-strong" x="40" y="100" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="145" y="124" text-anchor="middle">LLM integration</text>
+    <text class="tx-acc" x="145" y="146" text-anchor="middle">model gateway · pin · budget</text>
+    <rect class="box-strong" x="40" y="196" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="145" y="220" text-anchor="middle">Memory &amp; context</text>
+    <text class="tx-acc" x="145" y="242" text-anchor="middle">data boundaries · fences</text>
+    <rect class="box-strong" x="40" y="292" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="145" y="316" text-anchor="middle">Orchestration</text>
+    <text class="tx-acc" x="145" y="338" text-anchor="middle">edge controls · provenance</text>
+
+    <rect class="box-strong" x="650" y="100" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="755" y="124" text-anchor="middle">Tool &amp; action system</text>
+    <text class="tx-acc" x="755" y="146" text-anchor="middle">PEP chokepoint · evidence</text>
+    <rect class="box-strong" x="650" y="196" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="755" y="220" text-anchor="middle">Safety &amp; permissions</text>
+    <text class="tx-acc" x="755" y="242" text-anchor="middle">policy · sandbox · approval</text>
+    <rect class="box-strong" x="650" y="292" width="210" height="62" rx="6"/>
+    <text class="tx-b" x="755" y="316" text-anchor="middle">Extensibility</text>
+    <text class="tx-acc" x="755" y="338" text-anchor="middle">MCP and skill integrity</text>
+  </g>
+  <g>
+    <line class="ln" x1="250" y1="140" x2="398" y2="196"/>
+    <line class="ln" x1="250" y1="227" x2="388" y2="227"/>
+    <line class="ln" x1="250" y1="315" x2="398" y2="258"/>
+    <line class="ln" x1="650" y1="140" x2="502" y2="196"/>
+    <line class="ln" x1="650" y1="227" x2="512" y2="227"/>
+    <line class="ln" x1="650" y1="315" x2="502" y2="258"/>
+    <line class="ln" x1="450" y1="62" x2="450" y2="164"/>
+  </g>
+  <text class="tx-s" x="450" y="385" text-anchor="middle">Subsystems after Barbaste et al. (2026); amber labels mark where governance attaches.</text>
+</svg>
+</div>
+<figcaption><b>Fig 1.1</b>The canonical anatomy of a harness, with a governance mechanism at each subsystem. Only some of these sit on the path to an effect; those are where controls that cannot be talked around belong.</figcaption>
+</figure>
+
+<div class="tw"><table>
+<thead><tr><th>Subsystem</th><th>Does</th><th>Minimal form</th><th>Rich form</th><th>Governance attaches</th></tr></thead>
+<tbody>
+<tr><td>Agent loop</td><td>Drives think-act-observe until done</td><td>A while loop over model calls</td><td>Event-sourced, resumable, with stop guards and budgets</td><td>Step and cost limits; stop conditions; checkpoint for approval</td></tr>
+<tr><td>LLM integration</td><td>Talks to models; formats prompts and tool schemas; parses replies</td><td>One provider client</td><td>Multi-provider routing, caching, reasoning tiers</td><td>Model gateway: pinning, budgets, provenance of the answering model</td></tr>
+<tr><td>Memory and context</td><td>Decides what the model sees each turn and what persists</td><td>Append the transcript</td><td>Compaction, retrieval, durable memory, context files</td><td>Data boundaries, fences for untrusted text, memory scope and expiry</td></tr>
+<tr><td>Tool and action system</td><td>Defines, describes and executes tools</td><td>A dict of functions</td><td>Typed schemas, edit formats, sandboxed execution</td><td>The PEP: every side effect through one chokepoint, with evidence</td></tr>
+<tr><td>Safety and permissions</td><td>Decides what may run</td><td>Ask the user each time</td><td>Policy configs, syntax-aware command permissioning, OS sandboxes</td><td>Policy decisions on facts; approvals; isolation</td></tr>
+<tr><td>Extensibility</td><td>Lets others add tools, skills, hooks, plugins</td><td>None</td><td>Marketplaces, registries, trust tiers</td><td>Tool and skill integrity, allowlists, supply-chain review</td></tr>
+<tr><td>Orchestration</td><td>Sub-agents and inter-agent protocols</td><td>Deliberately absent</td><td>Coordinator-worker trees, ACP and A2A endpoints</td><td>Declared edges, resolved senders, messages with no authority</td></tr>
+</tbody></table></div>
+
+<h2 id="builds"><span class="n">1.3</span>Your builds on the map</h2>
+<p><span class="tag own">Your build</span> Both builds are harnesses in this sense, built on frameworks rather than from scratch, and both put every subsystem behind a seam (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>).</p>
+<div class="tw"><table>
+<thead><tr><th>Subsystem</th><th>ARB</th><th>pm-agent</th></tr></thead>
+<tbody>
+<tr><td>Agent loop</td><td>Google ADK <code>LlmAgent</code> on an <code>InMemoryRunner</code>, behind <code>AdkRuntimeAdapter</code>; agents never import ADK</td><td>A typed LangGraph state graph (planner, router, workers, critic) behind an owned orchestrator interface; Postgres checkpoints; interrupts for approval (ADR-0001)</td></tr>
+<tr><td>LLM integration</td><td><code>ModelProvider</code> seam; LiteLLM to LM Studio locally, Vertex live; the answering model's id read from the response</td><td>OpenRouter via LiteLLM by default, Vertex as an option; served model and provider recorded (ADR-0006)</td></tr>
+<tr><td>Memory and context</td><td>BM25 retrieval over a knowledge base; retrieved text fenced; no durable memory</td><td>Governed durable memory; Jira data split into typed records; data channel with nonce</td></tr>
+<tr><td>Tools and actions</td><td><code>ToolRegistry</code> and <code>ToolChokepoint</code>: every tool call is a governed call</td><td><code>platform/pep/</code>; typed actions from a closed union (ADR-0005)</td></tr>
+<tr><td>Safety and permissions</td><td>Enforcement plane: OPA/Rego, guardrails, signed approvals</td><td>OPA/Rego, eligibility policy, approval with provenance lanes</td></tr>
+<tr><td>Extensibility</td><td>MCP through a tool gateway, with tool pinning (CTL-0024)</td><td>Jira via REST (MCP refused API-token auth, D-PM-P1-g), Atlassian MCP for the executor; lifecycle packs as data (ADR-0007)</td></tr>
+<tr><td>Orchestration</td><td>A declared A2A edge between two agents; out-of-process hosts for LangGraph and OpenAI Agents SDK behind gateways (D53)</td><td>Executor contract for trackers, repositories and coding agents via ACP (ADR-0008)</td></tr>
+<tr><td>Interface</td><td>CLI, approval console, demo targets</td><td>Run API (FastAPI): runs, approvals, events</td></tr>
+</tbody></table></div>
+
+<h2 id="autonomy"><span class="n">1.4</span>The autonomy ladder</h2>
+<p><span class="tag gen">Generic</span> Autonomy is a dial, not a switch, and placing an agent on it is the fastest way to make a governance conversation concrete. Your tiering axis <code>autonomy</code> encodes three of the four rungs.</p>
+<div class="tw"><table>
+<thead><tr><th>Rung</th><th>The agent may</th><th>ARB axis value</th><th>Governance grows by</th></tr></thead>
+<tbody>
+<tr><td>Observe</td><td>Read, search, summarise</td><td><code>suggests</code> (with read-only action class)</td><td>Registration, data scope, logging</td></tr>
+<tr><td>Advise</td><td>Recommend; a person acts</td><td><code>suggests</code></td><td>Quality evals, disclosure, grounding</td></tr>
+<tr><td>Act with approval</td><td>Execute after a person approves that act</td><td><code>acts-with-confirmation</code></td><td>Per-act approval, separation of duties, policy before each act, full evidence</td></tr>
+<tr><td>Act autonomously</td><td>Execute within limits, no per-act approval</td><td><code>acts-autonomously</code></td><td>Value and volume limits, live monitoring, kill switch, continuous testing, executive acceptance</td></tr>
+</tbody></table></div>
+<p><span class="tag own">pm-agent</span> pm-agent scored its write-capable profile as <code>acts-with-confirmation</code> rather than leaving it at <code>suggests</code>, because an agent that proposes a write which executes after a person confirms is, by the axis definition, acting with confirmation (D-PM-P4-a). Score the designed behaviour, not the comforting one.</p>
+
+<h2 id="findings"><span class="n">1.5</span>What the field's code shows</h2>
+<p><span class="tag gen">Generic</span> The source-code study's findings bear directly on how you govern harnesses you did not build:</p>
+<ul>
+  <li><strong>No general-purpose agent framework in any runtime.</strong> Across about four million lines, none of the eleven imports LangChain, LangGraph, AutoGen or similar; loops are hand-rolled. Governance that depends on a framework's hooks will not reach these agents; governance at a gateway, a tool server or the system of record will.</li>
+  <li><strong>Behavioural policy is moving from prompt prose into configuration.</strong> Hooks, permission files and settings replace "please don't" in the system prompt, which is the harness vendors arriving at "an instruction is not a control" from the other side.</li>
+  <li><strong>Safety is a choice, not a consequence of scale.</strong> Some of the largest harnesses ship with no OS-level isolation and spend instead on content-borne threat defence and syntax-aware permissioning. Do not assume a popular harness is sandboxed; check.</li>
+  <li><strong>Skills now lead MCP in adoption</strong> (9 of 11 versus 8 of 11), with registries, trust tiers and the first agent-authored skills. Extensibility has become a supply chain, with the integrity problems of one.</li>
+  <li><strong>ACP found a third role: harness hosting.</strong> OpenHands runs Claude Code, Codex or Gemini CLI as interchangeable back-ends, and a meta-harness (Databricks' Omnigent) orchestrates eleven vendor harnesses behind one API. The harness has turned from a tool into a platform.</li>
+</ul>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Harness versions, licences and ownership change monthly (in 2026 alone: Gemini CLI's consumer service moved to the closed Antigravity CLI, Goose moved to the Linux Foundation, Aider entered community maintenance). Quote the study's findings with its date (July 2026) and re-check any product fact.</p>
+</div>
+
+<h2 id="attach"><span class="n">1.6</span>Where governance attaches</h2>
+<p><span class="tag gen">Generic</span> Not every attachment point is equal. A control is only as strong as its position relative to the effect:</p>
+<div class="tw"><table>
+<thead><tr><th>Attachment</th><th>Can be talked around?</th><th>Covers agents you didn't build?</th><th>Example</th></tr></thead>
+<tbody>
+<tr><td>System prompt</td><td>Yes</td><td>No</td><td>"Never refund more than the order total"</td></tr>
+<tr><td>Harness hook or permission config</td><td>No, if the harness enforces it</td><td>Only that harness</td><td>Pre-tool hooks; command allowlists</td></tr>
+<tr><td>In-process chokepoint behind a seam</td><td>No</td><td>Only agents on your chassis</td><td>ARB <code>ToolChokepoint</code></td></tr>
+<tr><td>Tool or MCP gateway</td><td>No</td><td>Yes, for tools it fronts</td><td>ARB tool gateway; platform agent gateways</td></tr>
+<tr><td>Model gateway</td><td>No, for what it sees</td><td>Yes</td><td>Pinning, budgets, screening</td></tr>
+<tr><td>System of record's own permissions</td><td>No</td><td>Yes</td><td>The agent's identity in the CRM</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Your build</span> ARB's design follows from this table: agents built on its chassis go through the in-process chokepoint, and agents built on other frameworks (LangGraph, OpenAI Agents SDK) run as out-of-process hosts whose model and tool traffic goes through gateways driving the same plane (D53). Every golden case and end-to-end red-team attack produced the same decisions through all three hosts.</p>
+
+<h2 id="choose"><span class="n">1.7</span>Choosing a harness</h2>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Good for</th><th>Watch for</th></tr></thead>
+<tbody>
+<tr><td>Build on a framework (ADK, LangGraph, Pydantic AI)</td><td>Enterprise agents with specific tools and governance; full control of seams</td><td>Framework churn (pin, and keep it behind an adapter); dependency caps leaking between frameworks (D53)</td></tr>
+<tr><td>Harness SDK (Claude Agent SDK, OpenAI Agents SDK)</td><td>Fast start with a proven loop, tools and context management</td><td>Where its permission model ends; whether your PEP can sit on its tool path</td></tr>
+<tr><td>Managed platform (Agent Engine, AgentCore, Copilot Studio)</td><td>Hosting, identity and registry from the vendor</td><td>Which controls are native; where your rules and evidence live (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>)</td></tr>
+<tr><td>A coding harness as an executor (Claude Code, Codex, opencode, OpenHands)</td><td>Delegated software work under another system's control</td><td>Its sandbox and permission model; driving it through ACP or a server API with approvals mapped</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">1.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Governing the model, not the harness</td><td>Govern tools, permissions, context and orchestration; the model is one input</td></tr>
+<tr><td>Controls in prompt prose</td><td>Move them to configuration, hooks, the PEP or the gateway</td></tr>
+<tr><td>Assuming the vendor harness is sandboxed</td><td>Check isolation per harness and per mode</td></tr>
+<tr><td>Framework hooks as the only enforcement</td><td>Gateways and system-of-record permissions for agents you didn't build</td></tr>
+<tr><td>Ungoverned extensions</td><td>Pin and allowlist MCP servers and skills; treat marketplaces as supply chains</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="pm-agent R3 lands its first coding-agent executor via ACP">
+  <span class="k">Waiting on the builds</span>
+  <p>When pm-agent drives a coding harness through ACP, add the mapping of the harness's permission requests onto pm-agent's approval gate as a worked example of governing a harness you did not build from the outside.</p>
+</div>
+
+<h2 id="client"><span class="n">1.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We've standardised on one model, so our agents are consistent."</strong> "The harness decides more of the behaviour than the model: which tools, what context, what permissions, what happens between steps. Standardise the harness seams and the controls on them."</li>
+    <li><strong>"Can you govern the coding agents our developers use?"</strong> "From the outside: their permission configs and sandboxes, a gateway in front of the tools and repositories they touch, and their identities in your systems. From the inside only if they run on a chassis you control."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">1.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with LL10, BT03, R01</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name the seven subsystems and the interface layer, and one governance attachment for each.</li>
+    <li><span class="lvl">Apply</span>Fill the "your builds" table from memory for ARB.</li>
+    <li><span class="lvl">Apply</span>Explain why "no framework in any runtime" matters for where you put controls.</li>
+    <li><span class="lvl">Design</span>A client's developers use three coding harnesses. Design the governance attachments you can make without changing the harnesses.</li>
+    <li><span class="lvl">Trade-off</span>Build pm-agent's planner on LangGraph versus a harness SDK. What would change?</li>
+  </ol>
+  <p class="small">Card candidates: <em>agent = model + harness; the seven subsystems</em> · <em>attachment strength table</em> · <em>policy moving from prose to configuration</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">1.11</span>Further reading</h2>
+<ul>
+  <li><b>Papers.</b> Paul Barbaste, Tristan Darrigol, Germain Vu and Tom Wiltberger, "Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents" (July 2026, <a href="https://arxiv.org/abs/2609.00006">arXiv:2609.00006</a>), the reference for this chapter, including 29 design patterns, 18 recommendations and a 90-line minimal harness.</li>
+  <li><b>Vendor guidance.</b> Anthropic's engineering articles: "Building effective agents" (December 2024), "Writing effective tools for AI agents" (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">anthropic.com</a>) and "Effective context engineering for AI agents" (<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">anthropic.com</a>), both September 2025.</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the chapter on agents. Lilian Weng, "LLM Powered Autonomous Agents" (2023).</li>
+  <li><span class="tag own">Your build</span> ARB <code>agents/customer_service_ops.py</code> docstring, <code>platform/runtime/adk.py</code>, <code>hosts/</code>, D53; pm-agent ADR-0001, ADR-0006, ADR-0008.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="index.html"><small>Previous</small>Front matter</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="loop-tools-typed-outputs.html"><small>Next</small>2 · The loop, tools and typed outputs</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

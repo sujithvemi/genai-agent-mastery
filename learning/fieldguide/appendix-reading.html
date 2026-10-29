@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>E · Reading map and sources</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Appendices</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Appendix E</div>
+  <ol>
+    <li><a href="#how">How to use the reading map</a></li>
+    <li><a href="#papers">Papers worth reading in full</a></li>
+    <li><a href="#bychapter">Further reading, chapter by chapter</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">APPENDIX E</div>
+  <h1>Reading map and sources</h1>
+  <p class="lede">Where to go next from every chapter: reading habits that keep the time well spent, a short list of papers worth reading in full, and each chapter's further reading in book order, collected from the chapters at every build.</p>
+  <div class="meta">
+    <div><b>Generated</b><span>at every build from each chapter's Further reading</span></div>
+    <div><b>Use with</b><span>learning/resources/REGISTRY.md</span></div>
+  </div>
+</div>
+<h2 id="how"><span class="n">E.1</span>How to use the reading map</h2>
+<p>The book links out wherever someone else has covered a topic better than a chapter can. This appendix gathers those links in one place: first the habits for reading them, then every chapter's further reading in book order, collected automatically each time the book is built, so it never drifts from the chapters.</p>
+<ul>
+  <li><strong>The core shelf.</strong> The dozen works the book leans on most are on <a href="index.html#shelf">the reading shelf</a> at the front, with the chapters that use each.</li>
+  <li><strong>Read for the decision, not the topic.</strong> Before opening a source, write the question the chapter left you with. Stop when it is answered; mark the rest "later" in <code>learning/resources/REGISTRY.md</code>.</li>
+  <li><strong>Vendor documentation dates fastest.</strong> Anything about a platform's features carries the chapter's <em>Facts as of</em> date; re-check before quoting (the register lists what to re-verify, <a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>).</li>
+  <li><strong>Your own library first.</strong> Downloaded guides and saved newsletters are indexed in <code>learning/resources/REGISTRY.md</code>; the radar in <code>learning/radar/</code> watches what changes.</li>
+</ul>
+
+<h2 id="papers"><span class="n">E.2</span>Papers worth reading in full</h2>
+<p>Most papers are better skimmed for their figure and their limitations section. These repay a full read for an architect of governed agents:</p>
+<ul>
+  <li>Vaswani et al., "Attention Is All You Need" (2017): the architecture under everything in Part II.</li>
+  <li>Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (2023): why serving capacity behaves as it does.</li>
+  <li>Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (2022): the loop in <a class="xref" data-ch="loop-tools-typed-outputs" href="loop-tools-typed-outputs.html">Chapter 2</a>.</li>
+  <li>Greshake et al., "Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (2023): the threat model behind Part IV's injection boundary.</li>
+  <li>Sculley et al., "Hidden Technical Debt in Machine Learning Systems" (2015): why agents decay (<a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a>).</li>
+  <li>Debenedetti et al., "Defeating Prompt Injections by Design" (CaMeL, 2025): control and data flow separated by construction, the research version of your chokepoint.</li>
+</ul>
+
+<h2 id="bychapter"><span class="n">E.3</span>Further reading, chapter by chapter</h2>
+<!--READING:START-->
+<h3>Part I · The agent as a system</h3>
+<h4><a href="harness-anatomy.html#deeper">Chapter 1 · Anatomy of an agent harness</a></h4>
+<ul>
+  <li><b>Papers.</b> Paul Barbaste, Tristan Darrigol, Germain Vu and Tom Wiltberger, "Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents" (July 2026, <a href="https://arxiv.org/abs/2609.00006">arXiv:2609.00006</a>), the reference for this chapter, including 29 design patterns, 18 recommendations and a 90-line minimal harness.</li>
+  <li><b>Vendor guidance.</b> Anthropic's engineering articles: "Building effective agents" (December 2024), "Writing effective tools for AI agents" (<a href="https://www.anthropic.com/engineering/writing-tools-for-agents">anthropic.com</a>) and "Effective context engineering for AI agents" (<a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">anthropic.com</a>), both September 2025.</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the chapter on agents. Lilian Weng, "LLM Powered Autonomous Agents" (2023).</li>
+  <li><span class="tag own">Your build</span> ARB <code>agents/customer_service_ops.py</code> docstring, <code>platform/runtime/adk.py</code>, <code>hosts/</code>, D53; pm-agent ADR-0001, ADR-0006, ADR-0008.</li>
+</ul>
+<h4><a href="loop-tools-typed-outputs.html#deeper">Chapter 2 · The loop, tools and typed outputs</a></h4>
+<ul>
+  <li><b>Papers.</b> Shunyu Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models" (2022, <a href="https://arxiv.org/abs/2210.03629">arXiv:2210.03629</a>); Timo Schick et al., "Toolformer" (2023).</li>
+  <li><b>Guidance.</b> Anthropic, "Writing effective tools for AI agents" (September 2025).</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the sections on structured outputs and on agents' tools; Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite>, the chapter on constrained generation.</li>
+  <li><b>Your library.</b> AI Engineering from Scratch, phase 5 (constrained decoding) and phase 14 (the agent loop).</li>
+  <li><span class="tag own">Your build</span> <code>agents/tools.py</code>, <code>enforcement/wiring</code>, <code>enforcement/answer_contract.py</code>, <code>platform/model/structured.py</code>; D19, D63, D71. pm-agent <code>contracts/</code>, D-PM-P0-d, D-PM-P1-h.</li>
+</ul>
+<h4><a href="context-memory-state.html#deeper">Chapter 3 · Context, memory and state</a></h4>
+<ul>
+  <li><b>Papers and guidance.</b> Nelson F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts" (2023, <a href="https://arxiv.org/abs/2307.03172">arXiv:2307.03172</a>); Anthropic, "Effective context engineering for AI agents" (September 2025).</li>
+  <li><b>Books.</b> Kleppmann and Riccomini, <cite>Designing Data-Intensive Applications</cite> (2nd ed.), on transactions, isolation levels and lost updates. Chip Huyen, <cite>AI Engineering</cite>, on agent memory.</li>
+  <li><b>Your library.</b> The Neural Maze, "Building Agent Memory with Knowledge Graphs" (Graphiti and Neo4j); the LangGraph tutorial playlist for checkpointers and interrupts.</li>
+  <li><span class="tag own">Your build</span> <code>platform/state/__init__.py</code> docstring, <code>platform/runtime/adk.py</code>; D38, D42. pm-agent <code>platform/runtime</code>, <code>platform/memory/</code>; D-PM-P4-f, D-PM-P5-i, -l, -p.</li>
+</ul>
+<h4><a href="retrieval-grounding.html#deeper">Chapter 4 · Retrieval and grounding</a></h4>
+<ul>
+  <li><b>Books.</b> Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite>, the chapters on semantic search and RAG; Chip Huyen, <cite>AI Engineering</cite>, the RAG chapter.</li>
+  <li><b>Papers.</b> Patrick Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (2020); Stephen Robertson and Hugo Zaragoza, "The Probabilistic Relevance Framework: BM25 and Beyond" (2009).</li>
+  <li><b>Your library.</b> Ramchandani's case study on how Perplexity turns a question into a cited answer (case 1); the Zilliz vector-search playlist.</li>
+  <li><span class="tag own">Your build</span> <code>platform/retrieval/keyword.py</code>, <code>enforcement/grounding.py</code>, <code>enforcement/answer_contract.py</code>. pm-agent ADR-0002, D-PM-P3-g.</li>
+</ul>
+<h4><a href="protocols-trust.html#deeper">Chapter 5 · Protocols and trust between agents</a></h4>
+<ul>
+  <li><b>Specifications.</b> MCP (<a href="https://modelcontextprotocol.io/">modelcontextprotocol.io</a>), including its authorisation section; A2A (<a href="https://a2a-protocol.org/">a2a-protocol.org</a>); ACP (<a href="https://agentclientprotocol.com/">agentclientprotocol.com</a>).</li>
+  <li><b>Security.</b> The OWASP Top 10 for Agentic Applications items on tool misuse and inter-agent trust; Invariant Labs' 2025 write-ups on MCP tool poisoning.</li>
+  <li><b>Your library.</b> The Neural Maze course on MCP ("Kubrick"); AI Engineering from Scratch, phase 13.</li>
+  <li><span class="tag own">Your build</span> <code>platform/a2a/__init__.py</code>, <code>enforcement/topology.py</code>, <code>enforcement/mcp_integrity.py</code>, <code>governance/registry/mcp_servers.yaml</code>, <code>docs/governance/P7_S3_CROSS_AGENT_ESCALATION.md</code>; D40, D60. pm-agent ADR-0008.</li>
+</ul>
+<h4><a href="orchestration-meta-harness.html#deeper">Chapter 6 · Orchestration and the meta-harness</a></h4>
+<ul>
+  <li><b>Guidance.</b> Anthropic, "Building effective agents" (December 2024) and "How we built our multi-agent research system" (2025).</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026), section on the meta-harness and the platform turn.</li>
+  <li><b>Your library.</b> Lamhot Siagian, <cite>LLM System Design</cite> (preview), on continuous agent loops; the LangGraph tutorial playlist.</li>
+  <li><span class="tag own">pm-agent</span> ADR-0001, ADR-0004, ADR-0007, ADR-0008; <code>agents/planning/</code>, <code>platform/executors/</code>, <code>ledger/</code>.</li>
+</ul>
+<h4><a href="chassis-seams-tests.html#deeper">Chapter 7 · The chassis: seams, fakes and tests that can fail</a></h4>
+<ul>
+  <li><b>Books.</b> Michael Feathers, <cite>Working Effectively with Legacy Code</cite> (2004), on seams. Titus Winters, Tom Manshreck and Hyrum Wright, <cite>Software Engineering at Google</cite> (2020), the chapters on test doubles and larger tests. Michael Nygard, <cite>Release It!</cite> 2nd ed. (2018), on integration points as the number-one stability risk.</li>
+  <li><b>Articles.</b> Alistair Cockburn, "Hexagonal architecture" (2005). Martin Fowler, "Mocks Aren't Stubs" (2007).</li>
+  <li><b>Tools.</b> import-linter (declarative import contracts); mutmut (mutation testing); PEP 544 (Protocols).</li>
+  <li><span class="tag own">Reference build</span> D32, D48 and <code>docs/migrations/ADK_2.5.0.md</code>; <code>tests/test_import_firewall.py</code>, <code>test_portability.py</code>, <code>test_plane_bypass.py</code>, <code>test_no_dead_policy.py</code>; <code>platform/_conformance.py</code>.</li>
+  <li><span class="tag own">pm-agent</span> <code>tests/test_import_firewall.py</code> (per-seam rules and bite tests), <code>test_runtime_portability.py</code>, <code>test_platform_seams.py</code>.</li>
+</ul>
+<h3>Part II · The model layer</h3>
+<h4><a href="transformers-tokens.html#deeper">Chapter 8 · Transformers and tokens for architects</a></h4>
+<ul>
+  <li><b>Books.</b> Sebastian Raschka, <cite>Build a Large Language Model (From Scratch)</cite> (Manning, 2024) and <cite>Build a Reasoning Model (From Scratch)</cite> (Manning). Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite> (O'Reilly, 2024), chapters on tokens, embeddings and the transformer (its illustrations are the clearest available). Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), chapter 2 on foundation models and sampling.</li>
+  <li><b>Papers.</b> Vaswani et al., "Attention Is All You Need" (2017, arXiv 1706.03762). Sennrich et al., BPE for neural machine translation (arXiv 1508.07909). Su et al., RoPE (arXiv 2104.09864). Ainslie et al., GQA (arXiv 2305.13245). Dao et al., FlashAttention (arXiv 2205.14135). Fedus et al., Switch Transformers (arXiv 2101.03961). Ouyang et al., InstructGPT (arXiv 2203.02155). Liu et al., "Lost in the Middle" (arXiv 2307.03172). Turpin et al., "Language Models Don't Always Say What They Think" (arXiv 2305.04388). DeepSeek-AI, DeepSeek-R1 (arXiv 2501.12948).</li>
+  <li><b>Articles.</b> Horace He / Thinking Machines Lab, "Defeating Nondeterminism in LLM Inference" (2025). Jay Alammar, "The Illustrated Transformer".</li>
+  <li><b>Your library.</b> AI Engineering from Scratch, phase 5 (tokenisation) and phase 7 (attention, KV cache); the Raschka playlist.</li>
+</ul>
+<h4><a href="inference-serving.html#deeper">Chapter 9 · Inference and serving</a></h4>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapter 9 on inference optimisation. Stas Bekman, <cite>Machine Learning Engineering</cite> (open book on GitHub), chapters on inference, hardware and networking.</li>
+  <li><b>Papers.</b> Kwon et al., PagedAttention / vLLM (arXiv 2309.06180). Yu et al., Orca (OSDI 2022). Agrawal et al., Sarathi-Serve (arXiv 2403.02310). Zhong et al., DistServe (arXiv 2401.09670). Patel et al., Splitwise (arXiv 2311.18677). Leviathan et al., speculative decoding (arXiv 2211.17192). Zheng et al., SGLang (arXiv 2312.07104). Frantar et al., GPTQ (arXiv 2210.17323). Lin et al., AWQ (arXiv 2306.00978). Gu et al., "Auditing Prompt Caching in Language Model APIs" (arXiv 2502.07776).</li>
+  <li><b>Provider documentation.</b> Google Cloud, consumption options and "Reduce 429 errors on Vertex AI"; Amazon Bedrock, service tiers and quotas; Microsoft Learn, Foundry deployment types and quotas.</li>
+  <li><b>Your library.</b> Ramchandani, <cite>AI System Design Playbook</cite>, cases 2, 5, 10 and 11 (mixture of experts); AI Engineering from Scratch, phase 7.</li>
+</ul>
+<h4><a href="model-choice-risk.html#deeper">Chapter 10 · Model choice, routing and model risk</a></h4>
+<ul>
+  <li><b>Regulation.</b> Federal Reserve, OCC and FDIC, SR 26-2, "Guidance on Model Risk Management" (17 April 2026). NIST AI 600-1, "Generative Artificial Intelligence Profile" (2024).</li>
+  <li><b>Papers.</b> Chen, Zaharia and Zou, FrugalGPT (arXiv 2305.05176). Ong et al., RouteLLM (arXiv 2406.18665). Mitchell et al., "Model Cards for Model Reporting" (arXiv 1810.03993). "Governing Generative AI Across Financial Institutions: An SR 26-2-Compatible Framework" (arXiv 2607.04103) <span class="tag ver">Verify</span> before citing to a client.</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapter 4 on evaluating and selecting models and chapter 10 on architecture (gateways, caching, routing).</li>
+  <li><b>Your library.</b> Ramchandani, <cite>AI System Design Playbook</cite>, case 17 (RouteLLM) and case 5 (prompt caching).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/catalog/CTL-0020.yaml</code>, <code>CTL-0021.yaml</code>, D53, D57, D58, D71; pm-agent <code>artifacts/adr/ADR-0006-model-routing.md</code>, <code>platform/model/identity.py</code>.</li>
+</ul>
+<h3>Part III · The rulebook</h3>
+<h4><a href="governance-when-software-acts.html#deeper">Chapter 11 · What governance must do when software acts</a></h4>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), the chapter on agents (planning, tools and failure modes) and the one on guardrails; read them for the builder's view of the same risks.</li>
+  <li><b>Essays.</b> Lilian Weng, "LLM Powered Autonomous Agents" (2023, <a href="https://lilianweng.github.io/posts/2023-06-23-agent/">lilianweng.github.io</a>), still the clearest map of planning, memory and tool use. Anthropic, "Building effective agents" (December 2024), for the distinction between workflows and agents and why simple patterns win.</li>
+  <li><b>Frameworks.</b> NIST AI 600-1, the Generative AI profile of the AI RMF (July 2024), for the risk vocabulary auditors use; the OWASP Top 10 for Agentic Applications (December 2025) for the threat list your catalog is crosswalked to.</li>
+  <li><span class="tag own">Your build</span> <code>docs/governance/CONTROL_GAPS.md</code> (all 29 gaps, with the file and test for each), <code>docs/visuals/BUILD_STORY.md</code> (the posture per phase), DECISIONS D0, D7 and D20.</li>
+</ul>
+<h4><a href="reference-model.html#deeper">Chapter 12 · A reference model: planes, layers, enforcement points</a></h4>
+<ul>
+  <li><b>Books.</b> Mark Richards and Neal Ford, <cite>Fundamentals of Software Architecture</cite> (O'Reilly), on architecture characteristics and fitness functions, which is what a conformance suite is. Brendan Burns, <cite>Designing Distributed Systems</cite> (O'Reilly), the sidecar and ambassador patterns, for PEP placement.</li>
+  <li><b>Standards.</b> NIST AI RMF 1.0 and the AI RMF Playbook (<a href="https://www.nist.gov/itl/ai-risk-management-framework">nist.gov</a>); ISO/IEC 42001:2023, clauses 6 and 8 and Annex A; Google's SAIF materials.</li>
+  <li><span class="tag own">Your build</span> <code>docs/architecture/ARCHITECTURE.md</code>, ADR-0001 (repo layout), <code>docs/operating/RACI.md</code> and <code>SLOS.md</code> (D45).</li>
+</ul>
+<h4><a href="risk-tiering.html#deeper">Chapter 13 · Fleet-first risk tiering</a></h4>
+<ul>
+  <li><span class="tag own">Your build</span> <code>docs/governance/P2_Governance_Framework.md</code> §1–§4 and §6a (the authored rationale); <code>governance/taxonomy/{axes,tiers,archetypes}.yaml</code>; <code>src/aicoe/governance/tiering/engine.py</code>; <code>tests/test_governance_tiering.py</code>; DECISIONS D14, D39, D40.</li>
+  <li><span class="tag own">Your build</span> pm-agent carries its own <code>governance/tiering/</code> (215 lines). Diff it against ARB's after R04 and note what changed and why.</li>
+    <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), the chapters on evaluation methodology and on guardrails, for the view from the application builder's side of the same trade-off between control and usefulness. Adam Shostack, <cite>Threat Modeling: Designing for Security</cite> (Wiley, 2014), for scoring by capability rather than likelihood, which is the argument behind highest-wins.</li>
+  <li><span class="tag gen">Generic</span> NIST AI RMF 1.0, the MAP function (context and categorisation before measurement); ISO/IEC 42001 clause 6.1 (actions to address risks). Read both for the vocabulary auditors will use about your tiering.</li>
+</ul>
+<h4><a href="control-as-contract.html#deeper">Chapter 14 · The control as a contract</a></h4>
+<ul>
+  <li><b>Books.</b> Neal Ford, Rebecca Parsons and Patrick Kua, <cite>Building Evolutionary Architectures</cite> (O'Reilly), on fitness functions: a conformance check is a fitness function for a governance property. Ross Anderson, <cite>Security Engineering</cite>, the chapter on assurance and evaluation, for why a claim needs evidence that could have failed.</li>
+  <li><b>Standards.</b> ISO/IEC 42001:2023 Annex A (the control objectives a certifier will map to); the COSO internal-control framework's control-activity concepts, which is the vocabulary your client's second line uses.</li>
+  <li><span class="tag own">Your build</span> <code>governance/_schemas/control.schema.yaml</code> (read the field descriptions; they are the spec), <code>src/aicoe/governance/validate.py</code>, <code>docs/governance/CONTROL_GAPS.md</code>, DECISIONS D16, D22, D23, D34–D36, D49, D55, D56; pm-agent D-PM-P4-j and D-PM-P4-n.</li>
+</ul>
+<h4><a href="lifecycle-gates.html#deeper">Chapter 15 · The lifecycle and its gates</a></h4>
+<ul>
+  <li><b>Books.</b> Nicole Forsgren, Jez Humble and Gene Kim, <cite>Accelerate</cite> (IT Revolution, 2018), for why fast, automated, small-batch release with strong checks beats heavyweight approval boards. Jez Humble and David Farley, <cite>Continuous Delivery</cite> (Addison-Wesley, 2010), the deployment pipeline as the place where every change is proven.</li>
+  <li><b>Standards.</b> ISO/IEC 42001:2023 clause 8 (operational planning and control) and the Annex A objectives on the AI system life cycle; NIST AI RMF MANAGE 1–4.</li>
+  <li><span class="tag own">Your build</span> <code>src/aicoe/governance/gate/{engine,design,binding}.py</code>, <code>config_digest.py</code>, <code>signoff.py</code>, <code>inventory.py</code>; <code>docs/operating/GATE_AS_PROMOTION.md</code>; Makefile targets <code>gov-gate</code>, <code>gov-gate-as-designed</code>, <code>gov-fleet</code>, <code>demo-gate-flip</code>, <code>demo-regate</code>. DECISIONS D22, D27, D45, D59, D62; pm-agent D-PM-P4-c, -i, -j, -k and D-PM-P5-h, -k.</li>
+</ul>
+<h3>Part IV · The referee</h3>
+<h4><a href="governed-action.html#deeper">Chapter 16 · The governed action</a></h4>
+<ul>
+  <li><span class="tag own">Your build</span> Module docstrings first, code second: <code>src/aicoe/chokepoint.py</code>, <code>enforcement/plane.py</code> (<code>before_call</code>, <code>after_call</code>, <code>transform_result</code>), <code>enforcement/pip.py</code>, <code>governance/policies/rego/tool_call.rego</code> header, <code>tests/test_no_dead_policy.py</code>, <code>gateways/equivalence.py</code>. Decisions D17, D23, D25, D26, D30, D53.</li>
+  <li><span class="tag own">Your build</span> pm-agent's PEP lives in <code>platform/pep/</code> (about 1,000 lines). After R01, diff its step order against ARB's seven and note what differs.</li>
+  <li><span class="tag gen">Generic</span> NIST SP 800-162 (ABAC) for the PEP/PDP/PIP vocabulary; Saltzer and Schroeder, "The Protection of Information in Computer Systems" (1975), for complete mediation and fail-safe defaults; the OPA documentation on policy performance and decision logs.</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite> (3rd ed., Wiley, 2020), the chapters on access control and on security policy models, for the lineage of the reference monitor that the PEP is. Michael Nygard, <cite>Release It!</cite> (2nd ed., Pragmatic Bookshelf, 2018), on fail-fast and steady state, for the availability side of failing closed.</li>
+  <li>Hands-on: BT06 (Rego) and BT07 (Cedar) in the technology track.</li>
+</ul>
+<h4><a href="policy-as-code.html#deeper">Chapter 17 · Policy as code</a></h4>
+<ul>
+  <li><b>Papers.</b> Joseph Cutler et al., "Cedar: A New Language for Expressive, Fast, Safe, and Analyzable Authorization" (OOPSLA 2024), for why Cedar is small on purpose. Ruoming Pang et al., "Zanzibar: Google's Consistent, Global Authorization System" (USENIX ATC 2019), for relationship-based access at scale.</li>
+  <li><b>Documentation.</b> The OPA documentation on policy testing, bundles and decision logs (<a href="https://www.openpolicyagent.org/docs/">openpolicyagent.org/docs</a>); the Cedar language reference (<a href="https://docs.cedarpolicy.com/">docs.cedarpolicy.com</a>).</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite>, the access-control chapter, for the models (DAC, MAC, RBAC, ABAC) these languages implement.</li>
+  <li><span class="tag own">Your build</span> <code>governance/policies/rego/tool_call.rego</code> (read the header first), <code>governance/policies/cedar/tool_call.cedar</code>, <code>governance/policies/params.yaml</code> (<code>violation_precedence</code>), <code>tests/test_policy_parity.py</code>, <code>tests/test_no_dead_policy.py</code>, <code>docs/architecture/AGT_INTEROP.md</code>; DECISIONS D17, D18, D22, D24, D36, D63. pm-agent: ADR-0005, <code>governance/policies/eligibility/</code>.</li>
+</ul>
+<h4><a href="identity-delegation.html#deeper">Chapter 18 · Identity, delegation and capability</a></h4>
+<ul>
+  <li><b>Books.</b> Justin Richer and Antonio Sanso, <cite>OAuth 2 in Action</cite> (Manning, 2017), for tokens, scopes and delegation from first principles. Ross Anderson, <cite>Security Engineering</cite>, on authentication protocols and the chapter on access control.</li>
+  <li><b>Standards and papers.</b> RFC 8693 (OAuth 2.0 Token Exchange), RFC 9449 (DPoP), RFC 8705 (mTLS-bound tokens); Norm Hardy, "The Confused Deputy" (1988); the SPIFFE specifications (<a href="https://spiffe.io/">spiffe.io</a>); Mark S. Miller, <cite>Robust Composition</cite> (2006), for object capabilities.</li>
+  <li><span class="tag own">Your build</span> Module docstrings of <code>enforcement/tokens.py</code>, <code>platform/identity</code>, <code>platform/signing.py</code>, <code>platform/signing_kms.py</code>; tests <code>test_identity_directory.py</code>, <code>test_e4_signing.py</code>; DECISIONS D20, D28, D33, D40. pm-agent D-PM-P3-b and D-PM-P3-h.</li>
+</ul>
+<h4><a href="human-oversight.html#deeper">Chapter 19 · Human oversight that holds</a></h4>
+<ul>
+  <li><b>Papers.</b> Lisanne Bainbridge, "Ironies of Automation" (Automatica, 1983); Raja Parasuraman and Victor Riley, "Humans and Automation: Use, Misuse, Disuse, Abuse" (Human Factors, 1997). Both are short and explain most approval failures you will meet.</li>
+  <li><b>Law and frameworks.</b> EU AI Act, Article 14 (human oversight) <span class="tag ver">Verify</span> against the consolidated text; NIST AI RMF MAP 3.5 and MANAGE 4.1; OWASP Top 10 for Agentic Applications, the human-in-the-loop threat.</li>
+  <li><span class="tag own">Your build</span> <code>src/aicoe/approval_ui/{console,server}.py</code> docstrings, <code>enforcement/tokens.py</code>, <code>enforcement/fatigue_signals.py</code>, <code>governance/policies/params.yaml</code> (<code>approval.fatigue</code>, <code>fatigue_signals</code>), <code>tests/redteam/test_s9_approval_ui.py</code>, <code>tests/test_approval_fatigue.py</code>; DECISIONS D31, D35, D37, D43, D47. pm-agent: <code>platform/approval</code>, <code>platform/runtime</code>, D-PM-P4-d, -e, -k, -l, ADR-0005.</li>
+</ul>
+<h4><a href="guardrails-injection.html#deeper">Chapter 20 · Guardrails, classifiers and injection</a></h4>
+<ul>
+  <li><b>Papers.</b> Kai Greshake et al., "Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection" (2023, <a href="https://arxiv.org/abs/2302.12173">arXiv:2302.12173</a>). Edoardo Debenedetti et al., "Defeating Prompt Injections by Design" (CaMeL, 2025, <a href="https://arxiv.org/abs/2503.18813">arXiv:2503.18813</a>). Luca Beurer-Kellner et al., "Design Patterns for Securing LLM Agents against Prompt Injections" (2025, <a href="https://arxiv.org/abs/2506.08837">arXiv:2506.08837</a>).</li>
+  <li><b>Essays.</b> Simon Willison's writing on prompt injection since 2022, and his 2025 post on the lethal trifecta.</li>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the sections on prompt attacks and guardrails. Your library: Ramchandani's case study on Llama Guard (case 8).</li>
+  <li><b>Standards.</b> OWASP Top 10 for LLM Applications (LLM01 prompt injection, LLM05 improper output handling) and for Agentic Applications.</li>
+  <li><span class="tag own">Your build</span> <code>enforcement/guardrails.py</code>, <code>governance/policies/guardrails.yaml</code>, <code>enforcement/classifier_gate.py</code>, <code>platform/classifier/</code>, <code>enforcement/answer_contract.py</code>; DECISIONS D31, D40, D52, D54, D63. pm-agent: ADR-0005, <code>agents/guardrails/</code>, D-PM-P4H-a/g, D-PM-P5-q, D-PM-P5-close-1.</li>
+</ul>
+<h4><a href="data-boundaries.html#deeper">Chapter 21 · Data boundaries: what agents may see, keep and move</a></h4>
+<ul>
+  <li><b>Books.</b> Kleppmann and Riccomini, <cite>Designing Data-Intensive Applications</cite> (2nd ed.), on derived data and the difficulty of deletion in systems built on logs. Katharine Jarmul, <cite>Practical Data Privacy</cite> (O'Reilly, 2023), for pseudonymisation and privacy engineering patterns.</li>
+  <li><b>Law.</b> GDPR Articles 5 (principles, including minimisation and storage limitation) and 17 (erasure) <span class="tag ver">Verify</span> with counsel for any specific claim.</li>
+  <li><span class="tag own">Your build</span> <code>evidence/redaction.py</code>, <code>evidence/detail.py</code>, <code>params.yaml</code> (<code>pii_keys</code>, <code>free_text_keys</code>, <code>transparent_keys</code>), DECISIONS D21, D23, D25, D26. pm-agent: <code>platform/memory/{governed,pii,postgres}.py</code>, <code>platform/crypto/memory_mac.py</code>, <code>platform/cache</code>, D-PM-P3-h, D-PM-P5-i, -j, -l, -m, -p, D-PM-R1-30, -31.</li>
+</ul>
+<h4><a href="evidence-plane.html#deeper">Chapter 22 · The evidence plane</a></h4>
+<ul>
+  <li><b>Papers and specs.</b> Scott Crosby and Dan Wallach, "Efficient Data Structures for Tamper-Evident Logging" (USENIX Security 2009); RFC 6962 (Certificate Transparency), the reference design for Merkle-tree transparency logs; Bruce Schneier and John Kelsey, "Secure Audit Logs to Support Computer Forensics" (1999).</li>
+  <li><b>Books.</b> Kleppmann and Riccomini, <cite>Designing Data-Intensive Applications</cite> (2nd ed.), the chapters on logs and event sourcing.</li>
+  <li><span class="tag own">Your build</span> Docstrings of <code>evidence/writer.py</code>, <code>evidence/chain.py</code>, <code>platform/anchor</code>, <code>audit.py</code>, <code>governance/evidence_pack.py</code>; <code>infra/gcp/lock_anchor_bucket.sh</code>; DECISIONS D21, D23, D25, D28, D34. pm-agent: <code>platform/evidence/</code>, D-PM-P4H-h, D-PM-P5-f, -g, -h.</li>
+</ul>
+<h4><a href="evals-as-gates.html#deeper">Chapter 23 · Evals as gates</a></h4>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite>, the two chapters on evaluation (methodology, then evaluating AI systems), the best book-length treatment. Ron Kohavi, Diane Tang and Ya Xu, <cite>Trustworthy Online Controlled Experiments</cite> (Cambridge, 2020), for A/A tests, power and pre-registration.</li>
+  <li><b>Your library.</b> "Agentic Evals pt 1" (Yesha Shah, Aug 2026) for pass^k and trajectory grading; AI Engineering from Scratch, phase 5 on evals.</li>
+  <li><span class="tag own">Your build</span> ARB <code>evals/golden/</code>, <code>evals/fairness.py</code>, <code>evals/retry.py</code>, <code>governance/live_report.py</code>; DECISIONS D56, D71, D74. pm-agent <code>evals/{rubric,baseline,ws_e,replay}.py</code>, <code>platform/model/identity.py</code>; D-PM-P5-o, -r, -s.</li>
+</ul>
+<h4><a href="proving-controls-fire.html#deeper">Chapter 24 · Proving controls fire</a></h4>
+<ul>
+  <li><b>Books.</b> Neal Ford, Rebecca Parsons and Patrick Kua, <cite>Building Evolutionary Architectures</cite>, on fitness functions; Adam Shostack, <cite>Threat Modeling</cite>, for building attack classes systematically.</li>
+  <li><b>Frameworks.</b> OWASP Top 10 for Agentic Applications, as an attack-class checklist; MITRE ATLAS for adversary techniques against AI systems.</li>
+  <li><span class="tag own">Your build</span> <code>enforcement/conformance.py</code>, <code>tests/redteam/</code> (start with <code>harness.py</code> and <code>invariants.py</code>), <code>tests/test_no_dead_policy.py</code>; Makefile <code>demo-redteam</code>, <code>demo-gate-flip</code>; DECISIONS D22, D27, D29, D30, D39, D52, D55, D56. pm-agent: <code>docs/validation/</code> (T3 reports), D-PM-P4-n, D-PM-P5-c.</li>
+</ul>
+<h3>Part V · The system around the agent</h3>
+<h4><a href="edge-api-design.html#deeper">Chapter 25 · Edge, request path and API design</a></h4>
+<ul>
+  <li><b>Books.</b> JJ Geewax, <cite>API Design Patterns</cite> (2021), long-running operations and idempotency; Google's API Improvement Proposals (AIP-151 long-running operations, AIP-155 request identification).</li>
+  <li><b>Specifications.</b> RFC 9110 (HTTP semantics), RFC 9457 (Problem Details), the IETF Idempotency-Key header draft, the HTML Living Standard on server-sent events.</li>
+  <li><b>Your library.</b> Postman's API Design playlist; "Backend from first principles".</li>
+  <li><span class="tag own">pm-agent</span> <code>src/pm_agent/api/app.py</code>.</li>
+</ul>
+<h4><a href="communication-durable-execution.html#deeper">Chapter 26 · Communication and durable execution</a></h4>
+<ul>
+  <li><b>Books.</b> Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite> 2nd ed. (2026), chapters on stream processing and on consistency; Chris Richardson, <cite>Microservices Patterns</cite> (2018), outbox and sagas.</li>
+  <li><b>Papers.</b> Garcia-Molina and Salem, "Sagas" (SIGMOD 1987).</li>
+  <li><b>Documentation.</b> Temporal (workflows, activities, determinism); Google Pub/Sub exactly-once delivery; AWS Step Functions.</li>
+  <li><span class="tag own">Your builds</span> pm-agent <code>platform/runtime/</code>, <code>platform/cancel.py</code>, <code>docs/design/05_deployment-and-evaluation.md</code>; ARB <code>src/aicoe/evidence/writer.py</code>.</li>
+</ul>
+<h4><a href="authn-authz.html#deeper">Chapter 27 · AuthN and AuthZ end to end</a></h4>
+<ul>
+  <li><b>Specifications.</b> OAuth 2.0 and the OAuth 2.1 draft; OpenID Connect Core; RFC 8693 (token exchange); RFC 9449 (DPoP); RFC 8725 (JWT best current practices); SPIFFE.</li>
+  <li><b>Papers.</b> Pang et al., "Zanzibar: Google's Consistent, Global Authorization System" (USENIX ATC 2019).</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite> 3rd ed. (2020), chapters on access control.</li>
+  <li><span class="tag own">Your builds</span> ARB D33; pm-agent <code>platform/identity/resolver.py</code>, <code>platform/approval/</code>.</li>
+</ul>
+<h4><a href="state-data-scale.html#deeper">Chapter 28 · State, data and scale</a></h4>
+<ul>
+  <li><b>Books.</b> Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite> 2nd ed. (O'Reilly, 2026): replication, partitioning, transactions (write skew), derived data. Alex Petrov, <cite>Database Internals</cite> (2019).</li>
+  <li><b>Guides.</b> AWS SaaS Lens and SaaS architecture guidance (silo, pool, bridge).</li>
+  <li><b>Your library.</b> Hussein Nasser's PostgreSQL playlist; <code>intro_to_redis.pdf</code>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>platform/state/</code>, D58, GAP-20; pm-agent ADR-0007, <code>ledger/</code>, <code>platform/memory/postgres.py</code>.</li>
+</ul>
+<h4><a href="reliability.html#deeper">Chapter 29 · Reliability for LLM systems</a></h4>
+<ul>
+  <li><b>Books.</b> Michael Nygard, <cite>Release It!</cite> 2nd ed. (2018); Google, <cite>Site Reliability Engineering</cite> (2016), chapters on handling overload and cascading failures.</li>
+  <li><b>Your library.</b> <code>stability_patterns_for_microservices.pdf</code> and <code>scalability_availability_stability_patterns.pdf</code> (Flueras 2019; Bonér).</li>
+  <li><b>Articles.</b> AWS Builders' Library, "Timeouts, retries and backoff with jitter".</li>
+  <li><span class="tag own">Your builds</span> ARB D58, D71, CTL-0006; pm-agent CTL-0007, CTL-0022, CTL-0023.</li>
+</ul>
+<h4><a href="deployment-cicd.html#deeper">Chapter 30 · Deployment and CI/CD for agents</a></h4>
+<ul>
+  <li><b>Books.</b> Jez Humble and David Farley, <cite>Continuous Delivery</cite> (2010); Kief Morris, <cite>Infrastructure as Code</cite> 2nd ed. (2020).</li>
+  <li><b>Specifications.</b> SLSA; Sigstore; Google Cloud Workload Identity Federation with deployment pipelines.</li>
+  <li><b>Your library.</b> The CI/CD/DevOps playlist; your M0 pipeline in <code>genai-agent-mastery/infra/</code>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>.github/workflows/ci.yml</code>, <code>Dockerfile</code>, <code>docs/operating/GATE_AS_PROMOTION.md</code>.</li>
+</ul>
+<h4><a href="observability-agentops.html#deeper">Chapter 31 · Observability, SLOs and AgentOps</a></h4>
+<ul>
+  <li><b>Books.</b> Charity Majors, Liz Fong-Jones and George Miranda, <cite>Observability Engineering</cite> (2022); Google, <cite>The Site Reliability Workbook</cite> (2018), chapters on SLOs and alerting.</li>
+  <li><b>Specifications.</b> OpenTelemetry semantic conventions for generative AI.</li>
+  <li><b>Your library.</b> Arize's LLM Tracing &amp; Observability playlist.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/operating/SLOS.md</code>, <code>RUNBOOKS.md</code>; pm-agent <code>platform/observability/tracing.py</code>, <code>join.py</code>, <code>alerts.py</code>, <code>defensibility.py</code>.</li>
+</ul>
+<h4><a href="security-multitenancy.html#deeper">Chapter 32 · Security architecture and multi-tenancy</a></h4>
+<ul>
+  <li><b>Standards and guides.</b> OWASP Top 10 for Agentic Applications (2026) and Top 10 for LLM Applications (2025); OWASP Agentic AI Threats and Mitigations; CSA MAESTRO; MITRE ATLAS.</li>
+  <li><b>Books.</b> Adam Shostack, <cite>Threat Modeling: Designing for Security</cite> (2014); Ross Anderson, <cite>Security Engineering</cite> 3rd ed. (2020).</li>
+  <li><b>Papers.</b> Greshake et al., indirect prompt injection (arXiv 2302.12173); Debenedetti et al., CaMeL (arXiv 2503.18813).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>tests/redteam/</code>, <code>docs/defense/STANDARDS_MAPPING.md</code>; pm-agent <code>governance/catalog/CTL-0021.yaml</code>.</li>
+</ul>
+<h4><a href="capacity-cost-regions.html#deeper">Chapter 33 · Capacity, cost and multi-region</a></h4>
+<ul>
+  <li><b>Books.</b> Kleppmann, <cite>Designing Data-Intensive Applications</cite>, chapters on replication and consistency; Huyen, <cite>AI Engineering</cite>, the inference optimisation chapter; Storment and Fuller, <cite>Cloud FinOps</cite> (2nd ed., 2023); Beyer et al., <cite>Site Reliability Engineering</cite> (2016), on capacity planning and load.</li>
+  <li><b>Provider documentation</b> (re-verify): Vertex AI consumption options and data residency; Bedrock service tiers and cross-region inference; Foundry deployment types; Claude API data residency and service tiers.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/catalog/CTL-0020.yaml</code>, <code>src/aicoe/platform/model/settings.py</code>; pm-agent <code>governance/catalog/CTL-0007.yaml</code>.</li>
+</ul>
+<h3>Part VI · The agent lifecycle</h3>
+<h4><a href="agent-development-lifecycle.html#deeper">Chapter 34 · The agent development lifecycle</a></h4>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapters 1 (planning AI applications) and 10 (architecture and user feedback).</li>
+  <li><b>Guidance.</b> Anthropic, "Building effective agents" (2024). Hamel Husain and Shreya Shankar's writing and course material on evals and error analysis. Eugene Yan, "Patterns for Building LLM-based Systems and Products" (2023).</li>
+  <li><b>Platform documentation.</b> GEAP overview; AgentCore developer guide (CLI, Harness); Microsoft Foundry Agent Service; Salesforce Agentforce Builder.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>THREAD_MODEL.md</code>, <code>docs/operating/RACI.md</code>, <code>RUNBOOKS.md</code> §3 (onboarding an agent), D39, D49, D50, D72; pm-agent <code>docs/product/</code>, <code>skills/</code>.</li>
+</ul>
+<h4><a href="frameworks-sdks-studios.html#deeper">Chapter 35 · Frameworks, SDKs and studios</a></h4>
+<ul>
+  <li><b>Framework documentation.</b> Google ADK; LangGraph 1.0 release notes (LangChain blog, October 2025); OpenAI Agents SDK; Claude Agent SDK; Microsoft Agent Framework (1.0 announcement, April 2026); Strands Agents.</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026), on why production harnesses rarely import frameworks.</li>
+  <li><b>Your library.</b> The LangGraph tutorial playlist; Microsoft Agent Framework playlist (parked until a client needs it).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>hosts/langgraph/README.md</code>, <code>hosts/openai_agents/README.md</code>, D53, D62, D63, <code>tests/test_framework_hosts.py</code>; pm-agent ADR-0001.</li>
+</ul>
+<h4><a href="tools-integration-sandboxes.html#deeper">Chapter 36 · Tools, integration, sandboxes and computer use</a></h4>
+<ul>
+  <li><b>Guidance.</b> Anthropic, "Writing effective tools for agents" (2025). The MCP specification (authorisation section). OWASP Top 10 for Agentic Applications on tool misuse.</li>
+  <li><b>Protocols.</b> A2A 1.0 (Linux Foundation, 2026); AP2 specification; UCP; AG-UI documentation.</li>
+  <li><b>Platform documentation.</b> GEAP Agent Gateway, Agent Registry and Sandbox; AgentCore Gateway, Code Interpreter, Browser and Payments; Azure API Management AI gateway.</li>
+  <li><span class="tag own">Your builds</span> ARB CTL-0024, <code>platform/gateway/</code>, D60; pm-agent <code>platform/jira/</code>.</li>
+</ul>
+<h4><a href="runtime-sessions-memory.html#deeper">Chapter 37 · Runtimes, sessions and memory services</a></h4>
+<ul>
+  <li><b>Platform documentation.</b> GEAP Agent Runtime, Sessions and Memory Bank; AgentCore Runtime, Harness and Memory; Microsoft Foundry Agent Service hosted agents; Anthropic Claude Managed Agents.</li>
+  <li><b>Books.</b> Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite> 2nd ed. (2026), chapters on storage, transactions and stream processing, for what a session store and a checkpointer must guarantee.</li>
+  <li><b>Your library.</b> Neural Maze, "Building Agent Memory with Knowledge Graphs" (Graphiti and Neo4j); Hussein Nasser's PostgreSQL playlist for the checkpointer rep.</li>
+  <li><span class="tag own">Your builds</span> pm-agent <code>platform/runtime/langgraph_orchestrator.py</code>, <code>platform/memory/</code>, <code>docs/design/05_deployment-and-evaluation.md</code>; ARB <code>platform/state/</code> (Firestore binding, GAP-20).</li>
+</ul>
+<h4><a href="versioning-release.html#deeper">Chapter 38 · Versioning, registries and release management</a></h4>
+<ul>
+  <li><b>Books.</b> Jez Humble and David Farley, <cite>Continuous Delivery</cite> (2010). Google, <cite>Site Reliability Engineering</cite> (2016), on release engineering and canarying.</li>
+  <li><b>Platform documentation.</b> GEAP Agent Runtime revisions and traffic splitting; AgentCore Optimization (configuration bundles, A/B testing); AWS Agent Registry; Microsoft Foundry Control Plane and Agent 365 registry.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>src/aicoe/governance/config_digest.py</code>, <code>governance/catalog/CTL-0022.yaml</code>, <code>CTL-0023.yaml</code>, <code>docs/operating/GATE_AS_PROMOTION.md</code>, D54, D59, D61.</li>
+</ul>
+<h4><a href="evaluation-simulation-optimization.html#deeper">Chapter 39 · Evaluation, simulation and optimization</a></h4>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (2025), chapters 3 and 4 (evaluation methodology, evaluating AI systems) and 7 (fine-tuning).</li>
+  <li><b>Papers.</b> Yao et al., τ-bench (arXiv 2406.12045). Zheng et al., "Judging LLM-as-a-Judge" (arXiv 2306.05685). Khattab et al., DSPy (arXiv 2310.03714). Agrawal et al., GEPA (arXiv 2507.19457). Yuksekgonul et al., TextGrad (arXiv 2406.07496). Shao et al., DeepSeekMath (GRPO; arXiv 2402.03300).</li>
+  <li><b>Practice.</b> Hamel Husain and Shreya Shankar on evals and error analysis. Yesha Shah, "Agentic Evals" part 1 (in your library: pass^k and trajectory grading).</li>
+  <li><b>Platform documentation.</b> GEAP evaluation, simulation and optimizer; AgentCore Evaluations and Optimization; Foundry evaluations; Microsoft ASSERT.</li>
+  <li><span class="tag own">Your builds</span> pm-agent <code>src/pm_agent/evals/baseline.py</code>, <code>replay.py</code>, <code>rubric.py</code>; ARB <code>evals/</code>, <code>tests/redteam/</code>, D71, D74.</li>
+</ul>
+<h4><a href="maintenance-evolution.html#deeper">Chapter 40 · Maintenance and evolution</a></h4>
+<ul>
+  <li><b>Papers.</b> Sculley et al., "Hidden Technical Debt in Machine Learning Systems" (NeurIPS 2015).</li>
+  <li><b>Books.</b> Google, <cite>Site Reliability Engineering</cite> (2016) and <cite>The Site Reliability Workbook</cite> (2018), on toil and planned operational work.</li>
+  <li><b>Provider documentation.</b> Model lifecycle and deprecation pages for Gemini on GEAP, Amazon Bedrock and Azure OpenAI / Foundry; Microsoft Entra Agent ID (sponsors and lifecycle workflows).</li>
+  <li><span class="tag own">Your builds</span> ARB D48, D50, D53, D57, D66, <code>tests/test_living_docs.py</code>; pm-agent <code>make eval-drift</code>.</li>
+</ul>
+<h3>Part VII · Platforms and tools</h3>
+<h4><a href="google-cloud.html#deeper">Chapter 41 · Google Cloud: Gemini Enterprise Agent Platform</a></h4>
+<ul>
+  <li><b>Google Cloud.</b> "Introducing Gemini Enterprise Agent Platform" and "The new Gemini Enterprise" (blog, 22 April 2026); GEAP overview and release notes; Agent Identity overview; IAM access policies and CEL attributes; configuring semantic governance policies; the Application Design Center "Agent Platform with governance" template; "Reduce 429 errors on Vertex AI" (12 March 2026).</li>
+  <li><b>Your library.</b> The Google ADK documentation; the reference build's E4 trace rep.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/defense/POSTURE.md</code> (live and faked), <code>governance/reports/live_2026-10-1*.md</code>, D32, D65–D71.</li>
+</ul>
+<h4><a href="aws.html#deeper">Chapter 42 · AWS: Bedrock and AgentCore</a></h4>
+<ul>
+  <li><b>AWS.</b> Amazon Bedrock AgentCore developer guide ("What is AgentCore", Policy getting-started, Identity) and release notes; Amazon Bedrock User Guide (service tiers, Guardrails); Amazon News, AWS Summit New York 2026 (17 June 2026); AWS What's New for Harness (June 2026) and Payments (August 2026).</li>
+  <li><b>Coverage.</b> InfoQ, "AWS Dogwood agent policy" (16 August 2026).</li>
+  <li><b>Specifications.</b> The Cedar language reference; the Dogwood repository <span class="tag ver">Verify</span>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/policies/cedar/tool_call.cedar</code>, <code>platform/policy/cedar.py</code>, <code>tests/test_policy_parity.py</code>, D22, D59.</li>
+</ul>
+<h4><a href="microsoft.html#deeper">Chapter 43 · Microsoft: Foundry, Copilot Studio and Agent 365</a></h4>
+<ul>
+  <li><b>Microsoft.</b> "What's new in Microsoft Foundry" (Build 2026, 2 June 2026); "Build 2026: the open trust stack for AI agents" (2 June 2026); Microsoft Learn: Agent 365 overview, Entra Agent ID what's new, Copilot Studio and Entra Agent IDs, Foundry Control Plane overview, API Management AI gateway capabilities, Foundry deployment types; "Foundry Control Plane and Agent 365: two control planes walk into an enterprise" (Tech Community, May 2026).</li>
+  <li><b>Practice.</b> Copilot Studio governance admin references from the Power Platform community; the CoE Starter Kit.</li>
+  <li><b>Your library.</b> Microsoft Agent Framework playlist (parked until a client needs it).</li>
+  <li><span class="tag own">Your builds</span> ARB D59 (reconciliation exports), D63 (AGT), <code>tests/test_policy_parity_agt.py</code>.</li>
+</ul>
+<h4><a href="data-saas-model-platforms.html#deeper">Chapter 44 · Data, SaaS and model-provider platforms</a></h4>
+<ul>
+  <li><b>Vendors.</b> Snowflake, "Cortex Agents: the platform powering Snowflake Intelligence" (21 April 2026); Salesforce, "Dreamforce 2026 announcements" (28 September 2026); ServiceNow press release on AI Control Tower (Knowledge 2026, 5 May 2026); IBM, "Introducing the agentic control plane" (2 July 2026); OpenAI, "Introducing AgentKit" (with the June 2026 wind-down note); Anthropic, Claude Managed Agents announcement (9 April 2026).</li>
+  <li><b>Summaries.</b> Atlan, "Databricks Data + AI Summit 2026: key announcements"; Constellation Research on OpenAI Frontier (February 2026); Cyber Magazine on Snowflake Cortex AI Gateway (3 August 2026).</li>
+  <li><span class="tag own">Your builds</span> ARB D59 (reconciliation), D53 (gateways), CTL-0016 to CTL-0019.</li>
+</ul>
+<h4><a href="across-platforms.html#deeper">Chapter 45 · Across platforms: capability map and governance</a></h4>
+<ul>
+  <li>The three platform chapters before this one, and their sources.</li>
+  <li><b>Standards.</b> OpenTelemetry GenAI semantic conventions; A2A 1.0 (signed agent cards); the Cedar and CEL language references.</li>
+  <li><span class="tag own">Your builds</span> ARB D22, D32, D51, D53, D59, D63; <code>tests/test_policy_parity.py</code>, <code>test_framework_hosts.py</code>, <code>test_gateway_equivalence.py</code>.</li>
+</ul>
+<h4><a href="tool-landscape.html#deeper">Chapter 46 · The independent tool landscape and build vs buy</a></h4>
+<ul>
+  <li><b>Your maps.</b> <code>learning/maps/technology_track.md</code> (components TC-01 to TC-18 and labs); the landscape matrix in <code>learning/frameworks/landscape/</code>.</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026).</li>
+  <li><span class="tag own">Your builds</span> ARB D9 (work-relevant tools, not just open-source defaults), D22, D32, D52, D63; pm-agent ADR-0006.</li>
+</ul>
+<h3>Part VIII · Frameworks and law</h3>
+<h4><a href="agt-through-your-build.html#deeper">Chapter 47 · Microsoft AGT through your build</a></h4>
+<ul>
+  <li><b>AGT.</b> Microsoft Open Source blog, "Introducing the Agent Governance Toolkit" (2 April 2026); the <code>microsoft/agent-governance-toolkit</code> repository and release notes; Microsoft Foundry blog on the open trust stack, ACS and ASSERT (2 June 2026).</li>
+  <li><span class="tag own">Your build</span> <code>docs/architecture/AGT_INTEROP.md</code>; <code>spikes/agt/README.md</code> and <code>policies/tool_call.yaml</code>; <code>tests/agt_policy.py</code>, <code>tests/test_policy_parity_agt.py</code>; DECISIONS D53, D62 (item 35), D63; RUNBOOKS §7 (framework currency).</li>
+  <li><b>Related chapters.</b> <a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a> for the three languages on one control; <a class="xref" data-ch="tool-landscape" href="tool-landscape.html">Chapter 46</a> for build versus buy across the tool market.</li>
+</ul>
+<h4><a href="standards-law-crosswalk.html#deeper">Chapter 48 · Standards, law and crosswalk engineering</a></h4>
+<ul>
+  <li><b>Primary texts.</b> Regulation (EU) 2024/1689 and Regulation (EU) 2026/1744 on EUR-Lex; NIST AI 100-1 and AI 600-1; NIST CAISI's AI Agent Standards Initiative pages and the NCCoE agent identity concept paper; OWASP GenAI Security Project, Top 10 for Agentic Applications (2026) and Agentic AI Threats and Mitigations; IMDA, Model AI Governance Framework for Agentic AI (2026).</li>
+  <li><b>Commentary used here.</b> White &amp; Case and Orrick client alerts on the AI Omnibus (July 2026); NIST COSAiS project page.</li>
+  <li><span class="tag own">Your build</span> <code>governance/crosswalk/</code> (<code>crosswalk.yaml</code>, <code>gcl_crosswalk.yaml</code>, <code>controls_to_standards.md</code>); <code>tests/test_crosswalk_verification.py</code>, <code>tests/test_gcl_crosswalk.py</code>; DECISIONS D44, D55; <code>docs/defense/STANDARDS_MAPPING.md</code>.</li>
+</ul>
+<h4><a href="regulated-industries.html#deeper">Chapter 49 · Regulated industries</a></h4>
+<ul>
+  <li><b>Banking.</b> Federal Reserve SR 26-2 and OCC Bulletin 2026-13 (April 2026); PRA SS1/23; Regulation (EU) 2022/2554 (DORA); MAS Guidelines on AI Risk Management (October 2026); OSFI Guideline E-23.</li>
+  <li><b>Insurance.</b> NAIC Model Bulletin on the Use of AI Systems by Insurers; EIOPA opinion on AI governance and risk management.</li>
+  <li><b>Healthcare.</b> HHS HIPAA Security Rule guidance; FDA guidance on clinical decision support software and on AI-enabled device software functions.</li>
+  <li><b>Public sector.</b> OMB M-25-21; the UK Algorithmic Transparency Recording Standard; EU AI Act Article 27.</li>
+  <li><span class="tag own">Your build</span> <code>governance/taxonomy/axes.yaml</code> and <code>tiers.yaml</code>; DECISIONS D74 (fairness held); <a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a> for the crosswalk mechanics an overlay plugs into.</li>
+</ul>
+<h3>Part IX · The operating model</h3>
+<h4><a href="aicoe-operating-model.html#deeper">Chapter 50 · The AICoE operating model</a></h4>
+<ul>
+  <li>Matthew Skelton and Manuel Pais, <cite>Team Topologies</cite> (IT Revolution, 2019): platform, enabling, complicated-subsystem and stream-aligned teams.</li>
+  <li>Nicole Forsgren, Jez Humble and Gene Kim, <cite>Accelerate</cite> (IT Revolution, 2018): delivery metrics that pair speed with stability.</li>
+  <li>The Institute of Internal Auditors, <cite>The IIA's Three Lines Model</cite> (2020).</li>
+  <li>NIST AI RMF, GOVERN function; ISO/IEC 42001 clause 5 (leadership) and clause 9 (performance evaluation).</li>
+  <li><span class="tag own">Your build</span> ARB <code>docs/operating/RACI.md</code>, <code>RUNBOOKS.md</code>, <code>GATE_AS_PROMOTION.md</code>, <code>SLOS.md</code>; DECISIONS D45 (the day-2 operating model) and D59 (inventory reconciliation).</li>
+</ul>
+<h4><a href="readiness-first-90-days.html#deeper">Chapter 51 · Readiness and the first 90 days</a></h4>
+<ul>
+  <li>The operating model in <a class="xref" data-ch="aicoe-operating-model" href="aicoe-operating-model.html">Chapter 50</a>; the cross-platform pattern in <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>.</li>
+  <li>NIST AI RMF Playbook, GOVERN and MAP functions, for assessment prompts.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/visuals/BUILD_STORY.md</code> (the posture arc); <code>docs/operating/RUNBOOKS.md</code> §3 (onboarding an agent); <code>docs/scoping/</code> for how the build itself sequenced its evolution.</li>
+</ul>
+<h3>Part X · Practice</h3>
+<h4><a href="capstone-a.html#deeper">Chapter 52 · Capstone A: govern a new agent by hand</a></h4>
+<ul>
+  <li>The chapters each stage leans on: <a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>, <a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>, <a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a>, <a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>, <a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>, <a class="xref" data-ch="deployment-cicd" href="deployment-cicd.html">Chapter 30</a>.</li>
+  <li>Google Cloud documentation on workload identity federation with deployment pipelines; the <code>google-github-actions/auth</code> action.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>governance/agents/customer_service_ops.yaml</code> (a card done well), <code>governance/policies/rego/tool_call.rego</code> (read the header), <code>.github/workflows/ci.yml</code>; GAM <code>infra/terraform/wif.tf</code>.</li>
+</ul>
+<h4><a href="capstone-b.html#deeper">Chapter 53 · Capstone B: a framework for a client estate</a></h4>
+<ul>
+  <li>Part VII for the platforms and <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a> for the cross-platform pattern; Part VIII for frameworks, law and overlays; Part IX for the operating model.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>src/aicoe/</code> (core ideas), <code>governance/crosswalk/gcl_crosswalk.yaml</code> (statuses), <code>docs/operating/</code>; the T1 handover's E7 options.</li>
+</ul>
+<h4><a href="defending-your-builds.html#deeper">Chapter 54 · Defending your builds</a></h4>
+<ul>
+  <li><span class="tag own">Your build</span> <code>docs/showcase/CLAIMS_CARD.md</code>, <code>CLIENT_QA.md</code>, <code>BEAT_WALKTHROUGH.md</code>, <code>SELF_TEST.md</code>, <code>GR1_GATE.md</code>; <code>docs/defense/POSTURE.md</code>, <code>LIVE_QA.md</code>, <code>WHY_TRUST_THIS.md</code>, <code>retrospective.md</code>; <code>governance/reports/live_*.md</code>. pm-agent: <code>artifacts/adr/</code>, <code>docs/validation/</code>.</li>
+  <li><b>Books.</b> Barbara Minto, <cite>The Pyramid Principle</cite>, for leading with the answer; any edition.</li>
+</ul>
+<h4><a href="design-interview.html#deeper">Chapter 55 · The design interview for governed agents</a></h4>
+<ul>
+  <li>Alex Xu, <cite>System Design Interview</cite> (volumes 1 and 2), for the general shape; your library's LLM system design references for model-specific cases.</li>
+  <li>Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite>, 2nd ed., for the deep dives on state and evidence.</li>
+  <li>Part V of this book, chapter by chapter, and <a class="xref" data-ch="defending-your-builds" href="defending-your-builds.html">Chapter 54</a> for the questions about your own builds.</li>
+</ul>
+<!--READING:END-->
+
+<nav class="pager" aria-label="Chapters">
+  <a href="appendix-decisions.html"><small>Previous</small>D · Decision index</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="appendix-cards.html"><small>Next</small>F · Card bank</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

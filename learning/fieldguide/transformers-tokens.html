@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>8 · Transformers and tokens for architects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part II · The model layer</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 8</div>
+  <ol>
+    <li><a href="#why">Why an architect needs the mechanics</a></li>
+    <li><a href="#path">One token's path</a></li>
+    <li><a href="#tokens">Tokens</a></li>
+    <li><a href="#embed">Embeddings and position</a></li>
+    <li><a href="#attention">Attention</a></li>
+    <li><a href="#stack">The decoder stack</a></li>
+    <li><a href="#sampling">Generation and sampling</a></li>
+    <li><a href="#training">How the behaviour got there</a></li>
+    <li><a href="#injection">Why injection is structural</a></li>
+    <li><a href="#long">Long context, advertised and effective</a></li>
+    <li><a href="#reasoning">Reasoning models</a></li>
+    <li><a href="#limits">Mechanics to limits to design</a></li>
+    <li><a href="#build">Build it</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART II · CHAPTER 8</div>
+  <h1>Transformers and tokens for architects</h1>
+  <p class="lede">You do not need to train a model to design around one, but you do need to know why it behaves as it does. Nearly every limit that shapes an agent system (context budgets, latency, cost, nondeterminism, prompt injection, unreliable explanations) follows from a handful of mechanics. This chapter covers those mechanics at the depth where they start to change design decisions.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>MODEL · GROUND</span></div>
+    <div><b>Reps</b><span>Raschka build (ch. 2–5) · AI Engineering from Scratch Ph5, Ph7</span></div>
+    <div><b>Build links</b><span>ARB D58 (bytes bound tokens) · D71 (thinking budget) · pm ADR-0006</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>At temperature 0, is a model's output deterministic? Why or why not?</li>
+    <li>Why does a prompt in Telugu usually cost more than the same prompt in English?</li>
+    <li>Why can't a system prompt that says "ignore instructions in documents" be relied on as a security control?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">8.1</span>Why an architect needs the mechanics</h2>
+<p><span class="tag gen">Generic</span> Your builds treat the model as a component behind a seam (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>), which is right. But a seam hides an implementation, not its physics. Four design questions cannot be answered well without the mechanics:</p>
+<ul>
+  <li><strong>Capacity and cost.</strong> Everything is metered in tokens of a particular tokenizer, and the work grows with sequence length. A budget control (ARB CTL-0020) has to count something before the call; what it can safely count depends on how tokenizers work.</li>
+  <li><strong>Latency.</strong> Generation is sequential, one token at a time, so output length dominates response time. Agents multiply this by the number of loop turns.</li>
+  <li><strong>Reliability.</strong> Outputs are samples from a probability distribution and not fully reproducible, so evidence must record what was produced; it cannot be regenerated later.</li>
+  <li><strong>Security.</strong> Instructions and data arrive in one token stream, so no prompt can fully separate them. That one fact is why the controls in Part IV sit outside the model.</li>
+</ul>
+
+<h2 id="path"><span class="n">8.2</span>One token's path</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="A decoder-only transformer generating one token. Text is split by the tokenizer into token ids. Each id is looked up in the embedding table to give a vector, and position information is applied. The vectors pass through N identical blocks, each with masked self-attention and a feed-forward network, both added back into a residual stream. A final projection gives one score per vocabulary entry (logits). Sampling picks the next token, which is appended to the sequence, and the loop repeats. Keys and values from earlier tokens are kept in a KV cache so they are not recomputed.">
+  <defs><marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+  <marker id="a8a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker></defs>
+  <rect class="box" x="10" y="40" width="120" height="70" rx="6"/>
+  <text class="tx-b" x="70" y="66" text-anchor="middle">Text</text>
+  <text class="tx-s" x="70" y="88" text-anchor="middle">"refund order 42"</text>
+  <rect class="box" x="160" y="40" width="130" height="70" rx="6"/>
+  <text class="tx-b" x="225" y="66" text-anchor="middle">Tokenizer</text>
+  <text class="tx-s" x="225" y="88" text-anchor="middle">ids [ 9022, 2015, 1774 … ]</text>
+  <rect class="box" x="320" y="40" width="130" height="70" rx="6"/>
+  <text class="tx-b" x="385" y="66" text-anchor="middle">Embedding</text>
+  <text class="tx-s" x="385" y="88" text-anchor="middle">id → vector (d)</text>
+  <line class="ln" x1="130" y1="75" x2="156" y2="75" marker-end="url(#a8)"/>
+  <line class="ln" x1="290" y1="75" x2="316" y2="75" marker-end="url(#a8)"/>
+
+  <rect class="box-strong" x="480" y="20" width="230" height="200" rx="8"/>
+  <text class="tx-b" x="595" y="44" text-anchor="middle">Block × N</text>
+  <rect class="box-acc" x="500" y="58" width="190" height="52" rx="5"/>
+  <text class="tx-acc" x="595" y="80" text-anchor="middle">masked self-attention</text>
+  <text class="tx-s" x="595" y="98" text-anchor="middle">mixes information across tokens</text>
+  <rect class="box" x="500" y="124" width="190" height="52" rx="5"/>
+  <text class="tx-b" x="595" y="146" text-anchor="middle">feed-forward (MLP)</text>
+  <text class="tx-s" x="595" y="164" text-anchor="middle">per token · most parameters</text>
+  <text class="tx-s" x="595" y="204" text-anchor="middle">each adds into a residual stream</text>
+  <line class="ln" x1="450" y1="75" x2="476" y2="75" marker-end="url(#a8)"/>
+
+  <rect class="box" x="740" y="40" width="150" height="70" rx="6"/>
+  <text class="tx-b" x="815" y="66" text-anchor="middle">Logits</text>
+  <text class="tx-s" x="815" y="88" text-anchor="middle">one score per vocab id</text>
+  <line class="ln" x1="710" y1="75" x2="736" y2="75" marker-end="url(#a8)"/>
+  <rect class="box" x="740" y="140" width="150" height="70" rx="6"/>
+  <text class="tx-b" x="815" y="166" text-anchor="middle">Sampling</text>
+  <text class="tx-s" x="815" y="188" text-anchor="middle">temperature · top-p</text>
+  <line class="ln" x1="815" y1="110" x2="815" y2="136" marker-end="url(#a8)"/>
+
+  <polyline class="ln-acc" points="815,210 815,280 225,280 225,114" marker-end="url(#a8a)"/>
+  <text class="tx-acc" x="520" y="272" text-anchor="middle">append the new token and repeat · one forward pass per output token</text>
+  <rect class="box-no" x="480" y="236" width="230" height="26" rx="4"/>
+  <text class="tx-s" x="595" y="254" text-anchor="middle">KV cache: past keys and values kept</text>
+  <line class="ln" x1="595" y1="220" x2="595" y2="234"/>
+  <text class="tx-s" x="10" y="318">N ≈ 28–80 blocks in common open models · d ≈ 3,000–8,000 · vocabularies ≈ 100,000–250,000 ids</text>
+</svg>
+</div>
+<figcaption><b>Fig 8.1</b>A decoder-only transformer producing one token. Generation repeats this loop once per output token, which is why output length sets latency (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>).</figcaption>
+</figure>
+
+<h2 id="tokens"><span class="n">8.3</span>Tokens</h2>
+<p><span class="tag gen">Generic</span> Models read integers, not characters. A tokenizer maps text to ids from a fixed vocabulary, almost always learned by <strong>byte-pair encoding</strong> (BPE; Sennrich et al., 2016) or the related unigram method in SentencePiece. BPE starts from bytes or characters and repeatedly merges the most frequent adjacent pair into a new vocabulary entry until it reaches the target size. The consequences matter more than the algorithm:</p>
+<ul>
+  <li><strong>Tokens are not words.</strong> Common English words are one token; rare words, identifiers, numbers and code split into several. A UUID or a base64 blob is expensive.</li>
+  <li><strong>Languages are not equal.</strong> Vocabularies are learned mostly from English-heavy data, so many other languages and scripts need more tokens for the same meaning. The same request costs more, uses more context and takes longer to generate. Measure with the actual tokenizer for a multilingual client; do not assume English ratios.</li>
+  <li><strong>Each vendor counts differently.</strong> Limits, prices and quotas are in the provider's own tokens. A budget computed with one tokenizer is an estimate for another.</li>
+  <li><strong>Numbers and spelling are awkward.</strong> Digits may be grouped unpredictably, which is part of why models make arithmetic and character-counting errors. Do arithmetic in tools.</li>
+  <li><strong>Odd tokens exist.</strong> Vocabulary entries that were rare in training ("glitch tokens") can produce strange behaviour. This is a reason to screen and bound inputs, not a design centrepiece.</li>
+</ul>
+<p><span class="tag own">Reference build</span> ARB's model budget (CTL-0020) must project a call's size <em>before</em> the call, without the provider's tokenizer. D58's answer is an upper bound: the UTF-8 byte length of the serialised request, because with byte-level BPE each token covers at least one byte, so the bytes cannot under-count the text. Two residuals are named rather than hidden: chat-template special tokens are not counted, and a provider that ignores <code>max_output_tokens</code> can exceed the projection (that usage is still charged, so the next call is refused).</p>
+<div class="panel p-verify">
+  <span class="k">Verify it yourself</span>
+  <p>Is "tokens ≤ bytes" always true? SentencePiece tokenizers often add a dummy prefix space, so a one-character input can become two tokens (a word-boundary marker and the character). Work out why ARB's bound still holds in practice (hint: what else is in the serialised request besides the user's text?), and what you would change if the bound were applied to raw message text instead.</p>
+</div>
+
+<h2 id="embed"><span class="n">8.4</span>Embeddings and position</h2>
+<p><span class="tag gen">Generic</span> Each token id selects a row of an embedding table: a learned vector of a few thousand numbers. Attention by itself has no notion of order, so position must be added. Most current open models use <strong>rotary position embeddings</strong> (RoPE; Su et al., 2021), which rotate the query and key vectors by an angle that depends on position, so attention scores depend on relative distance. Context-extension methods stretch these rotations to longer sequences than the model was mainly trained on, which is one reason a model's <em>effective</em> context can be shorter than its advertised window (<a class="sref" href="#long">8.10</a>).</p>
+<p>The same idea, a learned vector per piece of text, underlies <strong>embedding models</strong> used for retrieval. Those are separate models trained so that similar meanings land close together (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>).</p>
+
+<h2 id="attention"><span class="n">8.5</span>Attention</h2>
+<p><span class="tag gen">Generic</span> Self-attention (Vaswani et al., 2017) lets each position gather information from others. Each token's vector is projected into a <strong>query</strong>, a <strong>key</strong> and a <strong>value</strong>. A token's query is compared with every earlier token's key; the scores are scaled by √d<sub>k</sub>, normalised by softmax, and used to take a weighted sum of the values:</p>
+<pre><code>Attention(Q, K, V) = softmax( Q·Kᵀ / √d_k  +  mask ) · V
+<span class="c"># mask = −∞ above the diagonal: a token may not attend to later tokens (causal)</span></code></pre>
+<p>Several <strong>heads</strong> do this in parallel with different projections, so different heads can track different relationships. Four consequences matter to an architect:</p>
+<ol>
+  <li><strong>Quadratic cost in prompt length.</strong> Processing a prompt of n tokens compares every token with every earlier one: work grows with n². Long prompts are disproportionately expensive to process. FlashAttention (Dao et al., 2022) makes exact attention much faster by reorganising memory traffic, but does not change the quadratic count.</li>
+  <li><strong>The KV cache.</strong> During generation, earlier tokens' keys and values do not change, so they are stored and reused. The cache grows linearly with sequence length and is the main memory cost of serving long contexts (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>).</li>
+  <li><strong>Grouped-query attention.</strong> Many heads can share one set of keys and values (multi-query attention, Shazeer 2019; grouped-query attention, Ainslie et al. 2023). Most current open models do this to shrink the KV cache several-fold.</li>
+  <li><strong>Everything can influence everything.</strong> There is no channel separation: any token in the context can affect how any later token is produced. This is the root of prompt injection (<a class="sref" href="#injection">8.9</a>).</li>
+</ol>
+
+<h2 id="stack"><span class="n">8.6</span>The decoder stack</h2>
+<p><span class="tag gen">Generic</span> A block is attention followed by a feed-forward network, each wrapped with normalisation and added back into a <strong>residual stream</strong> that carries each token's representation up through the layers. The feed-forward networks hold most of the parameters. A <strong>mixture-of-experts</strong> (MoE) model replaces each feed-forward network with many expert networks and a router that sends each token to a few of them (Shazeer et al., 2017; Fedus et al., 2021). MoE explains the distinction between <em>total</em> parameters (memory to hold the model) and <em>active</em> parameters per token (compute per token): an MoE model can be large to host and comparatively cheap to run.</p>
+<p>The final layer projects to one score (a <strong>logit</strong>) per vocabulary entry. That is the whole output: a distribution over the next token.</p>
+
+<h2 id="sampling"><span class="n">8.7</span>Generation and sampling</h2>
+<p><span class="tag gen">Generic</span> Softmax turns logits into probabilities; a decoding strategy picks a token. <strong>Greedy</strong> takes the most likely. <strong>Temperature</strong> sharpens (below 1) or flattens (above 1) the distribution before sampling. <strong>Top-k</strong> and <strong>top-p</strong> (nucleus) sampling restrict choice to the most likely candidates. The chosen token is appended and the model runs again.</p>
+<p>The first prediction question has a precise answer: temperature 0 is <em>not</em> a guarantee of identical output. Floating-point addition is not associative, and a serving system's results can depend on how requests were batched together, which changes the order of reductions. Thinking Machines Lab's "Defeating Nondeterminism in LLM Inference" (Horace He, September 2025) traced this to kernels that are not batch-invariant and showed it can be fixed at a throughput cost; hosted APIs generally do not promise it. Mixture-of-experts routing and provider-side model updates add further variation.</p>
+<div class="panel p-gotcha">
+  <span class="k">Design consequence</span>
+  <p>Evidence must store what the model produced; you cannot rely on regenerating it. Tests must not assert exact model text: use typed outputs and property checks (<a class="xref" data-ch="loop-tools-typed-outputs" href="loop-tools-typed-outputs.html">Chapter 2</a>), and measure rates over repeated runs (pass^k) rather than single passes (<a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a>). Your builds already do both, and CI runs on deterministic fakes for exactly this reason.</p>
+</div>
+
+<h2 id="training"><span class="n">8.8</span>How the behaviour got there</h2>
+<p><span class="tag gen">Generic</span> A chat model is built in stages, and each stage explains a behaviour you will design around:</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>What it does</th><th>Behaviour it explains</th></tr></thead>
+<tbody>
+<tr><td>Pre-training</td><td>Next-token prediction on trillions of tokens</td><td>Broad knowledge, fluent continuation, a knowledge cut-off, confident errors where data was thin</td></tr>
+<tr><td>Supervised fine-tuning</td><td>Imitation of example dialogues, including tool calls</td><td>Chat format, following instructions, emitting tool-call syntax</td></tr>
+<tr><td>Preference tuning</td><td>RLHF (Ouyang et al., 2022), DPO (Rafailov et al., 2023), constitutional methods</td><td>Helpfulness and refusals, learned tendencies (not rules); sycophancy as a side effect</td></tr>
+<tr><td>Reinforcement learning on verifiable tasks</td><td>Rewards for correct maths, code, tool use (for example DeepSeek-R1, 2025)</td><td>Long reasoning traces, better multi-step tool use, sometimes reward-hacking behaviour</td></tr>
+</tbody></table></div>
+<p>The governance point is that all of these produce <em>tendencies</em>. Instruction-following and refusals are learned dispositions, strengthened by training such as OpenAI's instruction hierarchy work (Wallace et al., 2024), but never guarantees. A model that follows the system prompt 99% of the time is a model that does not, one time in a hundred.</p>
+<p><span class="tag own">pm-agent</span> The live record shows the other side of the same coin. In pm-agent's live injection harness the local 7B model obeyed only about 5% of the hostile "steers" planted in Jira content, so, in ADR-0006's words, it "barely exercises the guard". A low obey rate on a weak model is not evidence of safety. <span class="tag asm">Assumption</span> A stronger instruction-follower may obey more injected instructions as well as more legitimate ones, so the injection rate has to be re-measured on every model you adopt, not carried over. This is one reason model choice is a governed decision (<a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>).</p>
+
+<h2 id="injection"><span class="n">8.9</span>Why injection is structural</h2>
+<p><span class="tag gen">Generic</span> Classic injection attacks (SQL, shell) were fixed by separating code from data at the interface: parameterised queries, argument arrays. A transformer has no such interface. System prompt, user message, retrieved documents and tool results become one sequence of tokens, and attention lets any of them influence the next token. Role markers in the chat template are just more tokens, whose influence was learned in training. So the third prediction question has a structural answer: a sentence telling the model to ignore instructions in documents is itself just text competing with other text.</p>
+<p>This is why the architectural defences work and the prompt-level ones only help: decide every effect outside the model on trusted facts (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>), keep untrusted content away from the component that plans (CaMeL's dual-LLM split), and treat screening as a filter, never as the control (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>).</p>
+
+<h2 id="long"><span class="n">8.10</span>Long context, advertised and effective</h2>
+<p><span class="tag gen">Generic</span> Context windows have grown to hundreds of thousands or millions of tokens, but three effects limit what a window is worth:</p>
+<ul>
+  <li><strong>Position effects.</strong> Liu et al. ("Lost in the Middle", 2023) found accuracy highest when the relevant passage is at the start or end of a long context and lowest in the middle.</li>
+  <li><strong>Effective length.</strong> Needle-in-a-haystack retrieval is easy; benchmarks with harder tasks such as RULER (Hsieh et al., 2024) found that many models' usable context was well below the advertised window.</li>
+  <li><strong>Cost and latency.</strong> Long prompts cost more per call, take longer to prefill and consume KV memory.</li>
+</ul>
+<p>The design response is the one <a class="xref" data-ch="context-memory-state" href="context-memory-state.html">Chapter 3</a> builds out: assemble the minimum context deliberately, put what matters at the edges, retrieve rather than stuff, and measure quality at the context sizes you actually use.</p>
+
+<h2 id="reasoning"><span class="n">8.11</span>Reasoning models</h2>
+<p><span class="tag gen">Generic</span> Reasoning models spend extra generated tokens "thinking" before answering. Chain-of-thought prompting (Wei et al., 2022) showed the effect; reinforcement learning made it native, and work on test-time compute (Snell et al., 2024) showed that spending more inference compute can substitute for model size on some tasks. For an architect, thinking tokens are output tokens: they are billed, they add latency, and they count against output limits.</p>
+<p><span class="tag own">Reference build</span> D71 made the thinking budget an explicit, recorded part of the CRITICAL agent's model pin (<code>thinking_budget: 512</code> inside a 1,024-token output ceiling) so that token use is a configured fact rather than a provider default, and added it to the inputs of the fairness digest because changing it could change outcomes.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha · reasoning is not an explanation</span>
+  <p>A model's stated reasoning is not a reliable account of why it produced an answer. Turpin et al. (2023) showed chain-of-thought explanations that omitted the biasing feature that actually drove the answer, and later studies of reasoning models found similar unfaithfulness. Do not offer reasoning traces to a regulator as the explanation of a decision. Explain decisions through the deterministic parts: the facts the PIP read, the rule the PDP applied and the evidence record (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</p>
+</div>
+
+<h2 id="limits"><span class="n">8.12</span>Mechanics to limits to design</h2>
+<div class="tw"><table>
+<thead><tr><th>Mechanic</th><th>Limit it creates</th><th>Design response in your builds</th></tr></thead>
+<tbody>
+<tr><td>Tokenizer per vendor</td><td>Budgets and quotas in someone else's units</td><td>Byte upper bound before the call, reported usage after (CTL-0020)</td></tr>
+<tr><td>Autoregressive decoding</td><td>Latency grows with output length and loop turns</td><td>Output ceilings; bounded loops; asynchronous run APIs</td></tr>
+<tr><td>Quadratic prefill, linear KV cache</td><td>Long prompts are slow and memory-hungry</td><td>Context assembly and retrieval instead of stuffing</td></tr>
+<tr><td>Sampling, batch effects</td><td>Outputs not reproducible</td><td>Evidence stores outputs; typed checks; pass^k; fakes in CI</td></tr>
+<tr><td>Learned instruction-following</td><td>Rules in prompts are tendencies</td><td>Effects decided outside the model; policy as code</td></tr>
+<tr><td>One token stream</td><td>Prompt injection cannot be prompted away</td><td>Provenance, complete mediation, dual-LLM separation</td></tr>
+<tr><td>Position and effective length</td><td>Large windows are not uniformly usable</td><td>Minimal context, edges for what matters, measured at real sizes</td></tr>
+<tr><td>Unfaithful reasoning</td><td>Traces are not explanations</td><td>Explain through PDP decisions and evidence</td></tr>
+</tbody></table></div>
+
+<h2 id="build"><span class="n">8.13</span>Build it</h2>
+<div class="panel p-build">
+  <span class="k">Build it · about six hours over two weeks</span>
+  <ol>
+    <li>Work through Sebastian Raschka's <cite>Build a Large Language Model (From Scratch)</cite> chapters 2–4 (tokenisation and data, attention, the GPT model) with its companion videos. Write the causal attention module yourself before reading the solution.</li>
+    <li>Tokenise the same 200-word policy paragraph in English and in Telugu or Hindi with two tokenizers (for example <code>tiktoken</code> and a SentencePiece model from Hugging Face). Record the token counts and the ratio.</li>
+    <li>Compute the KV cache size per token for the local model your reference build pins, from its configuration file (<a class="xref" data-ch="inference-serving" data-sec="#kv" href="inference-serving.html#kv">Chapter 9</a> gives the formula).</li>
+    <li>Run the same prompt twenty times at temperature 0 against your local model and against a hosted one. Count distinct outputs.</li>
+  </ol>
+</div>
+
+<h2 id="prove"><span class="n">8.14</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Write the attention equation and explain the mask.</li>
+    <li><span class="lvl">Recall</span>Total versus active parameters in a mixture-of-experts model, and which one sets memory and which sets compute.</li>
+    <li><span class="lvl">Apply</span>Explain to a client's CISO, without the word "transformer", why a system prompt cannot stop prompt injection.</li>
+    <li><span class="lvl">Apply</span>Defend D58's byte bound against the dummy-prefix objection.</li>
+    <li><span class="lvl">Trade-off</span>A larger context window or better retrieval for a 400-page policy corpus.</li>
+  </ol>
+  <p class="small">Card candidates: <em>attention equation and causal mask</em> · <em>temperature 0 is not determinism</em> · <em>one token stream, so injection is structural</em> · <em>reasoning traces are not explanations</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">8.15</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Sebastian Raschka, <cite>Build a Large Language Model (From Scratch)</cite> (Manning, 2024) and <cite>Build a Reasoning Model (From Scratch)</cite> (Manning). Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite> (O'Reilly, 2024), chapters on tokens, embeddings and the transformer (its illustrations are the clearest available). Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), chapter 2 on foundation models and sampling.</li>
+  <li><b>Papers.</b> Vaswani et al., "Attention Is All You Need" (2017, arXiv 1706.03762). Sennrich et al., BPE for neural machine translation (arXiv 1508.07909). Su et al., RoPE (arXiv 2104.09864). Ainslie et al., GQA (arXiv 2305.13245). Dao et al., FlashAttention (arXiv 2205.14135). Fedus et al., Switch Transformers (arXiv 2101.03961). Ouyang et al., InstructGPT (arXiv 2203.02155). Liu et al., "Lost in the Middle" (arXiv 2307.03172). Turpin et al., "Language Models Don't Always Say What They Think" (arXiv 2305.04388). DeepSeek-AI, DeepSeek-R1 (arXiv 2501.12948).</li>
+  <li><b>Articles.</b> Horace He / Thinking Machines Lab, "Defeating Nondeterminism in LLM Inference" (2025). Jay Alammar, "The Illustrated Transformer".</li>
+  <li><b>Your library.</b> AI Engineering from Scratch, phase 5 (tokenisation) and phase 7 (attention, KV cache); the Raschka playlist.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="chassis-seams-tests.html"><small>Previous</small>7 · The chassis: seams, fakes and tests that can fail</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="inference-serving.html"><small>Next</small>9 · Inference and serving</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

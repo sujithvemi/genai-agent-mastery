@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>28 · State, data and scale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 28</div>
+  <ol>
+    <li><a href="#stateless">Stateless workers, stateful system</a></li>
+    <li><a href="#kinds">Where each kind of agent state lives</a></li>
+    <li><a href="#skew">Concurrency: the write skew in every limit</a></li>
+    <li><a href="#partition">Partitioning and replication</a></li>
+    <li><a href="#tenancy">Multi-tenant data models</a></li>
+    <li><a href="#cache">Caching tiers</a></li>
+    <li><a href="#vectors">Vector and search indexes</a></li>
+    <li><a href="#evidence">Append-only evidence storage</a></li>
+    <li><a href="#derived">Derived data and rebuildable indexes</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 28</div>
+  <h1>State, data and scale</h1>
+  <p class="lede">Agents look stateless from the outside and are full of state inside: conversations, checkpoints, memories, counters, approvals, caches, indexes and evidence. Each has its own consistency, durability and isolation needs, and the security-relevant ones (counters and approvals) are the ones most often built on the wrong store. This chapter applies the core ideas of data-intensive systems to agents.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS · DDIA</span></div>
+    <div><b>Reps</b><span>SD-05 · SD-06 · TC-12 · lab T13</span></div>
+    <div><b>Build links</b><span>ARB platform/state (Firestore, GAP-20) · CTL-0020 reservations · evidence anchors · pm-agent ledger (ADR-0007) · Postgres checkpointer and memory · design/pm-agent-at-scale.md §5–6</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (data services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Two agent turns each read "£400 of today's £500 refund budget remains" and each refund £300. What went wrong, and which isolation level would have caught it?</li>
+    <li>Your evidence store is a database table with a "no deletes" policy. Is that append-only?</li>
+    <li>pm-agent's ledger is "a derived index, not a system of record". What does that buy you?</li>
+  </ol>
+</div>
+
+<h2 id="stateless"><span class="n">28.1</span>Stateless workers, stateful system</h2>
+<p><span class="tag gen">Generic</span> Scale out by keeping workers stateless: any instance can run any step of any run, because all state lives in stores designed for it. A worker that keeps a run, a counter or a session in memory cannot be scaled, restarted or replaced without losing it. The design work is choosing the right store for each kind of state.</p>
+
+<h2 id="kinds"><span class="n">28.2</span>Where each kind of agent state lives</h2>
+<div class="tw"><table>
+<thead><tr><th>State</th><th>Needs</th><th>Typical store</th></tr></thead>
+<tbody>
+<tr><td>Run checkpoints and session history</td><td>Durable, per-run consistency, moderate throughput</td><td>Postgres or Cloud SQL, Firestore, managed session services</td></tr>
+<tr><td>Control state: counters, budgets, dedup windows, approval ledgers</td><td>Linearizable updates, atomic conditional writes, shared by replicas, survives restarts</td><td>Firestore transactions, Spanner, Postgres with serialisable transactions or row locks</td></tr>
+<tr><td>Long-term memory</td><td>Scoped, erasable, searchable</td><td>Postgres with pgvector, memory services</td></tr>
+<tr><td>Caches</td><td>Fast, disposable, scoped keys</td><td>Memorystore or Redis</td></tr>
+<tr><td>Retrieval indexes</td><td>Similarity and keyword search with permission filters</td><td>Vector Search, pgvector, Elasticsearch or OpenSearch, managed RAG services</td></tr>
+<tr><td>Evidence</td><td>Append-only, tamper-evident, long retention</td><td>Database or log plus WORM object storage for anchors</td></tr>
+<tr><td>Analytics</td><td>Large scans</td><td>BigQuery</td></tr>
+</tbody></table></div>
+<p><span class="tag own">Reference build</span> ARB's control state sits behind a <code>StateStore</code> seam with in-memory, local-file and Firestore bindings. GAP-20 was precisely the "wrong store" failure: control state that would not survive a restart or be shared across replicas, closed by the Firestore binding exercised live in E4 (<a class="xref" data-ch="context-memory-state" data-sec="#control" href="context-memory-state.html#control">Chapter 3</a>).</p>
+
+<h2 id="skew"><span class="n">28.3</span>Concurrency: the write skew in every limit</h2>
+<p><span class="tag gen">Generic</span> The first prediction question is Kleppmann's <strong>write skew</strong>: two transactions read the same data, each makes a decision that is valid on what it read, and each writes something different; together they violate a constraint neither violated alone. Every agent limit (a daily refund budget, a token budget, "one approval per action") is exposed to it, because turns run concurrently across replicas. Snapshot isolation does not prevent write skew; you need one of:</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 290" role="img" aria-label="Write skew against a budget of 100, and the fix. Left: read, decide, write. Replica A reads 100 left and allows a spend of 80; replica B reads 100 left and allows 60; both spend, so 140 is spent from a budget of 100, and neither replica was wrong on what it read. Right: conditional decrement. Replica A asks the store to take 80 if at least 80 is left, which succeeds and leaves 20. Replica B asks to take 60 if at least 60 is left, which fails, so B refuses or escalates. 80 is spent; the store made the decision atomic.">
+<defs><marker id="s28" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="8" width="430" height="272" rx="8" style="fill:none"/>
+<text class="tx-b" x="225" y="30" text-anchor="middle">Read, decide, write</text>
+<text class="tx-s" x="120" y="54" text-anchor="middle">Replica A</text>
+<text class="tx-s" x="330" y="54" text-anchor="middle">Replica B</text>
+<rect class="box" x="20" y="64" width="200" height="36" rx="5"/>
+<text class="tx" x="120" y="87" text-anchor="middle">reads: 100 left</text>
+<line class="ln" x1="120" y1="100" x2="120" y2="112" marker-end="url(#s28)"/>
+<rect class="box" x="20" y="114" width="200" height="36" rx="5"/>
+<text class="tx" x="120" y="137" text-anchor="middle">80 ≤ 100 → allow</text>
+<line class="ln" x1="120" y1="150" x2="120" y2="162" marker-end="url(#s28)"/>
+<rect class="box" x="20" y="164" width="200" height="36" rx="5"/>
+<text class="tx" x="120" y="187" text-anchor="middle">spends 80</text>
+<rect class="box" x="230" y="64" width="200" height="36" rx="5"/>
+<text class="tx" x="330" y="87" text-anchor="middle">reads: 100 left</text>
+<line class="ln" x1="330" y1="100" x2="330" y2="112" marker-end="url(#s28)"/>
+<rect class="box" x="230" y="114" width="200" height="36" rx="5"/>
+<text class="tx" x="330" y="137" text-anchor="middle">60 ≤ 100 → allow</text>
+<line class="ln" x1="330" y1="150" x2="330" y2="162" marker-end="url(#s28)"/>
+<rect class="box" x="230" y="164" width="200" height="36" rx="5"/>
+<text class="tx" x="330" y="187" text-anchor="middle">spends 60</text>
+<rect class="box-no" x="20" y="222" width="410" height="46" rx="6"/>
+<text class="tx-no" x="225" y="241" text-anchor="middle">140 spent from a budget of 100</text>
+<text class="tx-s" x="225" y="259" text-anchor="middle">neither replica was wrong on what it read</text>
+<rect class="box" x="460" y="8" width="430" height="272" rx="8" style="fill:none"/>
+<text class="tx-b" x="675" y="30" text-anchor="middle">Conditional decrement</text>
+<text class="tx-s" x="570" y="54" text-anchor="middle">Replica A</text>
+<text class="tx-s" x="780" y="54" text-anchor="middle">Replica B</text>
+<rect class="box" x="470" y="64" width="200" height="36" rx="5"/>
+<text class="tx" x="570" y="87" text-anchor="middle">take 80 if ≥ 80 left</text>
+<line class="ln" x1="570" y1="100" x2="570" y2="112" marker-end="url(#s28)"/>
+<rect class="box-ok" x="470" y="114" width="200" height="36" rx="5"/>
+<text class="tx-ok" x="570" y="137" text-anchor="middle">ok → 20 left</text>
+<line class="ln" x1="570" y1="150" x2="570" y2="162" marker-end="url(#s28)"/>
+<rect class="box" x="470" y="164" width="200" height="36" rx="5"/>
+<text class="tx" x="570" y="187" text-anchor="middle">acts</text>
+<rect class="box" x="680" y="64" width="200" height="36" rx="5"/>
+<text class="tx" x="780" y="87" text-anchor="middle">take 60 if ≥ 60 left</text>
+<line class="ln" x1="780" y1="100" x2="780" y2="112" marker-end="url(#s28)"/>
+<rect class="box-no" x="680" y="114" width="200" height="36" rx="5"/>
+<text class="tx-no" x="780" y="137" text-anchor="middle">fails: 20 left</text>
+<line class="ln" x1="780" y1="150" x2="780" y2="162" marker-end="url(#s28)"/>
+<rect class="box" x="680" y="164" width="200" height="36" rx="5"/>
+<text class="tx" x="780" y="187" text-anchor="middle">refuses or escalates</text>
+<rect class="box-ok" x="470" y="222" width="410" height="46" rx="6"/>
+<text class="tx-ok" x="675" y="241" text-anchor="middle">80 spent</text>
+<text class="tx-s" x="675" y="259" text-anchor="middle">the store made read-decide-write one operation</text>
+</svg>
+</div>
+<figcaption><b>Fig 28.1</b>Write skew on a budget, and the fix. Snapshot isolation lets both replicas read 100 and both spend. A conditional write (or a serialisable transaction, a row lock or a reservation) moves the decision into the store, so only one of them can take the last of the budget.</figcaption>
+</figure>
+<ul>
+  <li><strong>Serializable isolation</strong> for the read-decide-write sequence;</li>
+  <li><strong>Atomic conditional writes</strong>: "decrement if the remainder stays at or above zero" as one operation;</li>
+  <li><strong>Explicit locks</strong> on the row being budgeted (<code>SELECT … FOR UPDATE</code>);</li>
+  <li><strong>Reservations</strong>: reserve before acting, reconcile after.</li>
+</ul>
+<p>ARB's model budget does the last: a call is reserved in both the agent and principal ledgers "inside the store's atomic transact, so two replicas cannot both spend the last of a budget", and released if a later scope refuses (D58; <a class="xref" data-ch="model-choice-risk" data-sec="#budgets" href="model-choice-risk.html#budgets">Chapter 10</a>). A property test runs seeded workloads to check the ledger never exceeds a budget.</p>
+
+<h2 id="partition"><span class="n">28.4</span>Partitioning and replication</h2>
+<ul>
+  <li><strong>Partition</strong> by tenant first (isolation, noisy-neighbour control, residency), then by run or user within a tenant. Avoid hot partitions: a single global counter is a bottleneck and a single point of contention; shard counters or scope them per tenant.</li>
+  <li><strong>Replicate</strong> for durability and read scale. Single-leader replication keeps writes consistent; read replicas lag, so never read a counter or approval state from a replica when deciding.</li>
+  <li><strong>Consistency is per decision</strong>: run history can tolerate seconds of lag in a dashboard; a budget check cannot tolerate any.</li>
+</ul>
+
+<h2 id="tenancy"><span class="n">28.5</span>Multi-tenant data models</h2>
+<div class="tw"><table>
+<thead><tr><th>Model</th><th>Shape</th><th>Isolation</th><th>Cost</th></tr></thead>
+<tbody>
+<tr><td>Silo</td><td>A separate stack or database per tenant</td><td>Strongest; simple deletion and residency</td><td>Highest</td></tr>
+<tr><td>Pool</td><td>Shared tables with a tenant id on every row, enforced by row-level security</td><td>Depends on every query and policy being right</td><td>Lowest</td></tr>
+<tr><td>Bridge</td><td>Shared compute, separate schemas or databases for sensitive data</td><td>Middle</td><td>Middle</td></tr>
+</tbody></table></div>
+<p>For agents, tenancy must reach every store, not only the main database: checkpoints, memories, caches (keys include the tenant and the principal's permission scope, as pm-agent's permission-scoped cache does), vector indexes (filter by tenant and permission at query time, or separate indexes), evidence, quotas and model budgets (<a class="xref" data-ch="security-multitenancy" href="security-multitenancy.html">Chapter 32</a>).</p>
+
+<h2 id="cache"><span class="n">28.6</span>Caching tiers</h2>
+<p><span class="tag gen">Generic</span> From nearest to farthest: provider prompt caching (state the provider keeps for a repeated prefix), response caches, read-through caches of tool results, and CDN caches for static content. Each needs an invalidation rule and a scope. Cache tool <em>reads</em> keyed by tenant, principal scope and resource version; never cache anything that authorises an effect; and remember that a cache hit returns yesterday's answer to today's question (<a class="xref" data-ch="model-choice-risk" data-sec="#caching" href="model-choice-risk.html#caching">Chapter 10</a>).</p>
+
+<h2 id="vectors"><span class="n">28.7</span>Vector and search indexes</h2>
+<p><span class="tag gen">Generic</span> Retrieval indexes are derived data: rebuildable from source documents, versioned by embedding model and chunking. Approximate nearest-neighbour indexes (HNSW, IVF) trade recall for speed; hybrid search (vector plus keyword) usually wins on enterprise content. The data-design questions are permission filtering at query time, freshness when sources change, and the cost of re-embedding everything when the model changes (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>, <a class="xref" data-ch="maintenance-evolution" data-sec="#knowledge" href="maintenance-evolution.html#knowledge">Chapter 40</a>).</p>
+
+<h2 id="evidence"><span class="n">28.8</span>Append-only evidence storage</h2>
+<p><span class="tag gen">Generic</span> The second prediction question: no. A "no deletes" policy in an application is a convention the database administrator can break. Append-only, in the sense an auditor accepts, needs three things: a structure that makes changes detectable (a hash chain), copies of chain heads in storage that even administrators cannot rewrite for a period (write-once-read-many storage such as GCS bucket lock or S3 Object Lock), and signatures attributing records to keys held in a KMS. ARB anchors its chain heads in a GCS bucket under a <em>locked</em> retention policy, exercised live in October 2026 (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>). Plan retention and partitioning for evidence early: it grows with every decision, must be queryable by run and subject, and must outlive the agent.</p>
+
+<h2 id="derived"><span class="n">28.9</span>Derived data and rebuildable indexes</h2>
+<p><span class="tag own">pm-agent</span> The third prediction question: pm-agent's ledger (artefacts and their typed links across intent, requirements, decisions, work and releases) is "a derived index rebuilt from the systems of record, not a system of record itself; losing it loses only a cache" (ADR-0007). That buys three things: no dual-write consistency problem with Jira and git (the sources stay authoritative), freedom to change the ledger's schema by rebuilding, and a smaller security surface (it holds nothing that does not exist elsewhere). It costs rebuild time and requires that every fact in it can be traced to a source. DDIA calls this separating systems of record from derived data; it is one of the most useful habits in data design.</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §5–6</span>
+  <p>For each kind of state in the table above, choose the store, the consistency needed and the tenancy model; name the write-skew risks and how each is closed; size the evidence store for a year at the scenario's volume.</p>
+</div>
+
+<h2 id="services"><span class="n">28.10</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> The stores this chapter calls for, by platform. For the control-state row, read the documentation for one property only: an atomic conditional write or a serialisable transaction. "Strongly consistent reads" is not the same thing; it prevents stale reads, not write skew.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Relational (checkpoints, ledgers, outbox)</td><td>Cloud SQL; AlloyDB; Spanner (external consistency, global)</td><td>RDS; Aurora; Aurora DSQL (distributed, active-active)</td><td>Azure Database for PostgreSQL; Azure SQL Database</td><td>PostgreSQL; CockroachDB; Neon</td></tr>
+<tr><td>Control state with conditional writes</td><td>Firestore transactions; Spanner read-write transactions</td><td>DynamoDB condition expressions and transactions</td><td>Cosmos DB optimistic concurrency (ETag with If-Match); transactional batch within a partition</td><td>Postgres <code>UPDATE … WHERE remaining &gt;= :n</code>; Redis Lua scripts (not durable by default)</td></tr>
+<tr><td>Caches</td><td>Memorystore for Redis and for Valkey</td><td>ElastiCache (Valkey, Redis OSS); MemoryDB for durability</td><td>Azure Managed Redis</td><td>Redis; Valkey; Momento</td></tr>
+<tr><td>Vector and hybrid search</td><td>Vertex AI Vector Search; AlloyDB AI and pgvector; BigQuery vector search</td><td>S3 Vectors (low-cost, durable vector storage); OpenSearch Service; Aurora with pgvector</td><td>Azure AI Search; Cosmos DB vector search; PostgreSQL with pgvector</td><td>Pinecone; Weaviate; Qdrant; Milvus; Elasticsearch</td></tr>
+<tr><td>Managed retrieval (RAG)</td><td>Vertex AI RAG Engine; Vertex AI Search (Agent Search)</td><td>Bedrock Knowledge Bases (S3 Vectors, OpenSearch, Aurora and others as stores)</td><td>Azure AI Search agentic retrieval; Foundry IQ <span class="tag ver">Verify</span></td><td>LlamaIndex; Haystack; Ragie</td></tr>
+<tr><td>Agent memory services</td><td>Memory Bank (GA) (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>)</td><td>AgentCore Memory (short-term events, long-term extracted records)</td><td>Foundry Agent Service memory <span class="tag ver">Verify</span></td><td>Mem0; Zep; Letta</td></tr>
+<tr><td>Immutable object storage for evidence anchors</td><td>Cloud Storage bucket lock and object retention lock</td><td>S3 Object Lock (governance and compliance modes)</td><td>Blob Storage immutability (time-based retention, legal hold)</td><td>MinIO object lock</td></tr>
+<tr><td>Analytics over runs and evidence</td><td>BigQuery</td><td>Athena; Redshift; S3 Tables (Apache Iceberg)</td><td>Microsoft Fabric; Azure Databricks</td><td>Snowflake; Databricks; DuckDB</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> Two choices dominate cost and risk. Vector storage now spans two orders of magnitude in price: an index held in memory for high query rates (dedicated vector databases, OpenSearch, Vector Search) against durable, cheap object-backed vectors for large, infrequently queried corpora (S3 Vectors), so match the store to the query rate. And every memory and retrieval service is a copy of enterprise data outside its source system, which brings it under residency, retention and erasure (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Vector service limits (dimensions, filterable metadata, query latency at a given rate) and memory services' extraction behaviour change often. Check whether filtering happens before or after the nearest-neighbour search, because post-filtering by permission can return too few results or, worse, depends on a filter the application might forget.</p>
+</div>
+
+<h2 id="fail"><span class="n">28.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Limits bypassed by concurrent turns</td><td>Serializable, conditional writes or reservations</td></tr>
+<tr><td>Decisions read from lagging replicas</td><td>Read decision state from the leader</td></tr>
+<tr><td>Tenant id missing from one store</td><td>Tenancy in every store; cross-tenant tests</td></tr>
+<tr><td>"Append-only" by convention</td><td>Hash chain, WORM anchors, KMS signatures</td></tr>
+<tr><td>Derived index treated as authoritative</td><td>Rebuild from sources; trace every fact</td></tr>
+<tr><td>Hot global counters</td><td>Shard or scope per tenant</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">28.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Could two copies of the agent both spend the last of the budget?"</strong> "Not in this design. The database takes the money out only if enough remains, in one step, so the second request is refused rather than overspent. We test that with concurrent load."</li>
+    <li><strong>"If a customer asks us to delete their data, does that include the agent's memory?"</strong> "Yes. Memory, caches and search indexes are copies, so each is listed with its retention and an erasure path. The evidence record keeps what is legally required and nothing more."</li>
+    <li><strong>"Where does our data live?"</strong> "Per tenant and per store, in the regions we agree; the table of stores is part of the design pack, so you can check each one."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">28.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-05, SD-06, lab T13</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Write skew in one sentence, and four ways to prevent it.</li>
+    <li><span class="lvl">Apply</span>Lab T13: implement a per-tenant daily refund budget in Postgres two ways (snapshot isolation and a conditional update); show the first fails under concurrency.</li>
+    <li><span class="lvl">Design</span>The data layer for pm-agent with 20 tenants, including memory, cache keys and vector indexes.</li>
+    <li><span class="lvl">Trade-off</span>Silo against pool tenancy for a regulated client's agents.</li>
+  </ol>
+  <p class="small">Card candidates: <em>every limit has a write skew</em> · <em>never decide from a replica</em> · <em>systems of record vs derived data</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">28.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Martin Kleppmann and Chris Riccomini, <cite>Designing Data-Intensive Applications</cite> 2nd ed. (O'Reilly, 2026): replication, partitioning, transactions (write skew), derived data. Alex Petrov, <cite>Database Internals</cite> (2019).</li>
+  <li><b>Guides.</b> AWS SaaS Lens and SaaS architecture guidance (silo, pool, bridge).</li>
+  <li><b>Your library.</b> Hussein Nasser's PostgreSQL playlist; <code>intro_to_redis.pdf</code>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>platform/state/</code>, D58, GAP-20; pm-agent ADR-0007, <code>ledger/</code>, <code>platform/memory/postgres.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="authn-authz.html"><small>Previous</small>27 · AuthN and AuthZ end to end</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="reliability.html"><small>Next</small>29 · Reliability for LLM systems</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

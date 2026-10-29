@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>17 · Policy as code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 17</div>
+  <ol>
+    <li><a href="#why">What policy as code buys</a></li>
+    <li><a href="#langs">Three languages</a></li>
+    <li><a href="#same">One control, three ways</a></li>
+    <li><a href="#failclosed">Writing fail-closed policy</a></li>
+    <li><a href="#testing">Testing policy</a></li>
+    <li><a href="#data">Policy, data and facts</a></li>
+    <li><a href="#eligibility">Eligibility policy for typed actions</a></li>
+    <li><a href="#ops">Operating policy</a></li>
+    <li><a href="#alts">Other engines and models</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 17</div>
+  <h1>Policy as code</h1>
+  <p class="lede">The decision point is where a control's trigger becomes executable. Which language you write it in matters less than three disciplines: the rules must fail closed on missing data, they must be testable against a second implementation, and every rule must be reachable by a real request.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · Rebuild · TECH</span></div>
+    <div><b>Reps</b><span>R09 · BT06 · BT07 · BT16 · GF-5</span></div>
+    <div><b>Build modules</b><span>governance/policies/{rego,cedar} · platform/policy/ · spikes/agt</span></div>
+    <div><b>Decisions</b><span>D17 · D18 · D22 · D24 · D36 · D63 · ADR-0005 (pm)</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your policy denies a refund "if amount &gt; order total". The request arrives without an order total. What does your engine do?</li>
+    <li>Why would anyone implement the same rules in two policy languages?</li>
+    <li>Should the refund ceiling live in the policy file, in a data file, or in the code that calls the policy?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">17.1</span>What policy as code buys</h2>
+<p><span class="tag gen">Generic</span> Writing authorisation rules in a dedicated policy language, evaluated by a decision engine separate from the application, buys five things that matter for governance specifically:</p>
+<ul>
+  <li><strong>Separation of decision from enforcement.</strong> The PEP asks; the PDP answers. The same rules can serve an in-process chokepoint, a gateway and a batch audit.</li>
+  <li><strong>Reviewability.</strong> A rule a risk owner can read beside the control it implements, in one place, versioned.</li>
+  <li><strong>Testability in isolation.</strong> Rules can be unit-tested with fixtures, without running an agent or a model.</li>
+  <li><strong>Engine independence, if you prove it.</strong> The control's meaning lives in the catalog, and the engine is a binding, but only a second engine on the same cases can show that.</li>
+  <li><strong>Decision records.</strong> Every evaluation can be logged with its inputs and the policy version, which is most of an audit trail.</li>
+</ul>
+<p>What it does not buy: correctness. A policy language makes rules explicit; it does not make them right, complete or reachable. The rest of the chapter is about the disciplines that do.</p>
+
+<h2 id="langs"><span class="n">17.2</span>Three languages, three shapes</h2>
+<p><span class="tag own">Your build</span> ARB runs Rego (OPA) as the PDP of record, Cedar as a real second PDP for parity, and Microsoft's Agent Governance Toolkit policy language in a bounded spike. pm-agent kept Rego only (D-PM-2b): one engine is right for an independent product, and the property "rules live in the catalog, not the engine" is held there by the no-dead-policy test instead of a parity test.</p>
+<div class="tw"><table>
+<thead><tr><th></th><th>Rego (OPA)</th><th>Cedar</th><th>AGT <code>governance.toolkit/v1</code> <span class="tag ver">Verify</span></th></tr></thead>
+<tbody>
+<tr><td>Model</td><td>Datalog-derived query language over JSON input and data; general-purpose</td><td>Authorisation-specific: principal, action, resource, context; <code>permit</code> and <code>forbid</code> policies; forbid overrides permit</td><td>YAML rule lists with conditions over request fields; one winning rule per evaluation</td></tr>
+<tr><td>Default</td><td>Whatever you write: <code>default allow := false</code></td><td>Deny unless a permit applies and no forbid does</td><td>Configured per policy</td></tr>
+<tr><td>Strengths</td><td>Expressive (sets, comprehensions, joins with data); mature tooling (<code>opa test</code>, bundles, decision logs); widely deployed (Kubernetes, API gateways)</td><td>Small, analysable language with schema validation; fast; designed so policies can be reasoned about mechanically</td><td>Part of a broader toolkit (identity, sandboxing, framework adapters); simple to read</td></tr>
+<tr><td>Characteristic hazard</td><td>An undefined term makes a rule body undefined, so a deny rule reading a missing field silently stops firing</td><td>Every attribute a policy reads must exist or evaluation errors; <code>in</code> means entity-hierarchy membership, not set membership</td><td>At 5.0.0: a condition it cannot parse loads without error and never matches; no <code>not</code>; no field-to-field comparison (gaps G1–G7)</td></tr>
+<tr><td>Role in ARB</td><td>PDP of record; all controls with a PDP half</td><td>Parity on the four pure authorisation controls (<span class="ctl">CTL-0001</span>, <span class="ctl">0002</span>, <span class="ctl">0003</span>, <span class="ctl">0008</span>)</td><td>Spike only; never the enforcement of record (D63)</td></tr>
+</tbody></table></div>
+
+<h2 id="same"><span class="n">17.3</span>One control, three ways</h2>
+<p><span class="tag own">Your build</span> <span class="ctl">CTL-0002</span>, "a refund may not exceed the order total", is the clearest comparison, because it is the simplest rule that compares two fields.</p>
+<h4>Rego</h4>
+<pre><code>violations contains v if {
+	is_write
+	amount_minor &gt; resource_total_minor
+	v := {
+		"control_id": "CTL-0002",
+		"reason": sprintf("refund %v exceeds the order total %v",
+			[minor_to_text(amount_minor), minor_to_text(resource_total_minor)]),
+	}
+}</code></pre>
+<p>Rules add to a <code>violations</code> set; <code>allow</code> is true only when the set is empty; every fact (<code>amount_minor</code>, <code>resource_total_minor</code>, <code>is_write</code>) is defined earlier through <code>object.get</code> with a conservative default.</p>
+<h4>Cedar</h4>
+<pre><code>@id("CTL-0002")
+@control("CTL-0002")
+forbid (
+  principal,
+  action == Action::"issue_refund",
+  resource
+)
+when { context.amount_minor &gt; resource.total_minor };</code></pre>
+<p>A forbid that overrides the baseline permit. The control id is an <em>annotation</em>, read back from the engine's JSON, so reordering the file cannot mislabel a denial (D22).</p>
+<h4>AGT at 5.0.0</h4>
+<p>Not expressible. AGT's conditions need a literal on the right of a comparison, so "field greater than field" never matches. Written as a deny it fails open; written as an allow it denies everything. This is gap G1 in <code>docs/architecture/AGT_INTEROP.md</code>, and it is why the spike expressed 2 of 4 tested refund controls (<span class="ctl">CTL-0001</span> and <span class="ctl">CTL-0003</span>), with full parity on those two. <a class="xref" data-ch="agt-through-your-build" href="agt-through-your-build.html">Chapter 47</a> covers the rest of the spike and the rule for talking about it.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha</span>
+  <p>Both Rego and Cedar evaluate JSON numbers as IEEE-754 doubles. In floating point, <code>34.95 * 100</code> is <code>3494.9999999999995</code>, so a rule comparing a refund to an order total in decimal currency will occasionally decide wrongly at the boundary. ARB converts money once, from its decimal string, to integer minor units in the PIP (D17), and both engines compare integers. Do the same for any quantity where equality at the boundary matters.</p>
+</div>
+
+<h2 id="failclosed"><span class="n">17.4</span>Writing fail-closed policy</h2>
+<p><span class="tag own">Your build</span> D18 is the rule, and the header of <code>tool_call.rego</code> explains it. <code>default allow := false</code> is necessary and not sufficient, because Rego's undefined semantics make a deny rule that reads a missing field disappear. A bundle written the obvious way therefore fails open on precisely the malformed request you most want refused. The discipline that fixes it:</p>
+<ol>
+  <li><strong>Read every fact through <code>object.get</code> with a conservative default.</strong> Not registered, not verified, no capability, an unrefundable resource, a principal already at quota, the tightest authored cap. If the PIP did not say, assume the worst.</li>
+  <li><strong>One object entrypoint.</strong> <code>data.aicoe.toolcall.decision</code> returns <code>{allow, violations[]}</code>; callers never query partial rules (which can also fault the embedded engine, D17).</li>
+  <li><strong>Every violation names its control.</strong> A refusal without a control id cannot be attributed, counted or audited.</li>
+  <li><strong>An authored refusal ladder.</strong> When several controls refuse one call, all go into evidence, and <code>violation_precedence</code> in <code>params.yaml</code> decides the headline: can you call at all, are you who you say, is the action approved, is the input sane, does the resource permit it, is the money right, are you within quota. Both engines report the same headline (D24).</li>
+  <li><strong>Portable reason strings.</strong> The embedded engine is <code>rego-cpp</code>, a second implementation of Rego; <code>sprintf</code>'s <code>%q</code> verb is not portable between it and OPA, so every reason uses <code>%v</code> (D17).</li>
+  <li><strong>A test for the empty request.</strong> It must deny.</li>
+</ol>
+<p>The same discipline applies in the Cedar marshaller: every attribute a policy reads is supplied with the same conservative default the Rego bundle uses, because Cedar errors on a missing attribute and an error must also deny.</p>
+
+<h2 id="testing"><span class="n">17.5</span>Testing policy</h2>
+<p>Policy tests come in five kinds, and a governance-grade suite has all five.</p>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>Asks</th><th>In ARB</th></tr></thead>
+<tbody>
+<tr><td>Unit</td><td>Does each rule refuse its case and allow its counter-case?</td><td>Policy tests over fixtures; <code>opa test</code> in BT06</td></tr>
+<tr><td>Boundary sweep</td><td>Does the rule hold at the edges, for every real resource?</td><td>Ten boundary cases plus one refund at each order's own total, for every order in the fixtures</td></tr>
+<tr><td>Parity</td><td>Would a second engine decide the same?</td><td><code>tests/test_policy_parity.py</code>: OPA vs Cedar on the golden set, the boundaries and the sweep</td></tr>
+<tr><td>Reachability</td><td>Can every rule actually fire?</td><td><code>tests/test_no_dead_policy.py</code>: every fact read has a producer</td></tr>
+<tr><td>Falsifier</td><td>If the rule were removed, would a test fail?</td><td>Conformance checks re-block the gate when a binding is removed (<code>demo-gate-flip</code>)</td></tr>
+</tbody></table></div>
+<p>D22 is the reason the parity test exists: <strong>not redundancy, falsifiability</strong>. The build claims that control semantics live in the catalog and the engine is a binding. If swapping the engine changed an answer, the rules would really be in the engine and the catalog would be decoration. A parity test is how that claim gets the chance to fail. Two details make it honest. The comparison is projected onto Cedar's declared scope, so OPA-only controls are not silently ignored. And a test asserts that <code>CedarPolicyEngine.covers</code> equals what the <code>.cedar</code> file actually annotates, so adding a fifth Cedar rule without widening the comparison cannot quietly escape it.</p>
+<p>D22 also explains why only four controls are in Cedar, and the reasoning is a good design rule: a rate budget needs accumulated counters, an approval needs a signature check, and idempotency, minimisation, contracts, chaining and guardrails are not authorisation decisions. "A PDP that pretended to answer those would be the wrong shape." Put in the policy engine what is a decision over facts; put elsewhere what needs state, cryptography or content analysis, and feed the policy the result as a fact.</p>
+
+<h2 id="data"><span class="n">17.6</span>Policy, data and facts</h2>
+<p><span class="tag gen">Generic</span> Three kinds of input meet in a decision, and putting each in the right place is most of policy design:</p>
+<div class="tw"><table>
+<thead><tr><th>Input</th><th>Changes</th><th>Owned by</th><th>Lives in</th><th>ARB example</th></tr></thead>
+<tbody>
+<tr><td>Rules</td><td>Rarely, by authored change</td><td>Control owner</td><td>Policy source</td><td>"refund ≤ order total"</td></tr>
+<tr><td>Parameters</td><td>Occasionally, by authored change</td><td>Control owner, ratified</td><td>Authored data</td><td>Tier refund caps, rate windows, budgets in <code>params.yaml</code></td></tr>
+<tr><td>Facts</td><td>Every request</td><td>The PIP, from trusted state</td><td>The input document</td><td>Order total, principal verified, approval verdict</td></tr>
+</tbody></table></div>
+<p>Keeping parameters out of rules means a threshold change is a reviewed data change that cannot alter logic, and it means both engines read the same numbers (the Cedar caps are resolved by the PIP from the same <code>params.yaml</code> the Rego bundle reads). Keeping facts out of both means the policy cannot be fed a convenient world.</p>
+<p><span class="tag own">pm-agent</span> pm-agent extended the idea to heuristics. Its output guard's vocabulary (verb families, object classes, thresholds) was moved from code into <code>params.yaml</code> as authored data (D-PM-P5-a, ratified), and then the params schema was given floors with ratified samples, so that an edit which weakens the guard fails <code>gov-validate</code> rather than passing quietly (D-PM-P5-e). That is a useful pattern for any tunable control: authored, reviewable, and with a schema that refuses to let it be tuned into uselessness.</p>
+
+<h2 id="eligibility"><span class="n">17.7</span>Eligibility policy for typed actions</h2>
+<p><span class="tag own">pm-agent</span> The most interesting use of policy as code in either build is pm-agent's ADR-0005, "containment by construction". After a dozen rounds of trying to detect injected steers in free text, held-out acceptance stayed at 56%. The ADR's conclusion is that a detector cannot win that race by design, and it moves the defence into structure:</p>
+<ul>
+  <li>The model may propose effects only as <strong>typed actions</strong> from a closed union (<code>create_issue</code>, <code>transition</code>, <code>assign</code>, <code>link</code>, <code>label</code>, <code>set_field</code>, <code>comment</code>), each targeting only keys that were actually retrieved.</li>
+  <li>A deterministic, per-project <strong>eligibility policy</strong> in Rego decides whether the structured state permits each action: a transition to Done needs all subtasks Done; assign only to a directory member with project access, never to a name found in text; link only between retrieved issues; at most N per run.</li>
+</ul>
+<p>Policy as code here is not authorising a principal; it is constraining what a possibly-steered model can make happen, using facts the attacker cannot write. The residual is stated honestly: an attacker can still influence <em>which eligible</em> action is suggested, which human approval with provenance then covers. <a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a> develops the argument; this chapter's point is that the policy engine is the natural home for that kind of rule.</p>
+<div class="panel p-future" data-trigger="pm-agent R1-S3 authors the per-action eligibility rules">
+  <span class="k">Waiting on the builds</span>
+  <p>At R1-S0 the eligibility module is a seam that denies every action (<code>governance/policies/eligibility/eligibility.rego</code>), with the Python boundary failing closed on any error or timeout. When R1-S3 authors the per-action rules and T1 decides which control id an eligibility deny is attributed to (D-PM-R1-15), add the real rules as a fourth worked example beside <span class="ctl">CTL-0002</span>, with their tests.</p>
+</div>
+
+<h2 id="ops"><span class="n">17.8</span>Operating policy</h2>
+<p><span class="tag gen">Generic</span> At one team, policy is a file in a repository. At an estate, it is a distributed system with its own lifecycle. The questions to answer:</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Options</th><th>Recommendation</th></tr></thead>
+<tbody>
+<tr><td>Where the PDP runs</td><td>Embedded library · sidecar · central service</td><td>Embedded or sidecar for latency and availability; a central service only for low-volume decisions or as a cache-backed fallback. ARB embeds (<code>regopy</code>) and notes that production would likely run the OPA server for bundles and decision logs (D17)</td></tr>
+<tr><td>How policy reaches PEPs</td><td>Baked into the image · pulled as signed bundles</td><td>Signed, versioned bundles with an explicit maximum staleness; refuse to decide on a bundle older than that</td></tr>
+<tr><td>What is logged</td><td>Allow and deny · denies only · sampled</td><td>Every consequential decision with its input digest, bundle version and result, minimised; denies always</td></tr>
+<tr><td>How a change ships</td><td>Edit and deploy · PR, tests, parity, staged rollout</td><td>The same pipeline as code; the configuration digest moves, so CRITICAL agents need a fresh sign-off (<a class="xref" data-ch="lifecycle-gates" data-sec="#signoff" href="lifecycle-gates.html#signoff">Chapter 15</a>)</td></tr>
+<tr><td>Latency budget</td><td>Unbounded · per-decision budget</td><td>Set one (single-digit milliseconds for an embedded engine is normal); a decision that times out denies</td></tr>
+</tbody></table></div>
+
+<h2 id="alts"><span class="n">17.9</span>Other engines and models</h2>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Shape</th><th>Use it for</th></tr></thead>
+<tbody>
+<tr><td>OpenFGA, SpiceDB (Zanzibar-style)</td><td>Relationship-based access control: "user U is a viewer of document D because U is in group G which owns folder F"</td><td>Permission-aware retrieval: which documents may this user's agent see (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>). Pair with Rego or Cedar for action decisions</td></tr>
+<tr><td>Cerbos</td><td>Resource-oriented policies in YAML with a PDP service</td><td>Application authorisation where the team wants YAML and a hosted PDP</td></tr>
+<tr><td>XACML</td><td>The original attribute-based standard, XML</td><td>Legacy estates; mostly superseded</td></tr>
+<tr><td>Application code</td><td>If-statements in tools</td><td>Never as the only home for a governed rule</td></tr>
+<tr><td>Platform-native policy (AgentCore Policy, Copilot data policies, Agentforce guardrails) <span class="tag ver">Verify</span></td><td>Vendor-specific</td><td>Agents on that platform; check expressiveness against your catalog's triggers before relying on it, exactly as the AGT spike did</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">17.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Mechanism</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Fail-open on missing data</td><td>Undefined (Rego), unparsed (AGT 5.0.0), missing attribute errors swallowed (Cedar adapter)</td><td>Conservative defaults; adapter errors deny; empty-request test</td></tr>
+<tr><td>Rules live in the engine</td><td>Behaviour depends on engine quirks; the catalog is decoration</td><td>Parity against a second engine on declared scope</td></tr>
+<tr><td>Dead rule</td><td>A rule reads a fact nobody produces</td><td>Derived reachability test; retire rule and fact together (D36)</td></tr>
+<tr><td>Floating-point money</td><td>Boundary comparisons wrong</td><td>Integer minor units, converted once</td></tr>
+<tr><td>Thresholds in rules</td><td>A number change is a logic change; engines drift</td><td>Authored parameters read by every engine</td></tr>
+<tr><td>Wrong-shape PDP</td><td>Counters, signatures or content analysis forced into a policy language</td><td>Compute those elsewhere; give the policy the result as a fact</td></tr>
+<tr><td>Unattributed refusal</td><td>A deny with no control id</td><td>Every violation carries its control; precedence picks the headline</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">17.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Why not just use Microsoft's toolkit?"</strong> Say it the D63 way: "At <code>agent-governance-toolkit-core</code> 5.0.0, its policy language expressed 2 of our 4 tested refund controls, with full parity on those 2; <code>make agt-parity</code> reproduces it." Then: it is a strong benchmark and a likely partner; the question is expressiveness against your triggers, which is measurable.</li>
+    <li><strong>"Which policy engine should we standardise on?"</strong> "The one your platform team can run reliably. The catalog is the standard; the engine is a binding. If you want proof of that, run a second engine on your top controls for a quarter."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">17.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R09, BT06, BT07, BT16</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name the six fail-closed disciplines for a Rego bundle.</li>
+    <li><span class="lvl">Recall</span>Why does ARB run Cedar at all, and why on only four controls?</li>
+    <li><span class="lvl">Apply</span>Write <span class="ctl">CTL-0001</span> (refund ceiling by tier) in Rego and Cedar, reading the cap from authored parameters.</li>
+    <li><span class="lvl">Apply</span>Explain AGT gaps G1, G3 and G5 and what each would do to a deny rule.</li>
+    <li><span class="lvl">Design</span>Write the eligibility rule for pm-agent's <code>transition → Done</code> action, its facts, and the hostile-planner test that proves it.</li>
+    <li><span class="lvl">Trade-off</span>Embedded <code>rego-cpp</code> versus an OPA server in production: what changes for latency, availability, bundles, decision logs and correctness?</li>
+  </ol>
+  <p class="small">Card candidates: <em>Rego undefined → deny rules vanish; object.get defaults (D18)</em> · <em>parity is falsifiability (D22)</em> · <em>money in minor units (D17)</em> · <em>rules · parameters · facts</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">17.13</span>Further reading</h2>
+<ul>
+  <li><b>Papers.</b> Joseph Cutler et al., "Cedar: A New Language for Expressive, Fast, Safe, and Analyzable Authorization" (OOPSLA 2024), for why Cedar is small on purpose. Ruoming Pang et al., "Zanzibar: Google's Consistent, Global Authorization System" (USENIX ATC 2019), for relationship-based access at scale.</li>
+  <li><b>Documentation.</b> The OPA documentation on policy testing, bundles and decision logs (<a href="https://www.openpolicyagent.org/docs/">openpolicyagent.org/docs</a>); the Cedar language reference (<a href="https://docs.cedarpolicy.com/">docs.cedarpolicy.com</a>).</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite>, the access-control chapter, for the models (DAC, MAC, RBAC, ABAC) these languages implement.</li>
+  <li><span class="tag own">Your build</span> <code>governance/policies/rego/tool_call.rego</code> (read the header first), <code>governance/policies/cedar/tool_call.cedar</code>, <code>governance/policies/params.yaml</code> (<code>violation_precedence</code>), <code>tests/test_policy_parity.py</code>, <code>tests/test_no_dead_policy.py</code>, <code>docs/architecture/AGT_INTEROP.md</code>; DECISIONS D17, D18, D22, D24, D36, D63. pm-agent: ADR-0005, <code>governance/policies/eligibility/</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="governed-action.html"><small>Previous</small>16 · The governed action</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="identity-delegation.html"><small>Next</small>18 · Identity, delegation and capability</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

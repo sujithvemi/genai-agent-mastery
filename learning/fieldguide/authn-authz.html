@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>27 · AuthN and AuthZ end to end</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 27</div>
+  <ol>
+    <li><a href="#vocab">AuthN, AuthZ and the agent in between</a></li>
+    <li><a href="#oidc">OAuth and OIDC flows that matter</a></li>
+    <li><a href="#jwt">Validating a token properly</a></li>
+    <li><a href="#sessions">Sessions or tokens</a></li>
+    <li><a href="#workload">Service and workload identity</a></li>
+    <li><a href="#authz">Authorisation models</a></li>
+    <li><a href="#where">Where decisions belong</a></li>
+    <li><a href="#delegation">Delegation chains</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 27</div>
+  <h1>AuthN and AuthZ end to end</h1>
+  <p class="lede">Every agent request involves at least three identities: the human who asked, the agent acting, and the systems it calls. Getting authentication and authorisation right end to end is ordinary security engineering, done carefully, plus one agent-specific problem: carrying the human's authority through the agent without either losing it or inflating it. <a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a> treated this as governance; this chapter treats it as system design.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-04 · R06 · TC-09 · lab T09</span></div>
+    <div><b>Build links</b><span>pm-agent platform/identity/resolver.py · platform/approval · ARB D33 (subject resolution) · design/pm-agent-at-scale.md §4</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (identity services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your service accepts any JWT signed by your identity provider. What else must it check before trusting it?</li>
+    <li>An agent calls Jira for a user. Should it use the user's token, its own token, or a new token? Why?</li>
+    <li>Where should "may this user approve this refund?" be decided: at the API gateway, in the service, or in a PDP?</li>
+  </ol>
+</div>
+
+<h2 id="vocab"><span class="n">27.1</span>AuthN, AuthZ and the agent in between</h2>
+<p><span class="tag gen">Generic</span> Authentication establishes who is calling; authorisation decides what they may do. In an agent system both happen at several boundaries: the user to the agent's API, the agent to the model and tool gateways, the gateways to business systems, and agents to each other. At each boundary there is a <em>caller</em> (often the agent's workload identity) and, usually, a <em>subject on whose behalf</em> the call is made (the user). Confusing the two is the root of most agent authorisation bugs.</p>
+
+<h2 id="oidc"><span class="n">27.2</span>OAuth and OIDC flows that matter</h2>
+<div class="tw"><table>
+<thead><tr><th>Flow</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td>Authorization code with PKCE</td><td>A user signs in to the agent's front end; the app gets tokens without exposing secrets</td></tr>
+<tr><td>Client credentials</td><td>A service or agent authenticates as itself (no user)</td></tr>
+<tr><td>Token exchange (RFC 8693)</td><td>Swap a token received from a caller for a narrower token to call a downstream service on the user's behalf (on-behalf-of)</td></tr>
+<tr><td>Device authorization</td><td>Sign-in on devices without browsers; command-line agents</td></tr>
+<tr><td>Demonstrating proof of possession (DPoP, RFC 9449)</td><td>Binds a token to a key the client holds, so a stolen token is useless elsewhere (GEAP Agent Identity uses it across Agent Gateway)</td></tr>
+</tbody></table></div>
+<p>OpenID Connect adds an ID token that says who the user is; OAuth access tokens say what the bearer may call. Do not use ID tokens to call APIs.</p>
+
+<h2 id="jwt"><span class="n">27.3</span>Validating a token properly</h2>
+<p><span class="tag gen">Generic</span> The first prediction question: a valid signature is the start, not the end. Check:</p>
+<ul>
+  <li><strong>Algorithm pinned</strong> to what you expect (reject <code>none</code> and unexpected algorithms; never let the token choose).</li>
+  <li><strong>Key</strong> from the issuer's published key set, selected by <code>kid</code>, cached with rotation.</li>
+  <li><strong>Issuer</strong> (<code>iss</code>) and <strong>audience</strong> (<code>aud</code>): the token was issued by the expected authority <em>for this service</em>. A token minted for another API must not work here.</li>
+  <li><strong>Time</strong>: <code>exp</code>, <code>nbf</code>, <code>iat</code>, with small clock skew.</li>
+  <li><strong>Scopes and claims</strong> needed for this operation.</li>
+  <li><strong>Binding</strong> where used (DPoP or mTLS-bound tokens).</li>
+</ul>
+<p>Then <strong>resolve the subject</strong>: map the token's identity to one directory subject, so that aliases, emails and object ids are the same person. ARB's D33 does this because its red team found that "many spellings" of one principal could split budgets and separation-of-duties checks; pm-agent compares approvers and executors as directory subjects for the same reason.</p>
+
+<h2 id="sessions"><span class="n">27.4</span>Sessions or tokens</h2>
+<p><span class="tag gen">Generic</span> Browser front ends are safest with a server-side session (an HTTP-only, secure cookie) and a back end that holds the tokens: the back-end-for-front-end pattern. Tokens in browser storage are exposed to script injection. Machine clients and agents use short-lived tokens. Either way, the agent's API should receive an authenticated identity from the gateway or session layer, never from a field the client fills in; pm-agent's dev API takes <code>principal</code> in the request body, which is acceptable only because it is a development server (<a class="xref" data-ch="edge-api-design" data-sec="#scale" href="edge-api-design.html#scale">Chapter 25</a>).</p>
+
+<h2 id="workload"><span class="n">27.5</span>Service and workload identity</h2>
+<ul>
+  <li><strong>No long-lived keys.</strong> Workloads get short-lived credentials from the platform: GCP service accounts with attached identity, Workload Identity Federation for external workloads and CI (your M0 pipeline), AWS IAM roles, Azure managed identities.</li>
+  <li><strong>Per-agent identity</strong> where the platform offers it (GEAP Agent Identity, Entra Agent ID, AgentCore Identity), so each agent has its own least-privilege grants and audit trail (<a class="xref" data-ch="runtime-sessions-memory" data-sec="#governs" href="runtime-sessions-memory.html#governs">Chapter 37</a>).</li>
+  <li><strong>SPIFFE</strong> provides a standard workload identity format and X.509 or JWT credentials across platforms; GEAP's agent identities are SPIFFE ids.</li>
+  <li><strong>mTLS</strong> between services authenticates both ends; in a service mesh it is automatic.</li>
+</ul>
+
+<h2 id="authz"><span class="n">27.6</span>Authorisation models</h2>
+<div class="tw"><table>
+<thead><tr><th>Model</th><th>Decides on</th><th>Strength</th><th>Tools</th></tr></thead>
+<tbody>
+<tr><td>RBAC</td><td>The caller's roles</td><td>Simple, auditable</td><td>IAM roles, groups</td></tr>
+<tr><td>ABAC</td><td>Attributes of subject, resource, action, context</td><td>Expressive (amount limits, regions, time)</td><td>OPA and Rego, Cedar, CEL conditions</td></tr>
+<tr><td>ReBAC</td><td>Relationships (owner of, member of, manager of)</td><td>Fine-grained sharing at scale (Google's Zanzibar)</td><td>OpenFGA, SpiceDB</td></tr>
+</tbody></table></div>
+<p>Agent systems need all three: roles for coarse access, attributes for business limits (refund amounts, tiers), relationships for data permissions (which projects a user can see in Jira). Lab T08 implements one rule in OPA, Cedar, AGT and OpenFGA.</p>
+
+<h2 id="where"><span class="n">27.7</span>Where decisions belong</h2>
+<p>The third prediction question:</p>
+<ul>
+  <li><strong>At the gateway</strong>: coarse checks that need only the token (authenticated, right audience, scope present, tenant quota).</li>
+  <li><strong>In a PDP</strong>: anything that needs business facts, such as whether this user may approve this refund (an entitlement, a limit, separation from the requester). The PDP reads trusted facts through a PIP and records the decision (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</li>
+  <li><strong>In the data store</strong>: row-level permissions that the store enforces itself, as a backstop.</li>
+</ul>
+<p>Decide once, enforce at every hop that matters, and never let a downstream system assume an upstream check happened.</p>
+
+<h2 id="delegation"><span class="n">27.8</span>Delegation chains</h2>
+<p><span class="tag gen">Generic</span> The second prediction question: a new token, obtained by token exchange, that represents "this agent acting for this user", scoped to the operation and short-lived. Passing the user's own token onward gives every downstream system the user's full authority and loses the fact that an agent was involved; using the agent's own broad token inflates the user's authority to the agent's. The rules from <a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a> in system-design form:</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="A delegation chain. The user signs in at the identity provider and calls the agent API with a user token (subject alice, audience agent-api, scope pm.use, one hour). The agent exchanges it at a security token service for a delegated token (subject alice, actor pm-agent, audience jira-gateway, scope issues write, five minutes). The tool gateway, acting as the policy enforcement point, holds alice's Jira OAuth credential in a vault and calls Jira; the agent never holds it. A signed approval grant bound to the exact action hash is verified at the gateway before the write.">
+<defs><marker id="t27" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="30" width="150" height="56" rx="6"/>
+<text class="tx-b" x="85" y="54" text-anchor="middle">User</text>
+<text class="tx-s" x="85" y="74" text-anchor="middle">signs in at IdP</text>
+<line class="ln" x1="160" y1="58" x2="189" y2="58" marker-end="url(#t27)"/>
+<rect class="box" x="192" y="30" width="150" height="56" rx="6"/>
+<text class="tx-b" x="267" y="54" text-anchor="middle">Agent API</text>
+<text class="tx-s" x="267" y="74" text-anchor="middle">validates token</text>
+<line class="ln" x1="342" y1="58" x2="371" y2="58" marker-end="url(#t27)"/>
+<rect class="box" x="374" y="30" width="150" height="56" rx="6"/>
+<text class="tx-b" x="449" y="54" text-anchor="middle">STS</text>
+<text class="tx-s" x="449" y="74" text-anchor="middle">token exchange</text>
+<line class="ln" x1="524" y1="58" x2="553" y2="58" marker-end="url(#t27)"/>
+<rect class="box-strong" x="556" y="30" width="150" height="56" rx="6"/>
+<text class="tx-b" x="631" y="54" text-anchor="middle">Tool gateway</text>
+<text class="tx-s" x="631" y="74" text-anchor="middle">PEP · vault</text>
+<line class="ln" x1="706" y1="58" x2="735" y2="58" marker-end="url(#t27)"/>
+<rect class="box" x="738" y="30" width="150" height="56" rx="6"/>
+<text class="tx-b" x="813" y="54" text-anchor="middle">Jira</text>
+<text class="tx-s" x="813" y="74" text-anchor="middle">per-user OAuth</text>
+<rect class="box" x="91" y="130" width="170" height="122" rx="6"/>
+<text class="tx-b" x="103" y="152">User token</text>
+<text class="tx-m" x="103" y="174">sub: alice</text>
+<text class="tx-m" x="103" y="191">aud: agent-api</text>
+<text class="tx-m" x="103" y="208">scope: pm.use</text>
+<text class="tx-m" x="103" y="225">exp: 1 h</text>
+<line class="ln" x1="176" y1="128" x2="176" y2="64" style="stroke-dasharray:3 4"/>
+<rect class="box-ok" x="273" y="130" width="170" height="122" rx="6"/>
+<text class="tx-ok" x="285" y="152">Approval grant</text>
+<text class="tx-m" x="285" y="174">signed by gate</text>
+<text class="tx-m" x="285" y="191">bound to action</text>
+<text class="tx-m" x="285" y="208">hash · one use</text>
+<text class="tx-m" x="285" y="225">checked at PEP</text>
+<line class="ln-ok" x1="423" y1="130" x2="600" y2="88" style="stroke-dasharray:3 4"/>
+<rect class="box-acc" x="455" y="130" width="170" height="122" rx="6"/>
+<text class="tx-acc" x="467" y="152">Delegated token</text>
+<text class="tx-m" x="467" y="174">sub: alice</text>
+<text class="tx-m" x="467" y="191">act: pm-agent</text>
+<text class="tx-m" x="467" y="208">aud: jira-gateway</text>
+<text class="tx-m" x="467" y="225">scope: issues:write</text>
+<text class="tx-m" x="467" y="242">exp: 5 min</text>
+<line class="ln" x1="540" y1="128" x2="540" y2="64" style="stroke-dasharray:3 4"/>
+<rect class="box" x="637" y="130" width="170" height="122" rx="6"/>
+<text class="tx-b" x="649" y="152">Jira credential</text>
+<text class="tx-m" x="649" y="174">alice's OAuth</text>
+<text class="tx-m" x="649" y="191">held in vault</text>
+<text class="tx-m" x="649" y="208">never in agent</text>
+<text class="tx-m" x="649" y="225">code</text>
+<line class="ln" x1="722" y1="128" x2="722" y2="64" style="stroke-dasharray:3 4"/>
+<text class="tx-s" x="450" y="282" text-anchor="middle">Authority only narrows: each hop holds less than the one before, and names both the user (sub) and the agent (act).</text>
+</svg>
+</div>
+<figcaption><b>Fig 27.1</b>A delegation chain for pm-agent writing to Jira. The user's token never leaves the agent API; the agent obtains a narrower, shorter token that records both parties; the downstream credential stays in the gateway's vault; and the approval is a separate signed grant for one exact action.</figcaption>
+</figure>
+<ol>
+  <li>Authority only narrows along the chain.</li>
+  <li>Every hop records both the actor and the subject.</li>
+  <li>Credentials for downstream systems are held by a vault or gateway, not by the agent's code.</li>
+  <li>High-risk actions require step-up: fresh authentication or a distinct approver.</li>
+  <li>An approval is bound to the exact action (pm-agent's approval gate issues a signed grant scoped to the exact write, and the PEP re-verifies it before executing).</li>
+</ol>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §4</span>
+  <p>Specify: user sign-in flow; token validation at the gateway; subject resolution; how pm-agent obtains per-tenant, on-behalf-of Jira credentials; where approval entitlement is decided; and the service identities for workers and executors.</p>
+</div>
+
+<h2 id="services"><span class="n">27.9</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> "Agent identity" means three different things across vendors, and a design should say which it relies on: a <em>workload identity</em> with agent metadata (a SPIFFE id or a service principal the agent runs as); a <em>directory object</em> with an owner, a sponsor and a lifecycle, so agents can be governed like accounts; and a <em>credential broker</em> that holds users' OAuth tokens for tools and hands out short-lived access on their behalf. Most enterprises will need all three, from more than one vendor.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Workforce and customer sign-in</td><td>Cloud Identity; Identity Platform; Identity-Aware Proxy in front of apps</td><td>IAM Identity Center; Amazon Cognito</td><td>Microsoft Entra ID; Entra External ID</td><td>Okta; Auth0; Ping Identity; Keycloak</td></tr>
+<tr><td>Workload identity</td><td>Service accounts; Workload Identity Federation (CI and other clouds); GKE Workload Identity</td><td>IAM roles; IAM Roles Anywhere; EKS Pod Identity</td><td>Managed identities; workload identity federation</td><td>SPIFFE and SPIRE</td></tr>
+<tr><td>Agent identity</td><td>Agent Identity: per-agent SPIFFE-based identities with IAM grants (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Identity: agent workload identities, inbound authorisation, outbound OAuth</td><td>Entra Agent ID: agent identities as directory objects with sponsors, and Conditional Access for agents <span class="tag ver">Verify</span></td><td>Okta and Auth0 agent identity offerings <span class="tag ver">Verify</span></td></tr>
+<tr><td>On-behalf-of and token brokering</td><td>Agent Identity auth manager for user delegation; Secret Manager for service credentials</td><td>AgentCore Identity: token vault, outbound credential providers, on-behalf-of token exchange, consent portal</td><td>Entra on-behalf-of flow; API Management credential manager</td><td>Auth0 Token Vault; Arcade; Composio <span class="tag ver">Verify</span></td></tr>
+<tr><td>Fine-grained authorisation</td><td>IAM conditions in CEL; IAM deny policies; Agent Policy at Agent Gateway</td><td>Amazon Verified Permissions (Cedar); AgentCore Policy (Cedar)</td><td>Azure RBAC with ABAC conditions; Conditional Access</td><td>OPA; Cedar; OpenFGA; SpiceDB; Cerbos</td></tr>
+<tr><td>Zero-trust access to internal apps</td><td>Identity-Aware Proxy; Chrome Enterprise Premium</td><td>AWS Verified Access</td><td>Entra Private Access; Application Proxy</td><td>Cloudflare Access; Zscaler Private Access</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> Two consequences for design. A cloud's agent identity is strongest inside that cloud: its grants are that cloud's IAM, so an agent on Agent Runtime calling Salesforce still needs a broker for the user's Salesforce token. And none of these services knows your business facts; the decision whether this user may approve this refund still needs your PDP (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Agent identity is the least settled area in this book's platform coverage: products were announced in 2025 and several features are preview or licensed separately. Before naming one, check its current status, which licence it needs, and whether it covers agents built on other platforms.</p>
+</div>
+
+<h2 id="fail"><span class="n">27.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Token accepted for the wrong audience</td><td>Check <code>aud</code> and <code>iss</code> on every service</td></tr>
+<tr><td>Principal from the request body</td><td>Identity from the verified token</td></tr>
+<tr><td>One person, many spellings</td><td>Subject resolution to one directory id</td></tr>
+<tr><td>User token passed through to every system</td><td>Token exchange to narrow, short-lived tokens</td></tr>
+<tr><td>Agent holds long-lived secrets</td><td>Workload identity; vault-held credentials</td></tr>
+<tr><td>Approval not bound to the action</td><td>Signed grant over the exact action, re-verified at the PEP</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">27.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Will the agent log in as me?"</strong> "No. It acts <em>for</em> you with a narrower, short-lived permission that names both you and the agent, so every record shows who asked and what acted."</li>
+    <li><strong>"Does the agent have admin rights to Jira?"</strong> "It has nothing of its own in Jira. Each write uses your permission, cut down to the one project and action, and anything risky also needs an approval tied to that exact change."</li>
+    <li><strong>"We use Entra (or Okta). Does that cover agents?"</strong> "It covers who the agent is and who you are. It does not decide whether this approval is within your limit; that check lives in our policy layer and reads your HR and finance data."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">27.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · R06, lab T09</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Six checks on a JWT beyond its signature.</li>
+    <li><span class="lvl">Apply</span>Lab T09: put Keycloak OIDC in front of pm-agent's API; validate tokens; derive the principal from the token.</li>
+    <li><span class="lvl">Design</span>The token chain for "user asks pm-agent to comment on a Jira issue", with every token's audience, scope and lifetime.</li>
+    <li><span class="lvl">Trade-off</span>RBAC with many roles against ABAC policies, for an AICoE's agent permissions.</li>
+  </ol>
+  <p class="small">Card candidates: <em>aud and iss on every service</em> · <em>authority only narrows</em> · <em>token exchange, not token pass-through</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">27.13</span>Further reading</h2>
+<ul>
+  <li><b>Specifications.</b> OAuth 2.0 and the OAuth 2.1 draft; OpenID Connect Core; RFC 8693 (token exchange); RFC 9449 (DPoP); RFC 8725 (JWT best current practices); SPIFFE.</li>
+  <li><b>Papers.</b> Pang et al., "Zanzibar: Google's Consistent, Global Authorization System" (USENIX ATC 2019).</li>
+  <li><b>Books.</b> Ross Anderson, <cite>Security Engineering</cite> 3rd ed. (2020), chapters on access control.</li>
+  <li><span class="tag own">Your builds</span> ARB D33; pm-agent <code>platform/identity/resolver.py</code>, <code>platform/approval/</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="communication-durable-execution.html"><small>Previous</small>26 · Communication and durable execution</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="state-data-scale.html"><small>Next</small>28 · State, data and scale</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

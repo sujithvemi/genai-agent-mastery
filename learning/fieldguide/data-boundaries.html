@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>21 · Data boundaries: what agents may see, keep and move</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 21</div>
+  <ol>
+    <li><a href="#four">Four questions</a></li>
+    <li><a href="#see">What it may see</a></li>
+    <li><a href="#keep">What it may keep</a></li>
+    <li><a href="#evidence">Evidence is data too</a></li>
+    <li><a href="#move">What it may move</a></li>
+    <li><a href="#where">Where data may live</a></li>
+    <li><a href="#erasure">Erasure versus tamper-evidence</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 21</div>
+  <h1>Data boundaries: what agents may see, keep and move</h1>
+  <p class="lede">An agent is a new kind of data path: it reads across systems on behalf of people with different rights, remembers across sessions, writes text into other systems, and leaves records of all of it. Each of those is a boundary, and each needs its own mechanism, because a label policy on documents does nothing about a cache, a memory store, a trace or a ticket comment.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · SYSTEMS</span></div>
+    <div><b>Reps</b><span>R08 · SD-06 · SD-10</span></div>
+    <div><b>Build modules</b><span>evidence/redaction.py · evidence/detail.py · pm platform/memory · platform/cache</span></div>
+    <div><b>Decisions</b><span>D23 · D25 · D26 · D40 · D-PM-P3-h · D-PM-P5-i/j/l/p · D-PM-R1-30/31</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Two employees with different HR access ask the same assistant the same question within a minute. The assistant caches retrieval results. What can go wrong?</li>
+    <li>Your audit log must be tamper-evident and a customer asks for their data to be erased. How can both hold?</li>
+    <li>Where in an agent system would you expect personal data to end up that nobody designed for?</li>
+  </ol>
+</div>
+
+<h2 id="four"><span class="n">21.1</span>Four questions</h2>
+<p><span class="tag gen">Generic</span> Data governance for agents reduces to four questions, each answered by a different mechanism:</p>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Boundary</th><th>Mechanisms</th></tr></thead>
+<tbody>
+<tr><td>What may it <strong>see</strong>?</td><td>Retrieval and tool reads</td><td>Labels and classification; permission-aware retrieval; on-behalf-of entitlements; permission-scoped caches</td></tr>
+<tr><td>What may it <strong>keep</strong>?</td><td>Context, cache, memory, evidence, traces</td><td>Scoped memory with redaction and expiry; minimised evidence; traces without payloads; retention</td></tr>
+<tr><td>What may it <strong>move</strong>?</td><td>Writes, messages, answers, calls to other agents and tools</td><td>Output contracts; display-only free text; DLP at exits; egress allowlists; digests instead of text across agent boundaries</td></tr>
+<tr><td>Where may data <strong>live</strong>?</td><td>Model endpoints, stores, logs, anchors</td><td>Region pinning; regional endpoints; residency-aware routing; key location</td></tr>
+</tbody></table></div>
+<p>The tiering axis <code>data_sensitivity</code> (none, internal, PII, sensitive/regulated) decides which of these become required controls for a given agent; in ARB, evidence minimisation (<span class="ctl">CTL-0009</span>) attaches from PII upward.</p>
+
+<h2 id="see"><span class="n">21.2</span>What it may see</h2>
+<p><span class="tag gen">Generic</span> The core rule: an agent acting for a user should see only what that user may see, unless it has a reason and an authority of its own (<a class="xref" data-ch="identity-delegation" data-sec="#whose" href="identity-delegation.html#whose">Chapter 18</a>). In retrieval this means <strong>permission-aware retrieval</strong>, and there are two ways to build it:</p>
+<ul>
+  <li><strong>Pre-filter</strong>: pass the user's entitlements into the search, so only permitted documents are candidates. Correct by construction; needs entitlements the index can filter on (document ACLs mirrored into the index, or a relationship-based authorisation service queried for candidate sets).</li>
+  <li><strong>Post-filter</strong>: search everything, then drop results the user may not see. Easier to bolt on; leaks through side channels (result counts, ranking, snippets in logs) and can return empty results when the permitted documents ranked below the cut-off.</li>
+</ul>
+<p>Prefer pre-filtering; use post-filtering only as a second check. Relationship-based systems (Zanzibar-style: OpenFGA, SpiceDB) fit this well because document access in enterprises is usually inherited from folders, groups and projects.</p>
+<p><span class="tag own">pm-agent</span> pm-agent has two controls for this boundary that ARB does not, and they are worth knowing by name. (Note: pm-agent's catalog reuses ids that mean different things in ARB; see <a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>.) pm-agent's <strong>on-behalf-of entitlement propagation</strong> is a dedicated PEP step that checks the resource is within the calling principal's project scope before the policy call, with the Rego bundle also refusing an out-of-scope read as defence in depth (D-PM-P3-h). Its <strong>permission-scoped cache</strong> keys cached Jira reads by the principal's scope, so one user's read can never be served to another. The cache case is the one most teams miss: a read-through cache in front of a system of record is a confused deputy unless its key includes the entitlement.</p>
+<p><span class="tag own">Your build</span> ARB's <code>knowledge_advisor</code> takes the other path: it reads internal policy documents whose worked examples contain customer names and emails, under its own identity, for internal staff only. That is an acceptable design for an internal-only, read-only, advisory agent, and it is exactly why its derived controls include evidence minimisation and the injection boundary: what it sees is sensitive, so what it keeps and says must be controlled.</p>
+
+<h2 id="keep"><span class="n">21.3</span>What it may keep</h2>
+<p><span class="tag gen">Generic</span> Agents keep data in five places, and only one of them is usually designed: the context window (per call), caches (per scope), memory (across sessions), evidence (for audit) and traces (for operations). Each is a store with its own retention, access and leakage path.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's durable memory (P5-4 and P5-5) is the best worked example of governed memory in either build:</p>
+<ul>
+  <li><strong>Scoped.</strong> Every record is keyed by principal, project scope and kind; every caller goes through a <code>GovernedMemory</code> wrapper; there is no unscoped read.</li>
+  <li><strong>Redacted before write.</strong> A memory-side PII set runs before a put: email, phone (several international forms), national ids, payment cards (Luhn-checked, so order numbers survive), IBANs (mod-97-checked), person names (using the output guard's person detector) and account identifiers (D-PM-P5-j, -m). The check digits are the clever part: they let the redactor remove real card numbers while leaving lookalike ids intact.</li>
+  <li><strong>Bounded in time.</strong> TTLs are validated in the constructor and the params schema: finite, positive, at most 30 days.</li>
+  <li><strong>Integrity-checked.</strong> Records are MAC-signed with a memory key from the environment, a key file or KMS. There is deliberately no development key (D-PM-P5-l): a published dev secret would let anyone who can write the store forge a "verified" memory.</li>
+  <li><strong>Degrades to hints.</strong> Without a key, memory is a hint: records are stored unsigned, every recall is untrusted, and recalled content may only guide retrieval, never feed the planner as notes (D-PM-P5-p).</li>
+</ul>
+<p>The last point is the general lesson: memory is an injection surface across time. Text an attacker got into memory last week is untrusted content this week, and it should be treated with the same suspicion as a document, unless its integrity and provenance can be verified.</p>
+
+<h2 id="evidence"><span class="n">21.4</span>Evidence is data too</h2>
+<p><span class="tag own">Your build</span> The audit trail is the store most likely to become a honeypot, because it records everything by design. P1's evidence stored tool arguments and results verbatim, including customer names and emails (GAP-09). ARB's fix went through two steps worth copying:</p>
+<ol>
+  <li><strong>Structural separation over recognition</strong> (D23). Rather than an entity recogniser that tries to find names in text, every free-text field (the model's prose, retrieved snippets, any human-typed reason) moves wholesale into an access-controlled detail store, and only its hash stays in the open log. "No free text in the open log" is then an invariant a test asserts by construction.</li>
+  <li><strong>An allowlist, not a redaction pass</strong> (D25). The default was inverted: a string appears verbatim in the open log only if an authored rule in <code>params.yaml</code> names it as transparent. Everything else, including anything nobody classified, goes to the detail store with a salted marker left behind. Unknown fields fail safe.</li>
+</ol>
+<p>Reads of the detail store are gated by the same signed capability that gates tool calls (<a class="xref" data-ch="identity-delegation" data-sec="#cap" href="identity-delegation.html#cap">Chapter 18</a>). And traces follow the same rule through the same policy object: a span never carries arguments or results, and the fields it does carry pass the same redaction (D26), so "no raw PII in traces" is the same guarantee as "no raw PII in the open log", not a second one to keep in sync.</p>
+
+<h2 id="move"><span class="n">21.5</span>What it may move</h2>
+<p><span class="tag gen">Generic</span> Everything an agent writes is a potential exfiltration channel: a ticket comment, an email draft, a summary posted to chat, a URL in a plan, a message to another agent, even a tool call's arguments to an external API. Controls at this boundary:</p>
+<ul>
+  <li><strong>Output contracts</strong> on writes: the shape and fields of what may be written (ARB <span class="ctl">CTL-0010</span>).</li>
+  <li><strong>Display-only free text</strong> (pm-agent ADR-0005): written text is sanitised, with no URLs, emails, mentions or markup unless they come from the request or a structured field, and bounded in length. After a review found host and path fragments surviving, the sanitiser was changed to remove whole URLs, scheme-less forms included (D-PM-R1-31).</li>
+  <li><strong>Egress allowlists</strong>: which hosts and tools an agent may reach at all, enforced at the network or gateway, not in the prompt.</li>
+  <li><strong>DLP at exits</strong>: a test that plants a fake secret and confirms every exit blocks it is the cheapest proof this boundary holds.</li>
+  <li><strong>Digests, not text, across agent boundaries.</strong> ARB's cross-agent provenance envelope carries the payload's digest and the upstream record's hash, never the payload text (D40, <span class="ctl">CTL-0019</span>); otherwise the evidence-minimisation gap would reopen at the fleet boundary.</li>
+</ul>
+<p><span class="tag own">pm-agent</span> A related ruling settles how to decide which lane data is in. A review found that 8 of 15 novel steers became structured-lane actions because the lane decision depended on the injection fence noticing them. D-PM-R1-30 ruled that a lane is decided by <strong>source type, never by a detector</strong>: system-of-record fields are structured; all text adopted from a repository or a comment is free text, whatever container it sits in. The same principle applies to data classification generally: classify by where data came from, which an attacker cannot change, not by what it looks like, which they can.</p>
+
+<h2 id="where"><span class="n">21.6</span>Where data may live</h2>
+<p><span class="tag gen">Generic</span> Residency is usually framed as "where the database is". For agents it is at least five places: the model endpoint that processes prompts (and anything it logs), the vector index and document stores, memory and caches, evidence and its anchors, and the observability backend. A design that pins storage to a region and calls a global model endpoint has moved personal data across borders on every turn.</p>
+<p><span class="tag own">Your build</span> ARB's live GCP setup creates its evidence bucket, Firestore database and Model Armor template in one configured region (<code>AICOE_GCP_REGION</code>, default <code>us-central1</code>, in <code>infra/gcp/setup.sh</code>). That is single-region by construction, which is the right starting point; multi-region and residency-aware routing are design topics for <a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Which models are available in which regions, whether a provider's "regional" endpoint keeps processing and logging in region, and what a provider retains for abuse monitoring all differ by provider and change often. Confirm per model and per region before promising residency.</p>
+</div>
+
+<h2 id="erasure"><span class="n">21.7</span>Erasure versus tamper-evidence</h2>
+<p><span class="tag asm">Assumption</span> A tamper-evident log cannot have records deleted without breaking its chain, and data-protection law can require personal data to be erased. ARB's split between the open log and the detail store points at the resolution, although the build does not claim it as an erasure mechanism: if personal data lives only in the detail store, and the open log holds only a salted hash of it, then deleting the detail entry (and its salt) removes the personal data while the chain still verifies. The record that an act happened survives; the personal content does not, and the hash left behind cannot be reversed without the salt. Design evidence this way from the start, and test erasure as a scenario, because retrofitting it onto a log that already contains names is not possible without breaking the chain.</p>
+
+<div class="panel p-future" data-trigger="either build implements a subject-erasure workflow, or pm-agent's P6 DLP seam lands">
+  <span class="k">Waiting on the builds</span>
+  <p>Neither build has an erasure workflow yet, and pm-agent carries a named memory-PII residual to a future DLP seam (D-PM-P5-m). When either lands, replace the assumption in this section with the built mechanism and its test, and add the DLP seam's placement to the "what it may move" list.</p>
+</div>
+
+<h2 id="alts"><span class="n">21.8</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Retrieval permissions</td><td>Agent identity · on-behalf-of pre-filter · post-filter</td><td>Agent identity only for single-audience corpora; pre-filter is correct by construction; post-filter leaks and truncates</td></tr>
+<tr><td>Minimising evidence</td><td>Redact known fields · recognise entities · separate free text structurally, allowlist the rest</td><td>Recognition has an error rate; structural separation can be asserted by a test (D23, D25)</td></tr>
+<tr><td>Memory</td><td>None · session only · durable, scoped, signed</td><td>Durable memory is a cross-time injection and privacy surface; only add it with scope, redaction, expiry and integrity</td></tr>
+<tr><td>Cache keys</td><td>By resource · by resource and principal scope</td><td>Resource-only keys are cross-user leaks waiting to happen</td></tr>
+<tr><td>Classifying data</td><td>By content (detectors) · by source (system of record vs free text)</td><td>Source cannot be forged by the attacker; content can (D-PM-R1-30)</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">21.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Symptom</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Confused-deputy retrieval</td><td>The assistant answers with documents the asker may not see</td><td>Entitlements in retrieval; on-behalf-of scope at the PEP</td></tr>
+<tr><td>Cross-user cache bleed</td><td>A cached result served to a user with less access</td><td>Permission-scoped cache keys</td></tr>
+<tr><td>Memory as a backdoor</td><td>Poisoned or personal content recalled weeks later</td><td>Scoped, redacted, expiring, signed memory; unsigned memory as hints only</td></tr>
+<tr><td>Evidence honeypot</td><td>The audit log is the richest PII store in the company</td><td>Allowlisted open log; free text to a gated detail store</td></tr>
+<tr><td>Traces leak</td><td>Prompts and tool results in the observability backend</td><td>No payloads in spans; same redaction policy as evidence</td></tr>
+<tr><td>Exfiltration by writing</td><td>A URL or address in a comment, summary or plan</td><td>Display-only free text; egress allowlists; DLP tests</td></tr>
+<tr><td>Residency by accident</td><td>Regional stores, global model endpoint</td><td>Treat the model endpoint and the logging backend as data stores in the residency design</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">21.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our data is labelled, so our agents respect it."</strong> Ask whether the agent's retrieval filters by the user's entitlements, whether its cache keys include them, and where the agent's memory, logs and traces live and who can read them.</li>
+    <li><strong>"Can the audit log and the right to erasure coexist?"</strong> "Yes, if personal content never enters the tamper-evident log: it holds a salted hash, and the content lives in a separate store that can be erased without breaking the chain."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">21.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R08, SD-06 and SD-10</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four questions and two mechanisms for each.</li>
+    <li><span class="lvl">Recall</span>D23 and D25: what changed, and why an allowlist beats a redaction pass.</li>
+    <li><span class="lvl">Apply</span>Design pm-agent's hosted retrieval so two users with different Jira project access can never see each other's results, including through the cache and memory.</li>
+    <li><span class="lvl">Design</span>Design residency for an EU tenant: list every store and endpoint that must stay in region.</li>
+    <li><span class="lvl">Trade-off</span>Pre-filter versus post-filter retrieval for a 10-million-document corpus with inherited folder permissions.</li>
+  </ol>
+  <p class="small">Card candidates: <em>see, keep, move, live</em> · <em>allowlist, not redaction (D25)</em> · <em>classify by source, not content (D-PM-R1-30)</em> · <em>check digits in redaction</em> · <em>erasure via salted hash + detail store</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">21.12</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Kleppmann and Riccomini, <cite>Designing Data-Intensive Applications</cite> (2nd ed.), on derived data and the difficulty of deletion in systems built on logs. Katharine Jarmul, <cite>Practical Data Privacy</cite> (O'Reilly, 2023), for pseudonymisation and privacy engineering patterns.</li>
+  <li><b>Law.</b> GDPR Articles 5 (principles, including minimisation and storage limitation) and 17 (erasure) <span class="tag ver">Verify</span> with counsel for any specific claim.</li>
+  <li><span class="tag own">Your build</span> <code>evidence/redaction.py</code>, <code>evidence/detail.py</code>, <code>params.yaml</code> (<code>pii_keys</code>, <code>free_text_keys</code>, <code>transparent_keys</code>), DECISIONS D21, D23, D25, D26. pm-agent: <code>platform/memory/{governed,pii,postgres}.py</code>, <code>platform/crypto/memory_mac.py</code>, <code>platform/cache</code>, D-PM-P3-h, D-PM-P5-i, -j, -l, -m, -p, D-PM-R1-30, -31.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="guardrails-injection.html"><small>Previous</small>20 · Guardrails, classifiers and injection</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="evidence-plane.html"><small>Next</small>22 · The evidence plane</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

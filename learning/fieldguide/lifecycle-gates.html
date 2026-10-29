@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>15 · The lifecycle and its gates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part III · The rulebook</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 15</div>
+  <ol>
+    <li><a href="#stages">Stages and gates</a></li>
+    <li><a href="#different">How agents differ from software</a></li>
+    <li><a href="#gate">The gate as a function</a></li>
+    <li><a href="#inputs">Inputs the gate must not trust</a></li>
+    <li><a href="#signoff">Sign-off bound to a digest</a></li>
+    <li><a href="#runtime">The gate's run-time twin</a></li>
+    <li><a href="#fast">The fast lane</a></li>
+    <li><a href="#change">Change, recertification, retirement</a></li>
+    <li><a href="#cicd">The gate in CI/CD</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART III · CHAPTER 15</div>
+  <h1>The lifecycle and its gates</h1>
+  <p class="lede">Every agent walks the same stages from idea to retirement; its tier decides how heavy each gate is. The gate itself should be a pure function of authored configuration and freshly generated proof, so that "deployable" is a fact about this configuration, on this machine, now, and a change anywhere sends the agent back through it.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · SYSTEMS</span></div>
+    <div><b>Reps</b><span>R04 · R19 · Capstone A5</span></div>
+    <div><b>Build modules</b><span>governance/gate/ · config_digest.py · signoff.py · inventory.py</span></div>
+    <div><b>Decisions</b><span>D22 · D27 · D45 · D59 · D62 · D-PM-P4-c/j/k</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>An agent passed its release gate last month. Since then the provider moved the model alias it uses. Is it still approved? How would your system know?</li>
+    <li>Who should be able to mark a control as "met" at the gate: the team, the platform, or the test run?</li>
+    <li>Name three things that must happen when an agent is retired.</li>
+  </ol>
+</div>
+
+<h2 id="stages"><span class="n">15.1</span>Stages and gates</h2>
+<p><span class="tag gen">Generic</span> An agent development lifecycle has the stages any product has, with a gate at each boundary. A gate is a checkpoint with a list of evidence; if the evidence is present the agent moves on. Five principles make it work without becoming a parallel bureaucracy:</p>
+<ol>
+  <li><strong>One lifecycle.</strong> Gates sit at boundaries the delivery process already has (design review, merge, release). Governance does not run a second track.</li>
+  <li><strong>The tier changes the weight of a gate, not the stages.</strong> A LOW agent's release gate is automated checks plus a self-certified checklist; a CRITICAL agent's needs named sign-offs, red-team results and executive acceptance of residual risk.</li>
+  <li><strong>No evidence, no promotion.</strong> The evidence collected at each gate is the governance record; there is no separate attestation to write.</li>
+  <li><strong>Early stages are fast because they are contained.</strong> Prototypes move quickly because they use synthetic or masked data, cannot write to live systems and have no external users, not because nobody looked.</li>
+  <li><strong>Change re-enters the lifecycle.</strong> A new model, tool, permission or data source is a new risk decision.</li>
+</ol>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 270" role="img" aria-label="Stages: intake, design, build, evaluate, release, operate, retire. Gates G0 to G5 sit between them. From operate, a change loops back through re-derivation of tier and required controls and re-enters at the gate the change affects. Retire revokes identity and keys and keeps evidence.">
+  <defs>
+    <marker id="a15l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <marker id="a15la" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-acc"/></marker>
+  </defs>
+  <g>
+    <rect class="box" x="10" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="60" y="76" text-anchor="middle">Intake</text><text class="tx-s" x="60" y="94" text-anchor="middle">register · score</text>
+    <rect class="box" x="140" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="190" y="76" text-anchor="middle">Design</text><text class="tx-s" x="190" y="94" text-anchor="middle">controls mapped</text>
+    <rect class="box" x="270" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="320" y="76" text-anchor="middle">Build</text><text class="tx-s" x="320" y="94" text-anchor="middle">bindings</text>
+    <rect class="box" x="400" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="450" y="76" text-anchor="middle">Evaluate</text><text class="tx-s" x="450" y="94" text-anchor="middle">evals · conformance</text>
+    <rect class="box" x="530" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="580" y="76" text-anchor="middle">Release</text><text class="tx-s" x="580" y="94" text-anchor="middle">sign-off · rollout</text>
+    <rect class="box-ok" x="660" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="710" y="76" text-anchor="middle">Operate</text><text class="tx-s" x="710" y="94" text-anchor="middle">PEP · evidence</text>
+    <rect class="box" x="790" y="50" width="100" height="56" rx="6"/><text class="tx-b" x="840" y="76" text-anchor="middle">Retire</text><text class="tx-s" x="840" y="94" text-anchor="middle">revoke · keep proof</text>
+  </g>
+  <g>
+    <line class="ln-acc" x1="125" y1="40" x2="125" y2="116"/><text class="tx-acc" x="125" y="32" text-anchor="middle">G0</text>
+    <line class="ln-acc" x1="255" y1="40" x2="255" y2="116"/><text class="tx-acc" x="255" y="32" text-anchor="middle">G1</text>
+    <line class="ln-acc" x1="385" y1="40" x2="385" y2="116"/><text class="tx-acc" x="385" y="32" text-anchor="middle">G2</text>
+    <line class="ln-acc" x1="515" y1="40" x2="515" y2="116"/><text class="tx-acc" x="515" y="32" text-anchor="middle">G3</text>
+    <line class="ln-acc" x1="645" y1="40" x2="645" y2="116"/><text class="tx-acc" x="645" y="32" text-anchor="middle">G4</text>
+    <line class="ln-acc" x1="775" y1="40" x2="775" y2="116"/><text class="tx-acc" x="775" y="32" text-anchor="middle">G5</text>
+  </g>
+  <rect class="box-acc" x="380" y="170" width="360" height="56" rx="6"/>
+  <text class="tx-acc" x="560" y="194" text-anchor="middle">Change → re-derive tier and required set</text>
+  <text class="tx-s" x="560" y="212" text-anchor="middle">digest moved · re-enter at the gate the change affects</text>
+  <polyline class="ln-acc" points="710,106 710,198 744,198" />
+  <polyline class="ln-acc" points="380,198 320,198 320,110" marker-end="url(#a15la)"/>
+  <polyline class="ln-acc" points="560,170 560,146 450,146 450,110" marker-end="url(#a15la)"/>
+  <text class="tx-s" x="276" y="246">new tool, data, edge</text>
+  <text class="tx-s" x="560" y="250" text-anchor="middle">new model, prompt, params → re-evaluate</text>
+</svg>
+</div>
+<figcaption><b>Fig 15.1</b>Every agent walks the same stages; the tier decides how heavy each gate is. Change in operation loops back through re-derivation and re-enters at the gate the change affects, not at the start.</figcaption>
+</figure>
+
+<div class="tw"><table>
+<thead><tr><th>Gate</th><th>Evidence to pass</th><th>LOW</th><th>CRITICAL</th></tr></thead>
+<tbody>
+<tr><td>G0 · Intake</td><td>Registered; owner named; axes scored with rationale; not a prohibited use; prototype limits set</td><td>Automated</td><td>Second assessor confirms the scores</td></tr>
+<tr><td>G1 · Design</td><td>Required controls derived; enforcement point and owner per control; threat model; data and identity design</td><td>Template conformance</td><td>Architecture review; threat model reviewed by security</td></tr>
+<tr><td>G2 · Build</td><td>Every required control bound; manifest and model pin complete; no agent-local credentials</td><td>CI checks</td><td>CI checks plus binding review</td></tr>
+<tr><td>G3 · Evaluate</td><td>Eval suite and generated conformance report pass; red-team corpus for HIGH and above</td><td>Golden set</td><td>Golden set, conformance, red team, fairness where in scope</td></tr>
+<tr><td>G4 · Release</td><td>Gate DEPLOYABLE; sign-off bound to the current configuration digest; rollout plan</td><td>Owner sign-off</td><td>Executive sign-off, non-waivable set unwaived, gradual rollout, real-time oversight demonstrated</td></tr>
+<tr><td>G5 · Retire</td><td>Identity and keys revoked; registry status retired; evidence retained per policy; downstream edges removed</td><td>Checklist</td><td>Checklist plus confirmation that no consumer still calls it</td></tr>
+</tbody></table></div>
+
+<h2 id="different"><span class="n">15.2</span>How the agent lifecycle differs from software</h2>
+<p><span class="tag gen">Generic</span> Most of the lifecycle is ordinary software delivery, which is good: reuse it. Four things are different, and each changes how gates work.</p>
+<ul>
+  <li><strong>Behaviour is not fully determined by code.</strong> The same code with a different model, prompt, retrieved corpus or memory behaves differently. So the unit you version and approve is the <em>whole agent configuration</em>: model pin, instructions, tool set and descriptions, policies and params, data sources, memory settings and edges.</li>
+  <li><strong>Correctness is statistical, controls are not.</strong> Quality is measured on datasets with thresholds; control conformance is binary and must be proven each run. Mixing the two (a "95% pass rate" on refusals) is a category error: a control that refuses 95% of the time is not a control.</li>
+  <li><strong>Dependencies move without a commit.</strong> A provider can change what an alias points to; an MCP server can change a tool description; a knowledge base gains documents. Gates must detect change in inputs you do not commit.</li>
+  <li><strong>Some failures are only visible in production.</strong> Approval fatigue, cost runaway and drift need run-time measures that feed back into recertification.</li>
+</ul>
+
+<h2 id="gate"><span class="n">15.3</span>The gate as a function</h2>
+<p><span class="tag own">Your build</span> ARB's gate (<code>src/aicoe/governance/gate/engine.py</code>, <code>evaluate_gate</code>) is a pure function of the agent's manifest, the gate inputs, the taxonomy and the catalog. Its output, <code>GateDecision</code>, carries the tier and the reason, <code>deployable</code>, a status per required control, the reasons for any block, the non-waivable set and whether it is enforced, whether executive sign-off is valid, any undeclared edges, the model pin it read, the configuration digest it judged and the sign-off binding. When an evidence writer is supplied, the decision is itself recorded as an <code>adlc_gate</code> event.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="The gate takes the manifest and catalog through the tiering engine to a required set; reads a conformance report generated this run; reads design-time facts from the manifest and params; reads the sign-off and recomputes the configuration digest; reads the registry. It outputs DEPLOYABLE only if every required control is bound and passed, design facts hold, the digest matches, and at CRITICAL the non-waivable set is unwaived and executive sign-off is valid. Otherwise BLOCKED with reasons.">
+  <defs><marker id="b15g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <g>
+    <rect class="box" x="10" y="20" width="250" height="44" rx="6"/><text class="tx" x="20" y="47">manifest + catalog → tiering</text>
+    <rect class="box" x="10" y="80" width="250" height="44" rx="6"/><text class="tx" x="20" y="107">conformance report (this run)</text>
+    <rect class="box" x="10" y="140" width="250" height="44" rx="6"/><text class="tx" x="20" y="167">design facts: pin, prices</text>
+    <rect class="box" x="10" y="200" width="250" height="44" rx="6"/><text class="tx" x="20" y="227">sign-off + recomputed digest</text>
+    <rect class="box" x="10" y="260" width="250" height="44" rx="6"/><text class="tx" x="20" y="287">registry entry · directory</text>
+  </g>
+  <g>
+    <line class="ln" x1="260" y1="42" x2="356" y2="150" marker-end="url(#b15g)"/>
+    <line class="ln" x1="260" y1="102" x2="356" y2="158" marker-end="url(#b15g)"/>
+    <line class="ln" x1="260" y1="162" x2="356" y2="165" marker-end="url(#b15g)"/>
+    <line class="ln" x1="260" y1="222" x2="356" y2="172" marker-end="url(#b15g)"/>
+    <line class="ln" x1="260" y1="282" x2="356" y2="180" marker-end="url(#b15g)"/>
+  </g>
+  <rect class="box-acc" x="360" y="110" width="230" height="110" rx="8"/>
+  <text class="tx-acc" x="475" y="140" text-anchor="middle">evaluate_gate()</text>
+  <text class="tx-s" x="475" y="162" text-anchor="middle">pure · fail-closed</text>
+  <text class="tx-s" x="475" y="182" text-anchor="middle">met = bound ∧ ran ∧ passed</text>
+  <text class="tx-s" x="475" y="202" text-anchor="middle">+ CRITICAL treatment</text>
+  <line class="ln-ok" x1="590" y1="140" x2="666" y2="110" marker-end="url(#b15g)"/>
+  <line class="ln-no" x1="590" y1="190" x2="666" y2="220"/>
+  <rect class="box-ok" x="670" y="80" width="220" height="56" rx="6"/>
+  <text class="tx-ok" x="780" y="104" text-anchor="middle">DEPLOYABLE</text>
+  <text class="tx-s" x="780" y="122" text-anchor="middle">+ adlc_gate evidence</text>
+  <rect class="box-no" x="670" y="196" width="220" height="56" rx="6"/>
+  <text class="tx-no" x="780" y="220" text-anchor="middle">BLOCKED</text>
+  <text class="tx-s" x="780" y="238" text-anchor="middle">unmet ids + one reason each</text>
+</svg>
+</div>
+<figcaption><b>Fig 15.2</b>The gate reads authored configuration and generated proof, and nothing a caller could hand it. Every block names the unmet requirement and why.</figcaption>
+</figure>
+
+<p>Three properties of this function are deliberate:</p>
+<ul>
+  <li><strong>"Met" means bound, ran and passed on this run.</strong> D22 refused to let the gate believe a registry that merely claims a binding: <code>enforcement/conformance.py</code> runs a check per control against the real plane, and the gate counts only passing checks. D27 then made the conformance report a generated, gitignored artifact: a committed report is "a table someone wrote", which is exactly what the gate must not believe.</li>
+  <li><strong>The required set drives the suite, not the other way round.</strong> D27 also fixed a quiet flaw: the suite had run whatever checks existed, and a required control with no check blocked the gate correctly but invisibly. The suite now runs the derived required set, and a missing check is a row reading <code>check_ran: false</code>. The general lesson, in D27's words: fail-closed is not enough on its own; the artifact has to be able to say why it failed closed.</li>
+  <li><strong>Every report row points at chained evidence.</strong> Each conformance check writes to the run's own hash-chained log, and each row's <code>evidence_ref</code> is the hash of a record saying the same thing. A row cannot claim a pass without a verifiable record agreeing.</li>
+</ul>
+<p>The gate is honest about its starting state, too. Before P3 built any bindings, the gate blocked every agent and listed every unmet control with its gap. The <code>gov-gate-as-designed</code> target still shows that: the gate with nothing bound and nothing proven. It is the best five-second demonstration that the gate can say no.</p>
+
+<h2 id="inputs"><span class="n">15.4</span>Inputs the gate must not trust</h2>
+<p><span class="tag own">Your build</span> A recurring move in ARB's E-phases was to stop the gate trusting anything a caller could supply. The design-time checks (<code>gate/design.py</code>) read facts straight off the manifest and params on every evaluation, never from <code>GateInputs</code>, because a caller supplies <code>GateInputs</code> and could supply it wrongly. Two examples:</p>
+<ul>
+  <li><span class="ctl">CTL-0021</span>: a manifest with no model block, or whose model id is an alias, is blocked. The loader already refuses an alias; the gate checks again, because "a gate that trusted its loader would pass a manifest built in memory around it".</li>
+  <li><span class="ctl">CTL-0020</span>: a pinned model with no price entry is a gate failure, never a zero charge, and since D61 a tier with a token limit but no cost limit fails too.</li>
+</ul>
+<p>The same principle covers the sign-off, the registry and the directory: the gate reads the committed files itself (D59, point 4), and accepts them as arguments only in tests.</p>
+
+<h2 id="signoff"><span class="n">15.5</span>Sign-off bound to a configuration digest</h2>
+<p><span class="tag own">Your build</span> The most important lifecycle control in the catalog is <span class="ctl">CTL-0022</span>, closing GAP-25: a deployment sign-off was not bound to the configuration it approved. Before it, a CRITICAL agent's executive sign-off approved "the agent", and anything could change underneath it. Now (D59):</p>
+<ol>
+  <li><strong>The digest</strong> is SHA-256 over a canonical object: the manifest as the gate parsed it (so a comment edit is not a change, and an in-memory manifest cannot hide behind its file), the sorted required control and invariant ids, each required control's catalog file, the model pin, and <code>params.yaml</code>. Files are hashed with line endings normalised. <code>digest_inputs</code> lists one line per input.</li>
+  <li><strong>Independent recompute.</strong> <code>recompute(digest_inputs)</code> re-reads every listed file, trusting none of the listed hashes.</li>
+  <li><strong>Four distinct failures</strong>, each with its own sentence: no sign-off; a sign-off with no digest; a record whose digest disagrees with its own inputs (edited after signing); and a stale record, with a human-readable diff of what changed (<code>+ CTL-x</code>, <code>~ model pin: a → b</code>, <code>~ params.yaml</code>).</li>
+  <li><strong>Regeneration refuses</strong> unless the digest is the one unmet requirement and an accountable sign-off is already on record (the synthetic-approver path is authorised under D54 and labelled as such).</li>
+</ol>
+<p>The effect is that "approved" becomes a property of a specific configuration. Re-pinning the customer-service agent from a local model to Vertex in E4 moved the digest, re-blocked the gate and required a new sign-off, which is exactly what should happen.</p>
+<p><span class="tag own">pm-agent</span> pm-agent took the same idea further on the signing side. Its sign-off record carries an HMAC (later Ed25519) signature; the gate requires the record's agent and tier to match the <em>derived</em> tier, so a HIGH sign-off cannot cover a CRITICAL agent (D-PM-P4-i); and at CRITICAL a sign-off made with the published development key is refused unless explicitly opted into for testing (D-PM-P4H-i). It also chose not to commit any sign-off for its CRITICAL foil agent: the gate blocks by default, and the deployable path is proven with a fixture (D-PM-P4-c). A committed sign-off would have made the gate say DEPLOYABLE for an agent no accountable person accepted.</p>
+
+<h2 id="runtime"><span class="n">15.6</span>The gate's run-time twin</h2>
+<p><span class="tag own">Your build</span> A release gate decides once; the configuration can drift afterwards. ARB closes the gap with <span class="ctl">CTL-0023</span>: the agent registry (<code>governance/registry/agents.yaml</code>, regenerated by <code>make gov-inventory</code>) records each agent's gate verdict and configuration digest, and the run-time plane checks, before acting, that the agent is registered, DEPLOYABLE, and running the digest the registry recorded. An unregistered agent, or one whose configuration moved since its gate, is refused at run time. The gate says "this configuration may run"; the run-time check says "and this is that configuration".</p>
+<p>Conformance runs need to exercise a not-yet-deployable plane, so the plane offers a <code>pre_deployment()</code> context that excuses the registry check. D62 found the obvious hole (any code in the process could enter it and run a drifted configuration) and closed it in two halves: an AST test that nothing outside the conformance harness calls <code>pre_deployment()</code>, and an audit check that flags any <code>registry_check</code> record made in pre-deployment mode in a log that is not a conformance chain. Preventive and detective, for the same hole.</p>
+
+<h2 id="fast"><span class="n">15.7</span>The fast lane</h2>
+<p><span class="tag gen">Generic</span> Most estates are dominated by low and medium-risk agents: question-answering over internal documents, summarisation, drafting for a person to send. If those pay the same toll as a payments agent, builders route around governance. A fast lane keeps them inside it:</p>
+<ul>
+  <li><strong>Self-certified LOW.</strong> The owner completes intake and a checklist; automated checks run; a sample is audited after the fact.</li>
+  <li><strong>Pre-approved patterns.</strong> "Read-only Q&amp;A over labelled documents in a managed environment, internal users" is approved once as a pattern; agents built from it inherit the decision and only prove they match it.</li>
+  <li><strong>Templates carry the controls.</strong> An approved template already has identity, logging, screening and the PEP wired; the team adds tools and prompts. Most controls are then bound by construction and proven by the template's conformance suite.</li>
+  <li><strong>Published turnaround by tier.</strong> For example LOW in two working days, MEDIUM in five, HIGH and CRITICAL by plan. Publishing the number makes governance accountable for speed, too.</li>
+</ul>
+<p>Fleet-first tiering is what makes a fast lane safe: the lane is defined by derived tier and shape, so an agent cannot talk its way into it, and a change that moves its tier moves it out automatically.</p>
+
+<h2 id="change"><span class="n">15.8</span>Change, recertification and retirement</h2>
+<div class="tw"><table>
+<thead><tr><th>Change</th><th>Tier may move?</th><th>Re-enters at</th><th>Mechanism in ARB</th></tr></thead>
+<tbody>
+<tr><td>New or changed tool, action class, data source</td><td>Yes</td><td>G1 (design)</td><td>Tier derived from the manifest on every gate run; digest moves</td></tr>
+<tr><td>New peer agent or MCP server</td><td>No (shape changes)</td><td>G1</td><td>Shape predicates attach edge or MCP controls; undeclared edges reported by the gate</td></tr>
+<tr><td>Model or version change</td><td>No</td><td>G3 (evaluate)</td><td>Model pin in the digest; CTL-0021 refuses an impostor at run time</td></tr>
+<tr><td>Prompt or instruction change</td><td>No</td><td>G3</td><td>Part of the agent configuration; evals and conformance re-run</td></tr>
+<tr><td>Params or policy change</td><td>No</td><td>G3</td><td><code>params.yaml</code> is in the digest; control-change runbook (D45)</td></tr>
+<tr><td>Scheduled recertification</td><td>Re-scored</td><td>G3/G4</td><td>Sign-off review dates (pm-agent's <code>review_due</code>); operating-model cadence</td></tr>
+</tbody></table></div>
+<p><strong>Retirement</strong> is the stage organisations skip. An agent that is "turned off" but keeps its identity, keys, registry entry and inbound edges is a dormant credential and an orphaned integration. Retiring properly means revoking identity and capabilities, marking the registry entry retired (so the run-time check refuses it), removing declared edges and notifying peers, and keeping its evidence for the retention period, verifiable with keys that are themselves retained.</p>
+
+<h2 id="cicd"><span class="n">15.9</span>The gate in CI/CD</h2>
+<p><span class="tag own">Your build</span> A gate that runs only when someone remembers is advice. D45 wired ARB's gate as a required promotion check, and in doing so found that CI had only ever gated one agent: the second archetype gated locally and never in CI. The fix was to run <code>aicoe gov fleet</code> (conformance and the gate over every manifest under <code>governance/agents/</code>), so a newly onboarded agent is covered the moment its manifest exists, with no second CI edit. That is a pattern worth stealing: <strong>the pipeline should discover the fleet, not list it</strong>.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's gate added two operational rules that matter once evidence is signed: the gate refuses <em>before writing anything</em> if it cannot seal its own record (a signer preflight, exit code 4, D-PM-P5-k), and it refuses to start on an evidence log with an unsigned tail unless an explicit, recorded acceptance is given (D-PM-P5-h). A gate that appends a record it cannot sign, or signs over a tail nobody checked, would quietly degrade the evidence it relies on.</p>
+<p><a class="xref" data-ch="deployment-cicd" href="deployment-cicd.html">Chapter 30</a> places the gate in a full pipeline with environments, keyless deployment and progressive rollout of code, prompts and models.</p>
+
+<h2 id="alts"><span class="n">15.10</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Choice</th><th>Options</th><th>Trade-off</th><th>Builds</th></tr></thead>
+<tbody>
+<tr><td>Who decides "met"</td><td>Team attestation · reviewer judgement · generated conformance</td><td>Attestation and judgement do not scale and cannot be re-run; generated conformance needs a check per control</td><td class="rec">Generated (D22, D27)</td></tr>
+<tr><td>What is approved</td><td>The agent by name · a version tag · a configuration digest</td><td>Names and tags hide drift in uncommitted inputs; a digest needs canonicalisation and a recompute path</td><td class="rec">Digest (D59)</td></tr>
+<tr><td>Where the gate runs</td><td>A governance portal · the CI pipeline · both</td><td>A portal gives workflow and audit views; CI is where it can actually stop a release. Portals should read CI's results</td><td class="rec">CI, fleet-wide (D45)</td></tr>
+<tr><td>Drift after release</td><td>Periodic recertification · run-time configuration check</td><td>Periodic checks leave windows; run-time checks need a registry the plane can read</td><td class="rec">Both (CTL-0023 plus review dates)</td></tr>
+<tr><td>Sign-off authenticity</td><td>Authored file · HMAC · asymmetric signatures with key custody</td><td>Files are easy to edit; HMAC shares a secret with verifiers; asymmetric needs key management</td><td>ARB: authored file plus digest; pm-agent: signed, dev key refused at CRITICAL</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">15.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Symptom</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Laundered approval</td><td>The gate infers sign-off from green tests</td><td>Sign-off is an authored, accountable record; a test proves its withdrawal re-blocks</td></tr>
+<tr><td>Flattered report</td><td>A committed or hand-edited conformance report</td><td>Generate it each run; gitignore it; chain every row to evidence</td></tr>
+<tr><td>Invisible gap</td><td>A required control with no check simply missing from the report</td><td>Drive the suite from the required set; report <code>check_ran: false</code></td></tr>
+<tr><td>Approval of a moving target</td><td>The model alias, a tool description or params change after sign-off</td><td>Digest-bound sign-off; run-time digest check; pinned models and MCP tools</td></tr>
+<tr><td>Escape hatch left open</td><td>A test-only bypass usable in production</td><td>Preventive (AST test on callers) plus detective (audit flag), as D62</td></tr>
+<tr><td>Fleet blind spot</td><td>CI gates the agents someone listed</td><td>CI walks the manifests directory</td></tr>
+</tbody></table></div>
+
+<div class="panel p-future" data-trigger="ARB GR releases move into E6 (own GCP organisation) or a hosted pm-agent ships">
+  <span class="k">Waiting on the builds</span>
+  <p>Both builds gate in CI against local or test bindings, with sign-offs authored in the repository. When ARB binds a real organisation (E6) and pm-agent runs hosted, add: how sign-off keys are held (KMS, custody, rotation), what the production promotion path looks like across environments, and recertification on a real calendar. Also add the GTM release train (D73, GR1–GR5) as a worked example of gating releases on maturity rather than urgency (D65).</p>
+</div>
+
+<h2 id="client"><span class="n">15.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"How do you know the agent in production is the one you approved?"</strong> "The approval names a digest of the configuration: model pin, controls, policies, manifest. The agent checks its own digest against the registry before acting. If anything moved, it stops and the gate re-runs."</li>
+    <li><strong>"Won't gates slow every team down?"</strong> "Low-risk agents go through a fast lane with published turnaround; the gate is a CI check that takes minutes. The heavy path is for agents that can move money or change records on their own."</li>
+    <li><strong>"Who can override the gate?"</strong> "No one can make an unmet control met. Waivers are recorded and expire, and at the highest tier the approval and separation-of-duties controls cannot be waived at all."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">15.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R04, R19 and Capstone A5</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>List what <code>GateDecision</code> carries, and the condition for a control to count as met.</li>
+    <li><span class="lvl">Recall</span>Name the five inputs to the configuration digest and the four distinct sign-off failures.</li>
+    <li><span class="lvl">Apply</span>Walk through what happens, gate and run time, when someone edits <code>params.yaml</code> to raise a refund ceiling for a CRITICAL agent.</li>
+    <li><span class="lvl">Apply</span>Explain D62's <code>pre_deployment()</code> residual and both halves of its fix.</li>
+    <li><span class="lvl">Design</span>Design the fast lane for an estate of 300 agents, 80% read-only. What is pre-approved, what is checked automatically, what is sampled after the fact?</li>
+    <li><span class="lvl">Trade-off</span>A client wants the gate in their GRC portal, not in CI. Make the case for and against, and propose a design that gives them both.</li>
+  </ol>
+  <p class="small">Card candidates: <em>met = bound ∧ ran ∧ passed this run (D22, D27)</em> · <em>sign-off bound to a digest; four failures (D59)</em> · <em>fail-closed must also say why (D27)</em> · <em>the pipeline discovers the fleet (D45)</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">15.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Nicole Forsgren, Jez Humble and Gene Kim, <cite>Accelerate</cite> (IT Revolution, 2018), for why fast, automated, small-batch release with strong checks beats heavyweight approval boards. Jez Humble and David Farley, <cite>Continuous Delivery</cite> (Addison-Wesley, 2010), the deployment pipeline as the place where every change is proven.</li>
+  <li><b>Standards.</b> ISO/IEC 42001:2023 clause 8 (operational planning and control) and the Annex A objectives on the AI system life cycle; NIST AI RMF MANAGE 1–4.</li>
+  <li><span class="tag own">Your build</span> <code>src/aicoe/governance/gate/{engine,design,binding}.py</code>, <code>config_digest.py</code>, <code>signoff.py</code>, <code>inventory.py</code>; <code>docs/operating/GATE_AS_PROMOTION.md</code>; Makefile targets <code>gov-gate</code>, <code>gov-gate-as-designed</code>, <code>gov-fleet</code>, <code>demo-gate-flip</code>, <code>demo-regate</code>. DECISIONS D22, D27, D45, D59, D62; pm-agent D-PM-P4-c, -i, -j, -k and D-PM-P5-h, -k.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="control-as-contract.html"><small>Previous</small>14 · The control as a contract</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="governed-action.html"><small>Next</small>16 · The governed action</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

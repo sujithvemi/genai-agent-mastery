@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>47 · Microsoft AGT through your build</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VIII · Frameworks and law</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 47</div>
+  <ol>
+    <li><a href="#why">The question every client asks</a></li>
+    <li><a href="#model">AGT's model</a></li>
+    <li><a href="#spike">How your build tested it</a></li>
+    <li><a href="#gaps">The gaps, measured</a></li>
+    <li><a href="#blind">What the spike found about your own proof</a></li>
+    <li><a href="#verdict">Why it was not adopted, and when to look again</a></li>
+    <li><a href="#map">The mapping table</a></li>
+    <li><a href="#fit">Where AGT fits behind your seams</a></li>
+    <li><a href="#apply">Applying it to a new agent</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VIII · CHAPTER 47</div>
+  <h1>Microsoft AGT through your build</h1>
+  <p class="lede">Microsoft's Agent Governance Toolkit, read the only way that survives a follow-up question: through a build that ran it. What the toolkit is, how your reference build tested its policy engine behind a seam, the seven gaps it measured, why it was not adopted, and the places a toolkit like it can still earn a role. The method generalises to every framework and vendor feature in this part.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · FRAMEWORKS</span></div>
+    <div><b>Reps</b><span>R25 (GF-1) · BT16 · Capstone A4, B7</span></div>
+    <div><b>Build links</b><span>ARB D53, D62, D63; AGT_INTEROP.md; spikes/agt/</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (AGT core 5.0.0 newest on PyPI)</span></div>
+  </div>
+</div>
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A vendor's open-source policy engine can express two of your four authorisation controls. How would you wire it so that it can never weaken enforcement?</li>
+    <li>A deny rule uses an operator the engine cannot parse, and the engine loads the policy without an error. What does the rule do?</li>
+    <li>Your parity suite is green for two engines. What could it still be missing?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">47.1</span>The question every client asks</h2>
+<p><span class="tag gen">Generic</span> "Why not just use Microsoft's toolkit?" is the first build-versus-buy question a client, a GTM colleague or an interviewer will ask about a governance build, and it generalises: why not AWS's policy engine, Google's gateway, a vendor's guardrails? The answer that survives a follow-up question is never an opinion about the product. It is a measurement taken through your own build: what the thing is, which of your components does the same job, how the two compare on the same cases, and what that means for adoption, stated with a version number.</p>
+<p>This chapter does that for the <strong>Agent Governance Toolkit</strong> (AGT), the open-source toolkit Microsoft introduced on 2 April 2026, because your reference build already ran the experiment. The method is the point: the same four steps apply to every framework in Part VIII and to every platform feature in Part VII.</p>
+<ol>
+  <li><strong>Its model in five lines.</strong> What the parts are and which one makes decisions.</li>
+  <li><strong>A mapping table.</strong> Its concept, your component (by file), and whether the two are equal, stronger, weaker or absent, with "not tested" as an honest fifth answer.</li>
+  <li><strong>A measured comparison</strong> on the components that matter most, behind a seam, with a parity suite.</li>
+  <li><strong>A defended answer</strong> that obeys a wording rule, and the conditions under which you would recommend it.</li>
+</ol>
+
+<h2 id="model"><span class="n">47.2</span>AGT's model</h2>
+<p><span class="tag gen">Generic</span> AGT is an MIT-licensed toolkit for runtime governance of agents, with SDKs in Python, TypeScript, Rust, Go and .NET. Microsoft's launch post describes seven packages:</p>
+<div class="tw"><table>
+<thead><tr><th>Package</th><th>What it does (vendor description)</th></tr></thead>
+<tbody>
+<tr><td>Agent OS</td><td>A stateless policy engine that intercepts agent actions before execution; policies in YAML, with OPA/Rego and Cedar back ends</td></tr>
+<tr><td>Agent Mesh</td><td>Cryptographic agent identity (Ed25519), secure agent-to-agent communication and a trust score on a 0–1000 scale</td></tr>
+<tr><td>Agent Runtime</td><td>Execution rings, saga orchestration for multi-step transactions, an emergency kill switch</td></tr>
+<tr><td>Agent SRE</td><td>SLOs, error budgets, circuit breakers, chaos engineering and progressive delivery for agents</td></tr>
+<tr><td>Agent Compliance</td><td>Automated governance verification, compliance grading and mapping to frameworks such as the EU AI Act, HIPAA and SOC 2</td></tr>
+<tr><td>Agent Marketplace</td><td>Plugin lifecycle with Ed25519 signing and trust-tiered capability gating</td></tr>
+<tr><td>Agent Lightning</td><td>Governance of reinforcement-learning training runs</td></tr>
+</tbody></table></div>
+<p>At Build 2026 (2 June) Microsoft added two pieces to what it calls an open trust stack: the <strong>Agent Control Specification</strong> (ACS), part of AGT, a YAML format for placing controls at five checkpoints (input, model, state, tool execution, output), and <strong>ASSERT</strong>, an evaluation framework that turns written policies into test scenarios (<a class="xref" data-ch="microsoft" data-sec="#open" href="microsoft.html#open">Chapter 43</a>).</p>
+<p>Packaging moved fast. The Python distribution your build pinned, <code>agent-governance-toolkit-core</code>, went 4.0.0 (30 May 2026), 4.1.0 (11 June) and 5.0.0 (3 August), after a 2.1.0 cited in the build's first scoping; the package is classified <em>4 - Beta</em> and the project calls itself a public preview that "may have breaking changes before GA". 5.0.0 was still the newest release on PyPI on 21 October 2026. Two vendor claims travel with it and should be quoted as claims: sub-millisecond policy evaluation, and coverage of all ten OWASP agentic risks.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 452" role="img" aria-label="AGT&#x27;s components at agent-governance-toolkit-core 5.0.0 mapped against the reference build. Agent OS, the policy engine, was tested: it expressed 2 of 4 refund controls with parity on both. Not tested: ACS&#x27;s five checkpoints, which have the same shape as your enforcement points; Agent Mesh identity and trust scores, which under D52 may only restrict; Agent Runtime&#x27;s execution rings, saga and kill switch, compared with registry suspension; Agent SRE; Agent Compliance&#x27;s grading and framework mapping, compared with your crosswalk and gate; Agent Marketplace plugin signing, which complements MCP hash pins; ASSERT, a source of test cases. Agent Lightning, RL training governance, is out of scope.">
+<defs><marker id="a47" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<text class="tx-s" x="10" y="20" text-anchor="start">AGT component (5.0.0)</text>
+<text class="tx-s" x="300" y="20" text-anchor="start">What your build knows</text>
+<text class="tx-s" x="590" y="20" text-anchor="start">The component in your build that does the job</text>
+<rect class="box" x="10" y="32" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="47.5" text-anchor="start">Agent OS</text>
+<text class="tx-s" x="22" y="65.5" text-anchor="start">policy engine · YAML policies</text>
+<rect class="box-acc" x="300" y="32" width="270" height="40" rx="6"/>
+<text class="tx-acc" x="435" y="47.5" text-anchor="middle">Tested at 5.0.0</text>
+<text class="tx-s" x="435" y="65.5" text-anchor="middle">2 of 4 controls · parity on both</text>
+<rect class="box-ok" x="590" y="32" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="47.5" text-anchor="start">Your PDP</text>
+<text class="tx-s" x="602" y="65.5" text-anchor="start">Rego and Cedar behind PolicyEngine</text>
+<line class="ln" x1="280" y1="52" x2="298" y2="52"/>
+<line class="ln" x1="570" y1="52" x2="588" y2="52"/>
+<rect class="box" x="10" y="78" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="93.5" text-anchor="start">ACS</text>
+<text class="tx-s" x="22" y="111.5" text-anchor="start">five checkpoints · policy YAML</text>
+<rect class="box" x="300" y="78" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="93.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="111.5" text-anchor="middle">same shape as your points</text>
+<rect class="box-ok" x="590" y="78" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="93.5" text-anchor="start">Enforcement points</text>
+<text class="tx-s" x="602" y="111.5" text-anchor="start">screen · model · state · tool · output</text>
+<line class="ln" x1="280" y1="98" x2="298" y2="98"/>
+<line class="ln" x1="570" y1="98" x2="588" y2="98"/>
+<rect class="box" x="10" y="124" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="139.5" text-anchor="start">Agent Mesh</text>
+<text class="tx-s" x="22" y="157.5" text-anchor="start">agent identity · trust score</text>
+<rect class="box" x="300" y="124" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="139.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="157.5" text-anchor="middle">a score may only restrict</text>
+<rect class="box-ok" x="590" y="124" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="139.5" text-anchor="start">Principals and keys</text>
+<text class="tx-s" x="602" y="157.5" text-anchor="start">verified subjects · signed grants</text>
+<line class="ln" x1="280" y1="144" x2="298" y2="144"/>
+<line class="ln" x1="570" y1="144" x2="588" y2="144"/>
+<rect class="box" x="10" y="170" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="185.5" text-anchor="start">Agent Runtime</text>
+<text class="tx-s" x="22" y="203.5" text-anchor="start">rings · saga · kill switch</text>
+<rect class="box" x="300" y="170" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="185.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="203.5" text-anchor="middle">compare with suspension</text>
+<rect class="box-ok" x="590" y="170" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="185.5" text-anchor="start">Chokepoint and registry</text>
+<text class="tx-s" x="602" y="203.5" text-anchor="start">CTL-0023 · CTL-0006</text>
+<line class="ln" x1="280" y1="190" x2="298" y2="190"/>
+<line class="ln" x1="570" y1="190" x2="588" y2="190"/>
+<rect class="box" x="10" y="216" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="231.5" text-anchor="start">Agent SRE</text>
+<text class="tx-s" x="22" y="249.5" text-anchor="start">SLOs · breakers · chaos</text>
+<rect class="box" x="300" y="216" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="231.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="249.5" text-anchor="middle">different scope</text>
+<rect class="box-ok" x="590" y="216" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="231.5" text-anchor="start">Operations</text>
+<text class="tx-s" x="602" y="249.5" text-anchor="start">SLOS.md · D71 retries</text>
+<line class="ln" x1="280" y1="236" x2="298" y2="236"/>
+<line class="ln" x1="570" y1="236" x2="588" y2="236"/>
+<rect class="box" x="10" y="262" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="277.5" text-anchor="start">Agent Compliance</text>
+<text class="tx-s" x="22" y="295.5" text-anchor="start">grading · framework mapping</text>
+<rect class="box" x="300" y="262" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="277.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="295.5" text-anchor="middle">check what it calls covered</text>
+<rect class="box-ok" x="590" y="262" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="277.5" text-anchor="start">Crosswalk and gate</text>
+<text class="tx-s" x="602" y="295.5" text-anchor="start">three statuses · conformance</text>
+<line class="ln" x1="280" y1="282" x2="298" y2="282"/>
+<line class="ln" x1="570" y1="282" x2="588" y2="282"/>
+<rect class="box" x="10" y="308" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="323.5" text-anchor="start">Agent Marketplace</text>
+<text class="tx-s" x="22" y="341.5" text-anchor="start">plugin signing</text>
+<rect class="box" x="300" y="308" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="323.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="341.5" text-anchor="middle">complements hash pins</text>
+<rect class="box-ok" x="590" y="308" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="323.5" text-anchor="start">MCP integrity</text>
+<text class="tx-s" x="602" y="341.5" text-anchor="start">CTL-0024 description pins</text>
+<line class="ln" x1="280" y1="328" x2="298" y2="328"/>
+<line class="ln" x1="570" y1="328" x2="588" y2="328"/>
+<rect class="box" x="10" y="354" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="369.5" text-anchor="start">ASSERT</text>
+<text class="tx-s" x="22" y="387.5" text-anchor="start">policy to test scenarios</text>
+<rect class="box" x="300" y="354" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="369.5" text-anchor="middle">Not tested</text>
+<text class="tx-s" x="435" y="387.5" text-anchor="middle">a source of cases</text>
+<rect class="box-ok" x="590" y="354" width="300" height="40" rx="6"/>
+<text class="tx-ok" x="602" y="369.5" text-anchor="start">Red team and golden sets</text>
+<text class="tx-s" x="602" y="387.5" text-anchor="start">corpus · falsifiers</text>
+<line class="ln" x1="280" y1="374" x2="298" y2="374"/>
+<line class="ln" x1="570" y1="374" x2="588" y2="374"/>
+<rect class="box" x="10" y="400" width="270" height="40" rx="6"/>
+<text class="tx-b" x="22" y="415.5" text-anchor="start">Agent Lightning</text>
+<text class="tx-s" x="22" y="433.5" text-anchor="start">RL training governance</text>
+<rect class="box" x="300" y="400" width="270" height="40" rx="6"/>
+<text class="tx" x="435" y="415.5" text-anchor="middle">Out of scope</text>
+<text class="tx-s" x="435" y="433.5" text-anchor="middle">no training in the builds</text>
+<rect class="box" x="590" y="400" width="300" height="40" rx="6"/>
+<text class="tx-b" x="602" y="424.5" text-anchor="start">—</text>
+<line class="ln" x1="280" y1="420" x2="298" y2="420"/>
+<line class="ln" x1="570" y1="420" x2="588" y2="420"/>
+</svg>
+</div>
+<figcaption><b>Fig 47.1</b>AGT read through your build. Only the policy engine has been measured; every other row is a hypothesis about equivalence until a spike like E3-S4 tests it. The right column is what you would compare against.</figcaption>
+</figure>
+
+<h2 id="spike"><span class="n">47.3</span>How your build tested it</h2>
+<p><span class="tag own">Your build</span> ARB's E3-S4 spike (<code>docs/architecture/AGT_INTEROP.md</code>, <code>spikes/agt/</code>) asked one bounded question: can AGT be a third <code>PolicyEngine</code>, behind the same Protocol as OPA and Cedar, and pass the same parity suite? The spike was deliberately limited to the policy seam; AGT's identity, sandboxing, SRE tooling and framework adapters were not evaluated. The wiring is the lesson, because it is how you evaluate any engine without letting it near enforcement:</p>
+<ul>
+  <li><strong>Its own environment.</strong> AGT runs in <code>spikes/agt/</code> with its own <code>pyproject.toml</code> and lock file. The governance package does not depend on it and cannot import it.</li>
+  <li><strong>The adapter lives in <code>tests/</code>.</strong> <code>tests/agt_policy.py</code> satisfies the <code>PolicyEngine</code> Protocol and returns the same <code>Decision</code> shape, but nothing a deployment runs can construct it. <code>test_agt_is_never_the_enforcement_of_record</code> checks the environment, the package source and the dependencies.</li>
+  <li><strong>One policy per control.</strong> AGT names one winning rule per evaluation; your <code>Decision</code> carries every control that refused, which is what parity compares. Evaluating one policy per control yields the set, as the Cedar adapter does with its diagnostics.</li>
+  <li><strong>Default deny with one positive allow rule</strong> per policy, for the reason in <a class="sref" href="#gaps">47.4</a>.</li>
+  <li><strong>Thresholds from the authored <code>params.yaml</code>.</strong> AGT's language cannot read data, so the decision point writes the tier caps and non-refundable states into the rules from the same values Rego reads as data and Cedar receives in context. No number is restated by hand.</li>
+  <li><strong>A fail-closed adapter.</strong> A worker failure or error, a reply naming a different set of controls than were loaded, an <code>allowed</code> that is not exactly true, or a request with no action becomes a <code>GBL-DENY-01</code> denial.</li>
+</ul>
+<p>The two controls AGT could express, side by side with Rego:</p>
+<h4>AGT <code>governance.toolkit/v1</code></h4>
+<pre><code>apiVersion: governance.toolkit/v1
+name: CTL-0001
+description: Refund amount ceiling for the agent's derived tier.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: CTL-0001-within-cap
+    stage: pre_tool
+    action: allow
+    condition: "action != 'issue_refund' or $CAP_CLAUSES"</code></pre>
+<h4>Rego</h4>
+<pre><code>violations contains v if {
+	is_write
+	amount_minor &gt; cap_minor
+	v := {"control_id": "CTL-0001", "reason": sprintf(...)}
+}</code></pre>
+<p>The shapes are inverted. Rego collects violations and allows when there are none; the AGT policy denies by default and states the control's condition positively, because a positive allow is the only form whose failure is safe. <code>$CAP_CLAUSES</code> is expanded from <code>params.yaml</code> into one clause per tier.</p>
+<p>On CTL-0001 and CTL-0003, AGT agreed with OPA on every case: every golden refund, ten boundary cases, the reads on both agents, a refund at each order's own total for every order in the fixtures, and documents that trip each refund precondition alone. <code>make agt-parity</code> reproduces it.</p>
+
+<h2 id="gaps"><span class="n">47.4</span>The gaps, measured</h2>
+<p><span class="tag own">Your build</span> <code>agt_pdp.py probe</code> evaluates seven recorded gaps at the pinned release, and <code>test_the_recorded_language_gaps_are_still_there</code> fails if any outcome changes.</p>
+<div class="tw"><table>
+<thead><tr><th>#</th><th>Written as</th><th>Observed at 5.0.0</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td>G1</td><td>deny when <code>arguments.amount_minor &gt; resource.total_minor</code></td><td>An over-total refund is allowed</td><td>A comparison needs a literal on the right; field-to-field never matches. <span class="ctl">CTL-0002</span> cannot be written</td></tr>
+<tr><td>G2</td><td>allow when <code>action in principal.capabilities</code></td><td>A capable principal is denied</td><td><code>in</code> takes only a literal list; <span class="ctl">CTL-0008</span>'s capability half cannot be written, so the control is out of scope rather than half-covered</td></tr>
+<tr><td>G3</td><td>deny when <code>not principal.verified</code></td><td>An unverified principal is allowed</td><td>There is no <code>not</code>; every condition must be positive</td></tr>
+<tr><td>G4</td><td>allow when <code>arguments.amount_minor &lt;= 500</code></td><td>A request with no amount is allowed</td><td>A missing number reads as zero; parity holds only because the PIP always supplies the field</td></tr>
+<tr><td>G5</td><td>deny with a malformed operator (<code>=&lt;</code>)</td><td>Loads without error; the deny never fires</td><td>No load-time validation: a typo silently disables a deny rule</td></tr>
+<tr><td>G6</td><td>allow when <code>resource.status == 'paid or shipped'</code></td><td>That status is denied</td><td><code>" or "</code> is split before quotes are read</td></tr>
+<tr><td>G7</td><td>allow when <code>action != 'issue_refund'</code></td><td>A request with no action is allowed</td><td><code>!=</code> on a missing field is true; the adapter refuses a request without an action before AGT sees it</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The bigger finding is not what the language cannot say but how it fails when it cannot parse what you wrote. Every policy language has a fail-open mode; the engineer's job is to know it and arrange the policy so that the failure is loud.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 240" role="img" aria-label="What an unparseable condition does, by rule type. With the condition parsed, an allow rule allows exactly when it holds and a deny rule denies exactly when it holds. With the condition not parsed, as AGT 5.0.0 behaves, an allow rule under default deny never allows, which fails closed: noisy, safe and found fast. A deny rule under default allow never denies, which fails open: silent and found by an attacker.">
+<defs><marker id="b47" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="230" y="10" width="320" height="40" rx="6"/>
+<text class="tx-b" x="390" y="34.5" text-anchor="middle">Condition parsed</text>
+<rect class="box-strong" x="570" y="10" width="320" height="40" rx="6"/>
+<text class="tx-b" x="730" y="34.5" text-anchor="middle">Condition not parsed</text>
+<rect class="box" x="10" y="60" width="210" height="80" rx="6"/>
+<text class="tx-b" x="22" y="95.5" text-anchor="start">Allow rule</text>
+<text class="tx-s" x="22" y="113.5" text-anchor="start">default deny</text>
+<rect class="box" x="10" y="150" width="210" height="80" rx="6"/>
+<text class="tx-b" x="22" y="185.5" text-anchor="start">Deny rule</text>
+<text class="tx-s" x="22" y="203.5" text-anchor="start">default allow</text>
+<rect class="box-ok" x="230" y="60" width="320" height="80" rx="6"/>
+<text class="tx" x="390" y="95.5" text-anchor="middle">Allows exactly when</text>
+<text class="tx-s" x="390" y="113.5" text-anchor="middle">the condition holds</text>
+<rect class="box-ok" x="570" y="60" width="320" height="80" rx="6"/>
+<text class="tx-ok" x="730" y="95.5" text-anchor="middle">Never allows</text>
+<text class="tx-s" x="730" y="113.5" text-anchor="middle">fails closed: noisy, safe, found fast</text>
+<rect class="box-ok" x="230" y="150" width="320" height="80" rx="6"/>
+<text class="tx" x="390" y="185.5" text-anchor="middle">Denies exactly when</text>
+<text class="tx-s" x="390" y="203.5" text-anchor="middle">the condition holds</text>
+<rect class="box-no" x="570" y="150" width="320" height="80" rx="6"/>
+<text class="tx-no" x="730" y="185.5" text-anchor="middle">Never denies</text>
+<text class="tx-s" x="730" y="203.5" text-anchor="middle">fails open: silent, found by an attacker</text>
+</svg>
+</div>
+<figcaption><b>Fig 47.2</b>Why ARB wrote every AGT policy as default deny with one positive allow rule. An unparseable condition is then a loud outage, not a silent hole. Rego has the same shape for a different reason: a deny rule that reads an undefined field stops firing, which is why <code>tool_call.rego</code> reads every fact through <code>object.get</code> with a conservative default.</figcaption>
+</figure>
+<p>Two observations beyond the language: every Python policy entry point in the consolidated 5.0.0 package raises a deprecation warning pointing at the package already installed, so there was no non-deprecated import path at that release; and a comment in AGT's own rule evaluator says "In production, would use a proper expression parser". Neither is a reason to dismiss the project. Both are reasons to pin exactly, re-measure on every bump, and read the source of anything you put on an enforcement path.</p>
+
+<h2 id="blind"><span class="n">47.5</span>What the spike found about your own proof</h2>
+<p><span class="tag own">Your build</span> Switching off AGT's state check and its unresolved-order check left the parity suite <em>green</em> at first. The fixtures could not separate <span class="ctl">CTL-0003</span>'s three rules, because every order in a non-refundable state was also marked non-refundable, so the OPA and Cedar suite had carried the same blind spot since it was written. Synthetic documents that each trip one rule alone now run against Cedar and AGT (D62, T2 addendum item 35).</p>
+<p><span class="tag gen">Generic</span> Parity proves that engines agree on the cases you have, not that the cases exercise every rule. The technique that exposed the gap is mutation: break one rule on purpose and check that some test fails. It is the same idea as the falsifiers in <a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>, applied to the test suite rather than the control, and it belongs in any parity effort you run for a client.</p>
+
+<h2 id="verdict"><span class="n">47.6</span>Why it was not adopted, and when to look again</h2>
+<p><span class="tag own">Your build</span> D63 closed the option of adopting AGT as the enforcement layer "on evidence at 5.0.0, not by preference": its language could not state two of the four authorisation controls, and a deny condition it could not parse never matched. The spike stays as interop evidence, behind the policy seam, never the enforcement of record. Two parts of the ruling are worth reusing as patterns:</p>
+<ul>
+  <li><strong>A revisit trigger, not a calendar date.</strong> A re-spike is due when AGT ships a GA release <em>and</em> the gap test goes red on G1, G3 or G5 at a quarterly dependency bump, meaning an unparseable condition no longer silently never matches. A re-spike re-measures parity; it does not authorise adoption.</li>
+  <li><strong>A wording rule.</strong> AGT is a benchmark and a likely partner, so every statement about it is versioned, factual and reproducible: "at <code>agent-governance-toolkit-core</code> 5.0.0, its policy language expressed 2 of our 4 tested refund controls, with full parity on those 2; <code>make agt-parity</code> reproduces it". Never "AGT is unsafe" or "AGT fails open" without the version and the condition.</li>
+</ul>
+
+<h2 id="map"><span class="n">47.7</span>The mapping table</h2>
+<p>The GF-L1 output for AGT, with the honesty that the spike's scope demands. "Not tested" is a legitimate answer and the most common one.</p>
+<div class="tw"><table>
+<thead><tr><th>AGT concept</th><th>Your component (file)</th><th>Comparison</th><th>What would settle it</th></tr></thead>
+<tbody>
+<tr><td>Agent OS policy engine, <code>governance.toolkit/v1</code> YAML</td><td>PDP behind <code>PolicyEngine</code>: <code>platform/policy/rego.py</code>, <code>cedar.py</code>, <code>opa.py</code></td><td>Weaker for your controls at 5.0.0 (2 of 4; fail-open on unparsed deny)</td><td>The D63 re-spike</td></tr>
+<tr><td>ACS checkpoints</td><td>Screening, model gateway, state store, chokepoint (<code>chokepoint.py</code>), answer contract (<code>enforcement/answer_contract.py</code>)</td><td>Same shape; not tested</td><td>Express ARB's controls as ACS and check each lands at the point your catalog names</td></tr>
+<tr><td>Agent Mesh identity and trust score</td><td>Verified principals and capabilities; signed approvals; asymmetric host channel keys (E4-S3)</td><td>Not tested; a trust score is a classifier output, so under D52 it may restrict but never authorise</td><td>A spike on identity issuance, rotation and A2A verification</td></tr>
+<tr><td>Agent Runtime kill switch and rings</td><td>Registry suspension refused at every enforcement point (<span class="ctl">CTL-0023</span>); idempotency (<span class="ctl">CTL-0006</span>)</td><td>Not tested</td><td>Time-to-stop and in-flight behaviour measured on both (<a class="xref" data-ch="observability-agentops" data-sec="#kill" href="observability-agentops.html#kill">Chapter 31</a>)</td></tr>
+<tr><td>Agent SRE</td><td><code>docs/operating/SLOS.md</code>; D71 retry rule</td><td>Different scope: yours defines governance-plane SLOs</td><td>Map its SLO types to yours</td></tr>
+<tr><td>Agent Compliance</td><td><code>governance/crosswalk/</code> with three statuses; the gate; the evidence chain</td><td>Not tested; check whether "covered" means a test ran or a mapping exists</td><td>Compare its grade for an agent with your gate's verdict</td></tr>
+<tr><td>Agent Marketplace plugin signing</td><td>MCP description and schema hash pins (<span class="ctl">CTL-0024</span>)</td><td>Complementary: signing proves origin; pinning proves what was reviewed is what runs</td><td>Use both</td></tr>
+<tr><td>ASSERT</td><td>Red-team corpus (<code>tests/redteam/</code>), golden sets, falsifiers</td><td>Not tested; a source of new cases</td><td>Generate cases from your catalog text and add the ones that find something</td></tr>
+<tr><td>Agent Lightning</td><td>—</td><td>Out of scope; neither build trains models</td><td>—</td></tr>
+</tbody></table></div>
+
+<h2 id="fit"><span class="n">47.8</span>Where AGT fits behind your seams</h2>
+<p><span class="tag gen">Generic</span> "Not adopted as the enforcement layer" is not "not useful". There are five places a toolkit like AGT can earn a role without ever becoming the enforcement of record:</p>
+<div class="tw"><table>
+<thead><tr><th>Role</th><th>How</th><th>Condition</th></tr></thead>
+<tbody>
+<tr><td>A benchmark</td><td>Parity runs at each release, as now</td><td>Pinned exactly; the gap test as a tripwire</td></tr>
+<tr><td>A shadow decision point</td><td>Evaluate every decision in AGT as well, compare, alert on divergence; never act on its answer</td><td>Decision-equivalence monitoring in production (<a class="xref" data-ch="across-platforms" data-sec="#policy" href="across-platforms.html#policy">Chapter 45</a>)</td></tr>
+<tr><td>An exchange format</td><td>ACS as the portable description of where a control sits, for a client running agents on several platforms</td><td>Once ACS has a stable version and reference implementations on the platforms the client uses</td></tr>
+<tr><td>Modules you lack</td><td>Plugin signing, saga orchestration or SRE tooling, each evaluated on its own</td><td>A separate spike per module, behind a seam, with falsifiers</td></tr>
+<tr><td>A client's chosen stack</td><td>A Microsoft-centred client standardises on it</td><td>Your catalog's triggers checked for expressibility first; inexpressible controls kept in a PDP you control</td></tr>
+</tbody></table></div>
+<p>The same table applies, with names changed, to AgentCore Policy, GEAP's access policies and every vendor guardrail: decide which controls the native engine can carry, prove parity on those, and keep the rest in the decision point whose failure modes you know (<a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a>).</p>
+
+<h2 id="apply"><span class="n">47.9</span>Applying it to a new agent</h2>
+<p><span class="tag gen">Generic</span> Capstone A's stage A4 asks you to write the controls of a new agent in Rego, then express the ones AGT can express as AGT policies and run parity (<a class="xref" data-ch="capstone-a" href="capstone-a.html">Chapter 52</a>). Done properly it repeats the spike in miniature, and the order of work matters:</p>
+<ol>
+  <li>Classify each control's trigger: a literal comparison, a field-to-field comparison, membership in a data-held list, a negation, an accumulation over time, or a signature check. Only the first is safe in AGT 5.0.0.</li>
+  <li>Write each expressible control as default deny with one positive allow, thresholds injected from your parameters.</li>
+  <li>Run the same cases through both engines; add a single-rule mutation for each policy and check a test fails.</li>
+  <li>State the result with the version, and keep the inexpressible controls in Rego, named as such.</li>
+</ol>
+
+<h2 id="fail"><span class="n">47.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>How it shows up</th><th>Guard</th></tr></thead>
+<tbody>
+<tr><td>Adopting a toolkit from its README</td><td>A control the engine cannot express is "covered" in a slide</td><td>Parity on your own cases before any claim</td></tr>
+<tr><td>Unpinned dependency on a preview toolkit</td><td>Three majors in six months change behaviour under you</td><td>Exact pins, a lock file, a gap test as tripwire</td></tr>
+<tr><td>Silent deny rules</td><td>A typo or unsupported operator disables a refusal</td><td>Default deny with positive allows; load-time validation of your own</td></tr>
+<tr><td>Half a control</td><td>The capability half of <span class="ctl">CTL-0008</span> enforced, the verification half not, reported as covered</td><td>Scope declared per control, in code, and compared like with like</td></tr>
+<tr><td>Green parity, blind fixtures</td><td>A disabled rule changes nothing in the suite</td><td>Single-rule mutations; synthetic cases per rule</td></tr>
+<tr><td>Careless claims about a partner's product</td><td>"AGT fails open" quoted back at you</td><td>The D63 wording rule</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">47.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Why not just use Microsoft's Agent Governance Toolkit?"</strong> "We ran it behind the same interface as our policy engines. At version 5.0.0 its policy language expressed two of our four refund controls, with full agreement on those two, and a single command reproduces the test. The other two need comparisons the language did not support then, so they stay in an engine whose failure behaviour we know. We re-test when it reaches general availability."</li>
+    <li><strong>"Is it any good?"</strong> "Parts of it are promising, and it covers ground we do not: plugin signing, SRE tooling, training governance. We have measured only its policy engine. We would evaluate each other module the same way before relying on it."</li>
+    <li><strong>"Could we standardise on it?"</strong> "For the controls it can express, once it is GA and passes our parity suite. For the rest, we would keep a decision point we control in front of the systems that matter."</li>
+  </ul>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Check the current AGT version, its release status (preview or GA) and whether the policy language now validates conditions at load time, supports negation and compares fields. Quote vendor performance and OWASP-coverage figures as vendor claims. The ARB result is specific to <code>agent-governance-toolkit-core</code> 5.0.0 and four refund controls.</p>
+</div>
+
+<div class="panel p-future" data-trigger="AGT GA release, or the gap test turns red on G1, G3 or G5 at a quarterly bump">
+  <span class="k">Waiting on the builds</span>
+  <p>When the D63 trigger fires, ARB re-runs the spike; update the gap table, the verdict and the mapping table here from its new <code>AGT_INTEROP.md</code>. If ACS reaches a stable version with a reference implementation for Google Cloud, add a worked example expressing ARB's enforcement points as ACS.</p>
+</div>
+
+<h2 id="prove"><span class="n">47.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · R25 · BT16</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four steps of reading a framework through your build.</li>
+    <li><span class="lvl">Recall</span>Which two refund controls AGT 5.0.0 expressed, and why the other two could not be written.</li>
+    <li><span class="lvl">Apply</span>Explain, with the 2×2 in <a class="sref" href="#gaps">47.4</a>, why every AGT policy in the spike is default deny with one allow rule.</li>
+    <li><span class="lvl">Apply</span>Design the mutation test that would have caught the <span class="ctl">CTL-0003</span> fixture blind spot.</li>
+    <li><span class="lvl">Design</span>A shadow-PDP deployment of AGT next to Rego: where it runs, what is compared, who is alerted, and why it can never act.</li>
+    <li><span class="lvl">Trade-off</span>A Microsoft-centred client wants one vendor toolkit for all agent policy. What do you agree to, and what do you keep?</li>
+  </ol>
+  <p class="small">Rep: R25 (GF-1), then BT16 (install AGT in its own environment, write one policy, evaluate five cases). Card candidates: <em>how a policy language fails matters more than what it expresses</em> · <em>default deny plus one positive allow</em> · <em>a revisit trigger, not a date</em> · <em>parity proves agreement, not coverage</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">47.13</span>Further reading</h2>
+<ul>
+  <li><b>AGT.</b> Microsoft Open Source blog, "Introducing the Agent Governance Toolkit" (2 April 2026); the <code>microsoft/agent-governance-toolkit</code> repository and release notes; Microsoft Foundry blog on the open trust stack, ACS and ASSERT (2 June 2026).</li>
+  <li><span class="tag own">Your build</span> <code>docs/architecture/AGT_INTEROP.md</code>; <code>spikes/agt/README.md</code> and <code>policies/tool_call.yaml</code>; <code>tests/agt_policy.py</code>, <code>tests/test_policy_parity_agt.py</code>; DECISIONS D53, D62 (item 35), D63; RUNBOOKS §7 (framework currency).</li>
+  <li><b>Related chapters.</b> <a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a> for the three languages on one control; <a class="xref" data-ch="tool-landscape" href="tool-landscape.html">Chapter 46</a> for build versus buy across the tool market.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="tool-landscape.html"><small>Previous</small>46 · The independent tool landscape and build vs buy</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="standards-law-crosswalk.html"><small>Next</small>48 · Standards, law and crosswalk engineering</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

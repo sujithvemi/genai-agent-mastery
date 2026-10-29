@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>11 · What governance must do when software acts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part III · The rulebook</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 11</div>
+  <ol>
+    <li><a href="#acts">From outputs to acts</a></li>
+    <li><a href="#carry">What carries over</a></li>
+    <li><a href="#new">What is new</a></li>
+    <li><a href="#census">A census of one agent</a></li>
+    <li><a href="#vocab">Vocabulary</a></li>
+    <li><a href="#where">Where governance acts</a></li>
+    <li><a href="#posture">The regulatory posture</a></li>
+    <li><a href="#fail">How programmes fail</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART III · CHAPTER 11</div>
+  <h1>What governance must do when software acts</h1>
+  <p class="lede">An AI system that answers can be governed mostly before it ships. An agent that acts has to be governed at the moment it acts, every time, and the evidence of that has to outlive the act. This chapter sets out what changes, what does not, and the vocabulary the rest of the book uses.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>FRAMEWORKS · OWN</span></div>
+    <div><b>Reps</b><span>R01 · GF-2</span></div>
+    <div><b>Build evidence</b><span>CONTROL_GAPS.md · P1</span></div>
+    <div><b>Decisions</b><span>D0 · D7 · D23</span></div>
+    <div><b>Read</b><span>~30 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Name three risks an agent creates that a chatbot answering the same questions does not.</li>
+    <li>A firm has a mature AI governance programme for models. Which parts of it can it reuse unchanged for agents, and which parts break?</li>
+    <li>Take a support agent with four tools, built carefully by a competent team, with no governance added. How many distinct control gaps would you expect to find? Guess a number before section 4.</li>
+  </ol>
+</div>
+
+<h2 id="acts"><span class="n">11.1</span>From outputs to acts</h2>
+<p><span class="tag gen">Generic</span> A model that is wrong produces a wrong sentence. A person reads it, and the person is the control: they decide whether to act on it. An agent that is wrong produces a wrong <em>act</em>: it refunds the wrong customer, closes the wrong ticket, emails a contract to the wrong party, grants access it should not. There may be no person between the decision and the effect. That one shift changes five properties of the risk, and each one moves where governance has to work.</p>
+<div class="tw"><table>
+<thead><tr><th>Property</th><th>Answering system</th><th>Acting system</th><th>What it does to governance</th></tr></thead>
+<tbody>
+<tr><td>Reversibility</td><td>A bad answer can be ignored</td><td>Some acts cannot be undone (a payment, a sent message, a deleted record)</td><td>Controls must sit <em>before</em> the effect, not in a review afterwards</td></tr>
+<tr><td>Speed and volume</td><td>Paced by a human reader</td><td>Machine speed, in loops, many calls per task</td><td>Per-action human review does not scale; automation must decide most calls, people only the consequential ones</td></tr>
+<tr><td>Authority</td><td>Has none; borrows the reader's</td><td>Holds credentials and calls systems of record</td><td>Identity, least privilege and delegation become governance concerns, not just IT ones</td></tr>
+<tr><td>Attack surface</td><td>Its input is the user's prompt</td><td>Reads documents, tool results, other agents' messages, any of which can carry instructions</td><td>Untrusted content must be kept from steering acts; the attacker no longer needs to be the user</td></tr>
+<tr><td>Composition</td><td>One model, one answer</td><td>Agents call tools and other agents; authority passes along chains</td><td>Who authorised the final act must be answerable across hops</td></tr>
+</tbody></table></div>
+<p>Put together, these mean that the defining activity of agent governance is <strong>run-time enforcement with evidence</strong>. Design reviews, risk assessments and pre-release testing still matter, but they decide what the run-time mechanism must enforce; they cannot replace it. Most of this book is about that mechanism and the system around it.</p>
+
+<h2 id="carry"><span class="n">11.2</span>What carries over from AI governance</h2>
+<p><span class="tag gen">Generic</span> The good news for any organisation with an AI governance programme is that most of its management system carries over. The question for each component is whether it holds unchanged, needs extending, or needs replacing.</p>
+<div class="tw"><table>
+<thead><tr><th>Component</th><th>Verdict for agents</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Policy, principles, prohibited uses</td><td>Extend</td><td>Policies written for content and data rarely say what kinds of action are allowed, how much autonomy can be granted, or who may grant more</td></tr>
+<tr><td>Accountability and committees</td><td>Holds</td><td>The same risk committee can own agent risk; it needs new decision rights (autonomy grants, CRITICAL sign-off)</td></tr>
+<tr><td>Inventory</td><td>Extend</td><td>A register of models and use cases becomes a registry of agents as actors: owner, identity, tools, data, tier, edges, status</td></tr>
+<tr><td>Risk and impact assessment</td><td>Extend</td><td>The scoring must include what the agent can change, how independently and how far a mistake spreads (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>)</td></tr>
+<tr><td>Data governance</td><td>Extend</td><td>Agents move data across boundaries at run time and keep it in memory (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>)</td></tr>
+<tr><td>Model validation and testing</td><td>Extend</td><td>Add trajectory and tool-use evaluation, attack testing, and proof that each control blocks (<a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a>, <a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>)</td></tr>
+<tr><td>Transparency to users</td><td>Holds</td><td>Disclosure that AI is involved; plus disclosure of what it may do on the user's behalf</td></tr>
+<tr><td>Security</td><td>Extend</td><td>Prompt injection, tool poisoning, confused-deputy and excessive agency are new threat classes (<a class="xref" data-ch="security-multitenancy" href="security-multitenancy.html">Chapter 32</a>)</td></tr>
+<tr><td>Monitoring and incident management</td><td>Extend</td><td>Monitor actions and refusals, not only quality; add a kill switch and action-level forensics (<a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>)</td></tr>
+<tr><td>Design-time review as the main control</td><td>Replace</td><td>It cannot see what the agent will be asked, what it will read, or what it will decide; it can only decide what the run-time controls must be</td></tr>
+</tbody></table></div>
+
+<h2 id="new"><span class="n">11.3</span>What is genuinely new</h2>
+<p><span class="tag gen">Generic</span> Seven concerns are new or much harder with agents. Each has a mechanism in Part IV and an example in your builds.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>The failure</th><th>The mechanism</th><th>In the book</th></tr></thead>
+<tbody>
+<tr><td><strong>Identity and authority</strong></td><td>The agent runs on its builder's credentials, so every user borrows the builder's permissions; or the caller's identity is a string anyone can type</td><td>A resolved identity per agent; capabilities signed, not asserted; on-behalf-of where the user's rights should bound the act</td><td><a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a></td></tr>
+<tr><td><strong>Acts, not outputs</strong></td><td>Harm arrives through a tool call, sometimes irreversible</td><td>A policy decision on facts from trusted state before every consequential call</td><td><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><strong>Oversight at scale</strong></td><td>"A person reviews it" turns into rubber-stamping under volume</td><td>Approval only where the stakes are high, bound to one exact action, by someone other than the requester, with friction and fatigue signals</td><td><a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a></td></tr>
+<tr><td><strong>Content that steers</strong></td><td>A document, ticket comment or tool result says "ignore your instructions and…"</td><td>Untrusted content enters as data, never as instruction; acts are authorised by policy, not by what the model was persuaded of</td><td><a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a></td></tr>
+<tr><td><strong>Chains of agents</strong></td><td>A asks B, B asks C; nobody can say who authorised the final act</td><td>Declared edges, resolved senders, messages without authority, provenance across the hop</td><td><a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td><strong>Change after approval</strong></td><td>A model alias moves, a prompt is edited, a tool is added, memory accumulates; the approved agent is no longer the running agent</td><td>Pinned models, derived tiers, sign-off bound to a configuration digest, re-evaluation on change</td><td><a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a></td></tr>
+<tr><td><strong>Sprawl</strong></td><td>Low-code tools make agents cheap; estates of hundreds appear before anyone counts them</td><td>Discovery plus a registry as a run-time precondition: no registry entry, no production</td><td><a class="xref" data-ch="reference-model" href="reference-model.html">Chapter 12</a>, <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a></td></tr>
+</tbody></table></div>
+
+<h2 id="census"><span class="n">11.4</span>A census of one agent</h2>
+<p><span class="tag own">Your build</span> The argument above can be made from first principles, but the strongest version of it is empirical. ARB's first phase (P1) built a competent, ungoverned customer-service agent on Google ADK: a BM25 knowledge-base retriever, read tools for orders and customers, and one write, <code>issue_refund</code>, wired to a payments adapter. It ran live on a local model. Then the build wrote down every way it could cause harm, each with the file and line where the gap lived and a test that demonstrated it. The result is <code>docs/governance/CONTROL_GAPS.md</code>: fifteen gaps in an agent with four tools.</p>
+<div class="tw"><table>
+<thead><tr><th>Family</th><th>Gaps</th><th>What they have in common</th></tr></thead>
+<tbody>
+<tr><td>Correctness of the act</td><td>GAP-01 unbounded amount · 02 refund above order total · 03 refund on a non-refundable order · 12 currency silently assumed · 13 negative or zero amounts</td><td>The tool trusted its arguments. Every one is a precondition a policy can check on facts the system already holds.</td></tr>
+<tr><td>Who may act</td><td>GAP-04 no approval · 05 no separation of duties · 08 unauthenticated caller</td><td>The system believed a claim because it was made (D20's diagnosis).</td></tr>
+<tr><td>Volume and repetition</td><td>GAP-06 no idempotency · 07 no rate or value budget</td><td>A loop or a retry multiplies one mistake.</td></tr>
+<tr><td>What the model reads and says</td><td>GAP-14 no injection boundary · 15 citations never verified</td><td>The model's inputs and outputs were trusted as if they were the system's own.</td></tr>
+<tr><td>Proof</td><td>GAP-09 PII in evidence · 10 no output contract on the write · 11 evidence not tamper-evident</td><td>Even where the act was right, nothing could prove it, or the proof itself leaked.</td></tr>
+</tbody></table></div>
+<p>Two of these were found live rather than by reading. GAP-15 surfaced when the local model answered a policy question with a citation, <code>[KB-0000]</code>, to an article that does not exist. And the P1 run that motivates <a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a> showed the agent call <code>get_order</code>, receive the order, and refund an amount the order did not support. The model performed the check and ignored it.</p>
+<p>Fifteen gaps in four tools is the number to remember when someone says their agents are "low risk because the team is good". The gaps are not a sign of bad engineering; they are what any capable agent has before governance is added. The list kept growing as the build did: cross-agent edges added four (GAP-21 to 24), the evolution phases added five more (GAP-25 to 29: sign-off not bound to configuration, unbounded model consumption, unpinned models, no governed inventory, unverified MCP tools). Each became a control. That traceability, every control to a measured gap, is the discipline <a class="xref" data-ch="control-as-contract" href="control-as-contract.html">Chapter 14</a> builds on.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 880 256" role="img" aria-label="Posture of the reference build across its phases: P1 fifteen gaps unguarded; P2 fifteen specified, none enforced; P3 fifteen enforced; P5 red-team verified; then portable, fleet, operable and defensible.">
+  <defs><marker id="a11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <g>
+    <rect class="box-no" x="10" y="70" width="110" height="64" rx="6"/>
+    <text class="tx-no" x="65" y="96" text-anchor="middle">unguarded</text>
+    <text class="tx-s" x="65" y="116" text-anchor="middle">P1 · 15 gaps</text>
+
+    <rect class="box-acc" x="150" y="70" width="110" height="64" rx="6"/>
+    <text class="tx-acc" x="205" y="96" text-anchor="middle">specified</text>
+    <text class="tx-s" x="205" y="116" text-anchor="middle">P2 · 15 / 0</text>
+
+    <rect class="box-ok" x="290" y="70" width="110" height="64" rx="6"/>
+    <text class="tx-ok" x="345" y="96" text-anchor="middle">enforced</text>
+    <text class="tx-s" x="345" y="116" text-anchor="middle">P3–P4 · 15 / 15</text>
+
+    <rect class="box-ok" x="430" y="70" width="110" height="64" rx="6"/>
+    <text class="tx-ok" x="485" y="96" text-anchor="middle">verified</text>
+    <text class="tx-s" x="485" y="116" text-anchor="middle">P5 · red team</text>
+
+    <rect class="box-ok" x="570" y="70" width="90" height="64" rx="6"/>
+    <text class="tx-ok" x="615" y="96" text-anchor="middle">portable</text>
+    <text class="tx-s" x="615" y="116" text-anchor="middle">P6</text>
+
+    <rect class="box-ok" x="680" y="70" width="80" height="64" rx="6"/>
+    <text class="tx-ok" x="720" y="96" text-anchor="middle">fleet</text>
+    <text class="tx-s" x="720" y="116" text-anchor="middle">P7</text>
+
+    <rect class="box-ok" x="780" y="70" width="90" height="64" rx="6"/>
+    <text class="tx-ok" x="825" y="96" text-anchor="middle">operable</text>
+    <text class="tx-s" x="825" y="116" text-anchor="middle">P8</text>
+  </g>
+  <g>
+    <line class="ln" x1="120" y1="102" x2="146" y2="102" marker-end="url(#a11)"/>
+    <line class="ln" x1="260" y1="102" x2="286" y2="102" marker-end="url(#a11)"/>
+    <line class="ln" x1="400" y1="102" x2="426" y2="102" marker-end="url(#a11)"/>
+    <line class="ln" x1="540" y1="102" x2="566" y2="102" marker-end="url(#a11)"/>
+    <line class="ln" x1="660" y1="102" x2="676" y2="102" marker-end="url(#a11)"/>
+    <line class="ln" x1="760" y1="102" x2="776" y2="102" marker-end="url(#a11)"/>
+  </g>
+  <text class="tx-s" x="65" y="160" text-anchor="middle">a list with tests</text>
+  <text class="tx-s" x="205" y="160" text-anchor="middle">the gate can say no</text>
+  <text class="tx-s" x="345" y="160" text-anchor="middle">runtime can say no</text>
+  <text class="tx-s" x="485" y="160" text-anchor="middle">attacked and held</text>
+  <text class="tx-s" x="615" y="160" text-anchor="middle">same on any cloud</text>
+  <text class="tx-s" x="720" y="160" text-anchor="middle">two tiers</text>
+  <text class="tx-s" x="825" y="160" text-anchor="middle">runbooks, SLOs</text>
+  <line class="ln-mute" x1="10" y1="196" x2="870" y2="196"/>
+  <text class="tx-m" x="10" y="222">then E1–E5: 15 → 26 controls</text>
+  <text class="tx-s" x="10" y="242">budget · model pin · sign-off digest · inventory · MCP integrity · content safety · groundedness</text>
+</svg>
+</div>
+<figcaption><b>Fig 11.1</b>The reference build's posture ladder. Each step is a different claim, and each needs different evidence: a gap list, a catalog and a gate, a passing conformance suite, a red-team verdict, a portability firewall, a second archetype, an operating model.</figcaption>
+</figure>
+
+<h2 id="vocab"><span class="n">11.5</span>Vocabulary at engineering resolution</h2>
+<p>Clients, vendors and analysts use these words loosely and often interchangeably. The book uses them precisely. The right-hand column is the test that tells you which one someone actually means.</p>
+<div class="tw"><table>
+<thead><tr><th>Term</th><th>Is</th><th>Is not</th><th>The test</th></tr></thead>
+<tbody>
+<tr><td><strong>Model</strong></td><td>The network that maps tokens to tokens</td><td>An agent; it has no tools, memory or loop of its own</td><td>Could you swap it for another provider's without changing behaviour you govern? Then the behaviour lives elsewhere</td></tr>
+<tr><td><strong>Harness</strong></td><td>The software that turns a model into an agent: loop, instructions, tools, context, memory, error handling, extension points</td><td>Governance, even when it has hooks for it</td><td>It decides how the agent works; it does not decide what the agent may do</td></tr>
+<tr><td><strong>Platform / runtime</strong></td><td>Where agents are built, hosted and run (Agent Engine, Copilot Studio, AgentCore, your containers)</td><td>The rulebook</td><td>It supplies enforcement points; someone still has to configure what they enforce</td></tr>
+<tr><td><strong>Guardrail</strong></td><td>An automatic check on content going into or out of a model</td><td>An authorisation decision about an act</td><td>Does it look at text or at a proposed act with its facts? Text: guardrail</td></tr>
+<tr><td><strong>Policy decision (PDP)</strong></td><td>A deterministic decision on whether a specific act is allowed, from facts</td><td>A prompt instruction</td><td>Would the same input always get the same answer, regardless of phrasing?</td></tr>
+<tr><td><strong>Approval</strong></td><td>A signed human decision bound to one specific act</td><td>A human "in the loop" somewhere in the process</td><td>Can it be replayed for a different act? Then it is not an approval</td></tr>
+<tr><td><strong>Eval</strong></td><td>A structured measurement of behaviour against a dataset and a rubric</td><td>A proof that a control works</td><td>Does it measure quality, or does it show a mechanism refusing? The latter is conformance</td></tr>
+<tr><td><strong>Conformance test</strong></td><td>A test that drives the real enforcement plane and shows a control fire</td><td>A unit test of the rule in isolation</td><td>Would disabling the control make it fail?</td></tr>
+<tr><td><strong>Observability</strong></td><td>Recording what the system did so it can be monitored and debugged</td><td>Audit</td><td>Is it optimised for an engineer at 2 a.m. or an auditor in six months?</td></tr>
+<tr><td><strong>Evidence</strong></td><td>A tamper-evident, minimised record that a decision was made and an act happened, attributable to a control</td><td>Logs</td><td>Can a fresh process verify it was not altered?</td></tr>
+<tr><td><strong>Control</strong></td><td>A mechanism with an objective, a trigger, an owner, evidence, a test and an exception path</td><td>A policy statement</td><td>Can you point to the line of code that refuses, and the test that proves it?</td></tr>
+<tr><td><strong>Governance</strong></td><td>The system that sets the rules, assigns accountability, decides which controls each agent needs, checks the evidence before and after release, and keeps it true over time</td><td>Any one of the items above</td><td>It uses all of them and replaces none</td></tr>
+</tbody></table></div>
+<p>Two further terms matter for the rest of the book. A <strong>global invariant</strong> is a control that holds for every agent at every tier (deny by default, no action without evidence, executor never approver). A <strong>posture</strong> is the state of a control on the ladder in the figure above: unguarded, specified, enforced, verified. When someone says an agent "has" a control, ask which rung they mean.</p>
+
+<h2 id="where"><span class="n">11.6</span>Where governance acts</h2>
+<p><span class="tag gen">Generic</span> AI governance concentrates its work in two places: before release (assessment, validation, approval) and after release (monitoring). Agent governance keeps both and adds a third that carries most of the weight: the run-time path of every consequential act. The figure shows where each sits along one act.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 270" role="img" aria-label="Along the life of one act: before release, design review, risk tiering and release gate; at run time, input screening, policy decision, approval and output contract around the act; after the act, evidence, monitoring and change triggers. AI governance mostly covers before and after; agent governance adds the run-time path.">
+  <defs><marker id="b11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <line class="ln" x1="20" y1="130" x2="880" y2="130" marker-end="url(#b11)"/>
+  <text class="tx-s" x="880" y="150" text-anchor="end">time</text>
+
+  <rect class="box" x="20" y="40" width="250" height="60" rx="6"/>
+  <text class="tx-b" x="145" y="64" text-anchor="middle">Before release</text>
+  <text class="tx-s" x="145" y="84" text-anchor="middle">review · tiering · evals · gate</text>
+
+  <rect class="box-acc" x="300" y="40" width="300" height="60" rx="6"/>
+  <text class="tx-acc" x="450" y="64" text-anchor="middle">At the moment of the act</text>
+  <text class="tx-s" x="450" y="84" text-anchor="middle">screen · decide · approve · contract</text>
+
+  <rect class="box" x="630" y="40" width="250" height="60" rx="6"/>
+  <text class="tx-b" x="755" y="64" text-anchor="middle">After the act</text>
+  <text class="tx-s" x="755" y="84" text-anchor="middle">evidence · monitor · change → re-gate</text>
+
+  <circle class="dot-on" cx="450" cy="130" r="7"/>
+  <text class="tx-acc" x="450" y="158" text-anchor="middle">the tool call</text>
+
+  <rect class="box-strong" x="20" y="190" width="250" height="44" rx="6"/>
+  <text class="tx" x="145" y="217" text-anchor="middle">AI governance: strong here</text>
+  <rect class="box-ok" x="300" y="190" width="300" height="44" rx="6"/>
+  <text class="tx-ok" x="450" y="217" text-anchor="middle">Agent governance adds this</text>
+  <rect class="box-strong" x="630" y="190" width="250" height="44" rx="6"/>
+  <text class="tx" x="755" y="217" text-anchor="middle">AI governance: monitoring here</text>
+</svg>
+</div>
+<figcaption><b>Fig 11.2</b>The same programme, three places to act. Before-release and after-act work decides and checks; only the run-time path can refuse an act that has not happened yet.</figcaption>
+</figure>
+<p>The middle box is not a replacement for the outer two; it is what they configure and what they verify. Pre-release work decides which controls this agent's path must carry. Post-act work checks, from evidence, that the path behaved, and turns any change into a new pre-release decision. That loop (author, enforce, prove, revise) is the reference model of <a class="xref" data-ch="reference-model" href="reference-model.html">Chapter 12</a>.</p>
+
+<h2 id="posture"><span class="n">11.7</span>The regulatory posture: self-governance with evidence</h2>
+<p><span class="tag gen">Generic</span> As of late 2026 no major regime regulates "agents" as a category. Regimes regulate uses and their effects: the EU AI Act classifies systems by use and imposes obligations on high-risk uses, transparency duties and general-purpose model duties; data protection law governs personal data and automated decisions; consumer protection, anti-discrimination, financial-services and health regulation govern what the act does in their domain. Everything an agent does is therefore already regulated, through what it does rather than how it is built.</p>
+<p>The practical consequence is that regulators, auditors and boards expect firms to govern their agents themselves and to be able to show it: which agents exist, who owns each, what each may do, what stops it doing more, and what happened when it acted. That is a demand for evidence of operating controls, which is exactly what the enforcement and evidence planes produce. A programme that can only show policies and committee minutes will struggle; one that can show a conformance report and a verifiable action trail will not.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Application dates of the EU AI Act's obligations, the status of any national or sector guidance on agentic AI (Singapore's agentic AI framework, financial supervisors' model-risk guidance, health regulators' guidance on AI-enabled decisions) and any 2026 amendments change often. <a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a> covers each with dates; confirm against the primary text before putting a date or article number in writing.</p>
+</div>
+
+<h2 id="fail"><span class="n">11.8</span>How governance programmes fail</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>What it looks like</th><th>The counter in this book</th></tr></thead>
+<tbody>
+<tr><td>Paper governance</td><td>Policies, a committee, a risk template; nothing on the run-time path</td><td>Every control is a mechanism plus a test (<a class="xref" data-ch="control-as-contract" href="control-as-contract.html">Chapter 14</a>)</td></tr>
+<tr><td>The platform is the programme</td><td>"We use a governed platform, so our agents are governed"</td><td>Platforms supply enforcement points; tiers, thresholds, owners and evidence are still yours (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>)</td></tr>
+<tr><td>One size of control</td><td>Every agent through the same heavy process; builders route around it</td><td>Fleet-first tiering and a fast lane (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>, <a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a>)</td></tr>
+<tr><td>A parallel track</td><td>Governance approvals run beside delivery, not inside it</td><td>The gate is a required check in the same CI/CD pipeline (<a class="xref" data-ch="deployment-cicd" href="deployment-cicd.html">Chapter 30</a>)</td></tr>
+<tr><td>Compliance theatre</td><td>Controls that read as enforcement and cannot fire</td><td>No dead policy; positive per-agent conformance; falsifiers (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>)</td></tr>
+<tr><td>Governing the first agent</td><td>A framework fitted to the pilot that breaks on the second agent</td><td>Fleet-first authoring and a deliberately different second archetype</td></tr>
+<tr><td>Governance by trust</td><td>Approvals and identities accepted because they were asserted</td><td>Signed, scoped, verified on every call (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>)</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">11.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our AI policy already covers agents."</strong> Ask three questions: does it say which kinds of action an agent may take, who may grant an agent more autonomy, and whether an agent may run on a person's credentials? If any answer is "it doesn't say", it covers content, not acts.</li>
+    <li><strong>"How many agents do you have?"</strong> Ask how they know. A count from a registry that agents must be in to run is a fact; a count from a survey is an estimate, usually low.</li>
+    <li><strong>"Governance will slow us down."</strong> The census answer: a carefully built agent with four tools had fifteen distinct ways to cause harm. Governance is how such an agent gets through a security review at all; a fast lane keeps the low-risk majority moving.</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">11.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R01 and GF-2</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Name the five properties that change between an answering and an acting system, and the seven new concerns.</li>
+    <li><span class="lvl">Apply</span>Pick five of the fifteen P1 gaps and name, for each, the concern it belongs to and the control family that closed it.</li>
+    <li><span class="lvl">Apply</span>A colleague calls Model Armor "our agent governance". Using the vocabulary table, say precisely what it is and what it is not.</li>
+    <li><span class="lvl">Design</span>A bank's AI governance programme has a model inventory, a validation team and a quarterly committee. Write the five changes it needs before its first agent with a write tool goes live.</li>
+    <li><span class="lvl">Trade-off</span>Argue for and against putting a human approval on every agent action in the first year.</li>
+  </ol>
+  <p class="small">Card candidates: <em>five properties of acting systems</em> · <em>guardrail vs policy decision vs approval vs conformance</em> · <em>fifteen gaps in four tools</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">11.11</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025), the chapter on agents (planning, tools and failure modes) and the one on guardrails; read them for the builder's view of the same risks.</li>
+  <li><b>Essays.</b> Lilian Weng, "LLM Powered Autonomous Agents" (2023, <a href="https://lilianweng.github.io/posts/2023-06-23-agent/">lilianweng.github.io</a>), still the clearest map of planning, memory and tool use. Anthropic, "Building effective agents" (December 2024), for the distinction between workflows and agents and why simple patterns win.</li>
+  <li><b>Frameworks.</b> NIST AI 600-1, the Generative AI profile of the AI RMF (July 2024), for the risk vocabulary auditors use; the OWASP Top 10 for Agentic Applications (December 2025) for the threat list your catalog is crosswalked to.</li>
+  <li><span class="tag own">Your build</span> <code>docs/governance/CONTROL_GAPS.md</code> (all 29 gaps, with the file and test for each), <code>docs/visuals/BUILD_STORY.md</code> (the posture per phase), DECISIONS D0, D7 and D20.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="model-choice-risk.html"><small>Previous</small>10 · Model choice, routing and model risk</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="reference-model.html"><small>Next</small>12 · A reference model: planes, layers, enforcement points</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<title>Architect's Field Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+<style>
+/* Index-only layout: cover, then one reading column; the contents is a ledger of
+   parts and chapters whose status chips say what exists today. */
+.cover { max-width: var(--wide); margin: 0 auto; padding: 3.2rem 0 2.2rem; border-bottom: 2px solid var(--ink); display: grid; gap: 1.6rem; grid-template-columns: minmax(0,1fr); }
+@media (min-width: 900px) { .cover { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: end; } }
+.cover h1 { font-size: clamp(2.6rem, 8vw, 5.2rem); font-stretch: 70%; line-height: .95; margin: .3rem 0 .8rem; }
+.cover .edition { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); display: grid; gap: .3rem; border-left: 2px solid var(--accent); padding-left: .9rem; }
+.cover .edition b { color: var(--ink); font-weight: 600; }
+.wrap { max-width: var(--col); margin: 0 auto; }
+.ideas { counter-reset: idea; list-style: none; padding: 0; display: grid; gap: .9rem; }
+.ideas li { counter-increment: idea; display: grid; grid-template-columns: 2.6rem minmax(0,1fr); gap: .2rem .6rem; }
+.ideas li::before { content: counter(idea, decimal-leading-zero); font-family: var(--f-mono); color: var(--accent); font-size: .85rem; padding-top: .2rem; }
+.ideas b { font-family: var(--f-display); font-size: 1.02rem; font-weight: 750; display: block; }
+.part { margin-top: 2.2rem; }
+.part h3 { margin: 0 0 .2rem; font-size: 1.25rem; font-stretch: 82%; }
+.part .pi { font-family: var(--f-mono); color: var(--accent); font-size: .8rem; letter-spacing: .08em; }
+.part p.pd { margin: .2rem 0 .8rem; color: var(--ink-soft); font-size: .95rem; }
+.chap { display: grid; grid-template-columns: 2.4rem minmax(0,1fr) auto; gap: .2rem .8rem; padding: .7rem 0; border-top: 1px solid var(--rule); align-items: baseline; scroll-margin-top: 4.5rem; }
+.chap .cn { font-family: var(--f-mono); font-size: .82rem; color: var(--muted); }
+.chap .ct { font-family: var(--f-display); font-weight: 700; font-size: 1rem; }
+.chap .ct a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); }
+.chap .ct a:hover { color: var(--accent); }
+.chap .cs { grid-column: 2 / 3; font-size: .9rem; color: var(--ink-soft); line-height: 1.45; }
+.chap .cm { grid-column: 2 / 3; font-family: var(--f-mono); font-size: .72rem; color: var(--muted); }
+.st { font-family: var(--f-display); font-size: .64rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: .15em .5em; border-radius: 3px; white-space: nowrap; border: 1px solid var(--rule); color: var(--muted); }
+.st.done { background: var(--enforce); color: var(--bg); border-color: var(--enforce); }
+.paths { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); margin: 1.2rem 0; }
+.path { border: 1px solid var(--rule); border-radius: 6px; padding: .9rem 1rem; background: var(--surface); }
+.path b { font-family: var(--f-display); display: block; margin-bottom: .2rem; }
+.path .seq { font-family: var(--f-mono); font-size: .8rem; color: var(--accent); }
+.path p { margin: .3rem 0 0; font-size: .9rem; color: var(--ink-soft); }
+.legend { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); font-size: .9rem; }
+.legend div { display: flex; gap: .6rem; align-items: baseline; }
+.jobs { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); margin: 1rem 0 1.4rem; }
+.jobs div { border-top: 2px solid var(--accent); padding-top: .6rem; }
+.jobs b { font-family: var(--f-display); display: block; font-size: 1rem; }
+.jobs p { margin: .3rem 0 0; font-size: .92rem; color: var(--ink-soft); }
+</style>
+
+<header class="bar">
+  <a class="brand" href="#top">Architect's Field Guide</a>
+  <a href="#preface">Preface</a>
+  <a href="#onepage">On one page</a>
+  <a href="#contents">Contents</a>
+  <a href="#shelf">Reading shelf</a>
+  <a href="appendix-service-map.html">Service map</a>
+  <a href="field-guide.pdf">PDF</a>
+</header>
+
+<section class="cover" id="top">
+  <div>
+    <div class="eyebrow">Governed agent systems · a field guide for the principal architect</div>
+    <h1>Architect's Field Guide</h1>
+    <p class="lede">How to build, deploy, scale, operate, maintain, govern and defend enterprise agent systems: the agent mechanics, the model layer underneath, the rulebook and the machinery that enforces it, the system around the agent with the managed services of every major cloud, the lifecycle from first commit to retirement, the platforms, the law, and the operating model. Written against two working builds, so every claim can be traced to code, a decision or a test.</p>
+  </div>
+  <div class="edition">
+    <span><b>Edition</b> 1 · October 2026</span>
+    <span><b>Chapters ready</b> <!--PROGRESS-->64 of 64<!--/PROGRESS--></span>
+    <span><b>Builds read</b> aicoe-reference-build · pm-agent</span>
+    <span><b>Facts as of</b> 2026-10-21 unless a chapter says otherwise</span>
+  </div>
+</section>
+
+<div class="wrap">
+
+<h2 id="preface">Preface</h2>
+<p>This book exists because a principal architect of agent systems has to hold three jobs at once, and the material for each lives in different places: vendor documentation, papers, system-design books, governance frameworks, and, most usefully, the decisions inside systems you have actually built.</p>
+<div class="jobs">
+  <div><b>Design it</b><p>Choose the harness, the protocols, the enforcement points, the data boundaries and the system around the agent, and know what each choice costs.</p></div>
+  <div><b>Defend it</b><p>Answer a CISO, an auditor, a regulator or an interviewer from evidence: which mechanism, which test, which decision, which residual risk.</p></div>
+  <div><b>Build it for someone else</b><p>Turn a working reference into a framework and toolkit for a client estate that runs on platforms you don't control.</p></div>
+</div>
+<p>The two builds behind the book are <strong>aicoe-reference-build</strong> (ARB), a governed agent fleet with a hand-authored control catalog, an enforcement plane, an evidence plane and live GCP bindings, and <strong>pm-agent</strong>, a governed product that plans and acts on Jira, forked from ARB's chassis and evolved separately. Both were written mostly by Claude Code under your direction. That is the reason for the book: the decisions are yours, the code is not yet, and a field guide that walks the reasoning, points at the code and asks you to defend it is the shortest path to owning both.</p>
+<p>The book is opinionated where the builds took a position, and says so. Where it gives general guidance it is labelled as such; where it states an assumption it is labelled too. Facts about products, versions and law change fast; those carry a Verify tag and a date.</p>
+
+<h3 id="use">How to read it</h3>
+<p>The method is <strong>consume first, then defend</strong>, the same one the Learning OS uses. A chapter is the consume step. Answer its "Predict first" box before reading, read the chapter whole, then answer its "Prove it" questions cold, or do the rep it names, and check with <code>prompts/REP_SESSION.md</code>. Cards come only from what you defend. A chapter explains the design and points at the code; walking the code yourself is still the rep's job.</p>
+<div class="legend">
+  <div><span class="tag gen">Generic</span>holds for any organisation</div>
+  <div><span class="tag own">Your build</span>read from ARB or pm-agent, dated</div>
+  <div><span class="tag asm">Assumption</span>a judgement or example; disputable</div>
+  <div><span class="tag ver">Verify</span>fast-moving; check before quoting</div>
+</div>
+<p class="small muted">Each chapter also carries role-labelled panels: <em>Predict first</em>, <em>Gotcha</em>, <em>In the room</em> (how to say it to a client), <em>Check before quoting</em>, <em>Waiting on the builds</em> (collected automatically into <a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>), and <em>Prove it</em>.</p>
+
+<h3>Reading paths</h3>
+<div class="paths">
+  <div class="path"><b>Before the GTM showcase</b><span class="seq" data-path="governance-when-software-acts → reference-model → risk-tiering → control-as-contract → lifecycle-gates → governed-action → evidence-plane → proving-controls-fire → defending-your-builds">11 → 12 → 13 → 14 → 15 → 16 → 22 → 24 → 54</span><p>Enough to answer the hard questions about the reference build yourself.</p></div>
+  <div class="path"><b>Owning the builds</b><span class="seq" data-path="harness-anatomy → loop-tools-typed-outputs → protocols-trust → chassis-seams-tests , then risk-tiering … proving-controls-fire">1 → 2 → 5 → 7, then 13 … 24</span><p>The OWN lane's order: chassis first, then the controls.</p></div>
+  <div class="path"><b>Building and running agents</b><span class="seq" data-path="agent-development-lifecycle … maintenance-evolution , then deployment-cicd , observability-agentops">34 … 40, then 30, 31</span><p>The lifecycle end to end: develop, choose frameworks, integrate tools, host, version and release, evaluate and optimise, maintain and retire.</p></div>
+  <div class="path"><b>Enterprise platforms</b><span class="seq" data-path="runtime-sessions-memory , then google-cloud → aws → microsoft → data-saas-model-platforms → across-platforms → tool-landscape">37, then 41 → 42 → 43 → 44 → 45 → 46</span><p>The managed services you will meet in a client estate, and one capability map across them.</p></div>
+  <div class="path"><b>System design</b><span class="seq" data-path="edge-api-design … capacity-cost-regions , then design-interview">25 … 33, then 55</span><p>One chapter per SYSTEMS rep; each feeds a section of <code>design/pm-agent-at-scale.md</code>.</p></div>
+  <div class="path"><b>Client framework</b><span class="seq" data-path="governance-when-software-acts , reference-model , across-platforms , agt-through-your-build , standards-law-crosswalk , aicoe-operating-model , readiness-first-90-days , capstone-b">11, 12, 45, 47, 48, 50, 51, 53</span><p>Capstone B, and anything you would say to a CDO or CISO.</p></div>
+  <div class="path"><b>The model gap</b><span class="seq" data-path="transformers-tokens → inference-serving → model-choice-risk">8 → 9 → 10</span><p>The MODEL lane: the part none of your code teaches.</p></div>
+  <div class="path"><b>Practice</b><span class="seq" data-path="capstone-a → capstone-b → defending-your-builds → design-interview">52 → 53 → 54 → 55</span><p>The PROVE lane: govern an agent by hand, design a client framework, defend the builds, run the interview.</p></div>
+</div>
+
+<h2 id="onepage">The book on one page</h2>
+<p>Fifteen ideas. Every chapter expands at least one, and most come with a decision in your builds you can point to.</p>
+<ol class="ideas">
+  <li><div><b>An instruction is not a control.</b>A control is a deterministic mechanism on the only path to the effect, plus a test that proves it refuses. The first live agent checked the order and refunded anyway. (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>)</div></li>
+  <li><div><b>Mediate completely, then prove the layers agree.</b>Every side effect passes one chokepoint; agents you didn't build go through a gateway that drives the same plane, and an equivalence test shows both paths decide the same way. (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>, <a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>)</div></li>
+  <li><div><b>Decide on facts, never on the agent's account.</b>The information point re-reads trusted state. An asserted value is named as asserted and nothing decides on it. (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>, <a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>)</div></li>
+  <li><div><b>Fail-closed takes work.</b>Policy languages fail open on missing data unless every read has a conservative default, and a rule that can never fire is a comment, not a control. (<a class="xref" data-ch="policy-as-code" href="policy-as-code.html">Chapter 17</a>)</div></li>
+  <li><div><b>Author for the fleet, derive for the agent.</b>Each control states its own lowest tier and the shape it applies to; each agent's control set falls out of its honest scores. (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>)</div></li>
+  <li><div><b>Govern nodes by tier and edges by shape.</b>Agents keep their own tiers when they connect; the connection is a governed object, and a message from another agent has no authority. (<a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a>, <a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>)</div></li>
+  <li><div><b>Evidence before effect, and no unrecorded effect.</b>Record the decision first; reverse an effect whose record fails; derive traces from evidence through one redaction policy. (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>)</div></li>
+  <li><div><b>Change is a risk event.</b>Tiers are derived on every gate run and sign-off is bound to a configuration digest, so a new model, tool or policy re-enters the lifecycle by itself. (<a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a>)</div></li>
+  <li><div><b>Probabilistic checks may only restrict.</b>A model-based classifier can add a hold, never an allow; composition is <code>max(ALLOW &lt; HOLD &lt; DENY)</code>. Structure beats phrase lists. (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>)</div></li>
+  <li><div><b>A gate you can't defend is held, not passed.</b>If a criterion cannot separate signal from noise, the honest status is "measured, held". The fairness gate is the worked example. (<a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a>)</div></li>
+  <li><div><b>The agent is only as good as the system around it.</b>Edge, auth, state, reliability, deployment and cost decide production value; cleverness does not survive a bad request path. (Part V)</div></li>
+  <li><div><b>An agent is a product with a lifecycle.</b>Code, prompts, model pin, tools, policy and eval sets version and release together; quality is measured continuously, not once; models get deprecated and frameworks move, so maintenance is planned work; and retirement is a designed event. (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>, <a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a>)</div></li>
+  <li><div><b>Platforms supply enforcement points; the rulebook is yours.</b>Learn the managed services of every major platform, because clients run on all of them. Centralise rules, registry and evidence; federate enforcement to each platform's native controls plus a shared checkpoint in front of the systems that matter. (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>, <a class="xref" data-ch="appendix-service-map" href="appendix-service-map.html">Appendix I</a>)</div></li>
+  <li><div><b>Read every framework through a build.</b>A toolkit, a standard or a law is understood when it is mapped to your components and the overlap is measured; claims about it are versioned and reproducible, and coverage is four numbers, never one. (<a class="xref" data-ch="agt-through-your-build" href="agt-through-your-build.html">Chapter 47</a>, <a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>)</div></li>
+  <li><div><b>Start from what is running.</b>Inventory, tiering, approvals and a kill switch on the riskiest agents come before any target-state design; the operating model's job is to make the governed way the fast way. (<a class="xref" data-ch="readiness-first-90-days" href="readiness-first-90-days.html">Chapter 51</a>, <a class="xref" data-ch="aicoe-operating-model" href="aicoe-operating-model.html">Chapter 50</a>)</div></li>
+</ol>
+
+<h2 id="contents">Contents</h2>
+<p class="small muted"><span class="st done">Ready</span> readable now · <span class="st">Planned</span> outlined. Lane and rep codes refer to <code>learning/NEXT.md</code> and the maps.</p>
+<!--CONTENTS:START-->
+<div class="part" id="p1">
+  <span class="pi">PART I</span>
+  <h3>The agent as a system</h3>
+  <p class="pd">What an agent is mechanically: the harness, the loop, context and memory, retrieval, the protocols between agents, orchestration, and the software chassis that makes all of it testable.</p>
+  <div class="chap" id="c-harness-anatomy"><span class="cn">1</span><span class="ct"><a href="harness-anatomy.html">Anatomy of an agent harness</a></span><span class="st done">Ready</span><span class="cs">The seven subsystems every harness shares, the autonomy ladder, and where governance attaches in ADK, LangGraph and your chassis.</span><span class="cm">OWN · LL10 · BT03</span></div>
+  <div class="chap" id="c-loop-tools-typed-outputs"><span class="cn">2</span><span class="ct"><a href="loop-tools-typed-outputs.html">The loop, tools and typed outputs</a></span><span class="st done">Ready</span><span class="cs">Tool schemas, the tool-calling protocol, constrained decoding and structured outputs, and the typed answer contract as a governance device.</span><span class="cm">OWN · BT02 · CTL-0010, CTL-0026</span></div>
+  <div class="chap" id="c-context-memory-state"><span class="cn">3</span><span class="ct"><a href="context-memory-state.html">Context, memory and state</a></span><span class="st done">Ready</span><span class="cs">Context as a budget, session state vs durable memory, and governed memory that is scoped, redacted and MAC-verified.</span><span class="cm">OWN · BT11 · pm-agent P5-4</span></div>
+  <div class="chap" id="c-retrieval-grounding"><span class="cn">4</span><span class="ct"><a href="retrieval-grounding.html">Retrieval and grounding</a></span><span class="st done">Ready</span><span class="cs">RAG as a pipeline, permission-aware retrieval, citation verification, and why the first live agent fabricated a knowledge-base id.</span><span class="cm">OWN · CTL-0014, CTL-0015</span></div>
+  <div class="chap" id="c-protocols-trust"><span class="cn">5</span><span class="ct"><a href="protocols-trust.html">Protocols and trust between agents</a></span><span class="st done">Ready</span><span class="cs">MCP, A2A and ACP: what each carries, where trust is established, tool-description integrity, and the cross-agent provenance envelope.</span><span class="cm">OWN · BT10 · CTL-0016–0019, CTL-0024</span></div>
+  <div class="chap" id="c-orchestration-meta-harness"><span class="cn">6</span><span class="ct"><a href="orchestration-meta-harness.html">Orchestration and the meta-harness</a></span><span class="st done">Ready</span><span class="cs">Single agent, planner-router-worker, multi-agent graphs, durable runs, and the meta-harness that delegates typed, approved work to other executors.</span><span class="cm">OWN · LL4, LL10</span></div>
+  <div class="chap" id="c-chassis-seams-tests"><span class="cn">7</span><span class="ct"><a href="chassis-seams-tests.html">The chassis: seams, fakes and tests that can fail</a></span><span class="st done">Ready</span><span class="cs">Ports and adapters with Python Protocols, fakes and static conformance, the import firewall, portability as a tested claim, the zero-code framework swap, and falsifiers that prove a test can fail.</span><span class="cm">OWN · LL1 · BT2 · R03</span></div>
+</div>
+<div class="part" id="p2">
+  <span class="pi">PART II</span>
+  <h3>The model layer</h3>
+  <p class="pd">The part none of your code teaches. Enough depth to reason about latency, capacity, cost and model risk as an architect, and to read the papers behind the serving stack.</p>
+  <div class="chap" id="c-transformers-tokens"><span class="cn">8</span><span class="ct"><a href="transformers-tokens.html">Transformers and tokens for architects</a></span><span class="st done">Ready</span><span class="cs">Tokenisation, embeddings, attention and the decoder stack, and the limits they hand to your system design.</span><span class="cm">MODEL · Raschka</span></div>
+  <div class="chap" id="c-inference-serving"><span class="cn">9</span><span class="ct"><a href="inference-serving.html">Inference and serving</a></span><span class="st done">Ready</span><span class="cs">Prefill and decode, the KV cache, continuous batching, paged attention, speculative decoding, quantisation, and what quotas really constrain.</span><span class="cm">MODEL · TC-04</span></div>
+  <div class="chap" id="c-model-choice-risk"><span class="cn">10</span><span class="ct"><a href="model-choice-risk.html">Model choice, routing and model risk</a></span><span class="st done">Ready</span><span class="cs">Frontier vs small models, routing and caching economics, pinning and provenance, and model risk management for generative systems.</span><span class="cm">MODEL · SD-11 · CTL-0020, CTL-0021</span></div>
+</div>
+<div class="part" id="p3">
+  <span class="pi">PART III</span>
+  <h3>The rulebook</h3>
+  <p class="pd">Governance design: what governance must do when software acts, a reference model, fleet-first tiering, the control as a contract, and the lifecycle with its gates.</p>
+  <div class="chap" id="c-governance-when-software-acts"><span class="cn">11</span><span class="ct"><a href="governance-when-software-acts.html">What governance must do when software acts</a></span><span class="st done">Ready</span><span class="cs">Why agents change the risk, what carries over from AI governance and what is new, and the vocabulary at engineering resolution.</span><span class="cm">FRAMEWORKS</span></div>
+  <div class="chap" id="c-reference-model"><span class="cn">12</span><span class="ct"><a href="reference-model.html">A reference model: planes, layers, enforcement points</a></span><span class="st done">Ready</span><span class="cs">Five planes, ten layers and four kinds of enforcement point; how to use the model for assessment, architecture and roadmaps.</span><span class="cm">FRAMEWORKS · Capstone B</span></div>
+  <div class="chap" id="c-risk-tiering"><span class="cn">13</span><span class="ct"><a href="risk-tiering.html">Fleet-first risk tiering</a></span><span class="st done">Ready</span><span class="cs">Five ordinal axes, highest-wins banding, the derivation rule, two agents through one catalog, and why a fleet is a graph.</span><span class="cm">OWN · R04 · D14, D39, D40</span></div>
+  <div class="chap" id="c-control-as-contract"><span class="cn">14</span><span class="ct"><a href="control-as-contract.html">The control as a contract</a></span><span class="st done">Ready</span><span class="cs">Objective, trigger, owner, evidence, test and exception; the posture ladder from unguarded to verified; derivable and declared halves.</span><span class="cm">OWN · R04 · D16, D22, D23</span></div>
+  <div class="chap" id="c-lifecycle-gates"><span class="cn">15</span><span class="ct"><a href="lifecycle-gates.html">The lifecycle and its gates</a></span><span class="st done">Ready</span><span class="cs">Fail-closed promotion, generated conformance as the gate&#x27;s input, the fast lane, change as a risk event, and sign-off bound to a digest.</span><span class="cm">OWN · R04 · D27, CTL-0022</span></div>
+</div>
+<div class="part" id="p4">
+  <span class="pi">PART IV</span>
+  <h3>The referee</h3>
+  <p class="pd">Enforcement engineering, chapter by chapter through a working enforcement plane: the governed path, policy, identity, oversight, guardrails, data boundaries, evidence, evals and conformance.</p>
+  <div class="chap" id="c-governed-action"><span class="cn">16</span><span class="ct"><a href="governed-action.html">The governed action</a></span><span class="st done">Ready</span><span class="cs">PEP, PDP, PIP and PAP; complete mediation; the seven-step path; why fail-closed takes work; no dead policy; where the PEP should live.</span><span class="cm">OWN · R01, R09 · D17, D30, D53</span></div>
+  <div class="chap" id="c-policy-as-code"><span class="cn">17</span><span class="ct"><a href="policy-as-code.html">Policy as code</a></span><span class="st done">Ready</span><span class="cs">Rego, Cedar and AGT policy on the same cases; parity testing; the refusal ladder; bundles, decision logs and versioning.</span><span class="cm">OWN · R09 · BT06, BT07 · GF-5</span></div>
+  <div class="chap" id="c-identity-delegation"><span class="cn">18</span><span class="ct"><a href="identity-delegation.html">Identity, delegation and capability</a></span><span class="st done">Ready</span><span class="cs">Agent identities, resolved subjects, on-behalf-of and token exchange, capability tokens, and signing from HMAC to Ed25519 to Cloud KMS.</span><span class="cm">OWN · SD-04 · CTL-0008, D20, D33</span></div>
+  <div class="chap" id="c-human-oversight"><span class="cn">19</span><span class="ct"><a href="human-oversight.html">Human oversight that holds</a></span><span class="st done">Ready</span><span class="cs">Signed approvals bound to one action, separation of duties, approval friction and fatigue signals, interrupt and resume.</span><span class="cm">OWN · CTL-0004, CTL-0005 · D35, D43</span></div>
+  <div class="chap" id="c-guardrails-injection"><span class="cn">20</span><span class="ct"><a href="guardrails-injection.html">Guardrails, classifiers and injection</a></span><span class="st done">Ready</span><span class="cs">Why phrase lists lose, data-channel separation, monotone-restrictive classifiers, structural plan guards and containment by construction.</span><span class="cm">OWN · CTL-0014, CTL-0025 · D52, ADR-0005</span></div>
+  <div class="chap" id="c-data-boundaries"><span class="cn">21</span><span class="ct"><a href="data-boundaries.html">Data boundaries: what agents may see, keep and move</a></span><span class="st done">Ready</span><span class="cs">Classification and labels, permission-aware retrieval, egress and DLP, memory scope and erasure, residency and retention.</span><span class="cm">OWN · CTL-0009 · SD-06, SD-10</span></div>
+  <div class="chap" id="c-evidence-plane"><span class="cn">22</span><span class="ct"><a href="evidence-plane.html">The evidence plane</a></span><span class="st done">Ready</span><span class="cs">An allowlisted open log, the detail store, hash chains, signatures and anchors, sealing, and what an auditor can verify from a fresh process.</span><span class="cm">OWN · R08 · BT08 · D21, D25, D28, D34</span></div>
+  <div class="chap" id="c-evals-as-gates"><span class="cn">23</span><span class="ct"><a href="evals-as-gates.html">Evals as gates</a></span><span class="st done">Ready</span><span class="cs">Golden sets, rubrics, committed baselines and blocking comparisons, live runs and honest retries, and the fairness gate measured and held.</span><span class="cm">OWN · SD-09 · D74, D-PM-P5-o</span></div>
+  <div class="chap" id="c-proving-controls-fire"><span class="cn">24</span><span class="ct"><a href="proving-controls-fire.html">Proving controls fire</a></span><span class="st done">Ready</span><span class="cs">Generated conformance, positive per-agent checks, falsifiers, anti-vacuity, red-team corpora and the posture ladder as a release criterion.</span><span class="cm">OWN · D27, D29, D30, D56</span></div>
+</div>
+<div class="part" id="p5">
+  <span class="pi">PART V</span>
+  <h3>The system around the agent</h3>
+  <p class="pd">Ordinary system design decides production value. Each chapter ends by pointing at the section of design/pm-agent-at-scale.md it feeds.</p>
+  <div class="chap" id="c-edge-api-design"><span class="cn">25</span><span class="ct"><a href="edge-api-design.html">Edge, request path and API design</a></span><span class="st done">Ready</span><span class="cs">DNS to service, load balancers and gateways, and run APIs for agents: 202 and poll, streaming, idempotency keys, errors and versioning.</span><span class="cm">SD-01, SD-02 · R05 · BT05</span></div>
+  <div class="chap" id="c-communication-durable-execution"><span class="cn">26</span><span class="ct"><a href="communication-durable-execution.html">Communication and durable execution</a></span><span class="st done">Ready</span><span class="cs">Sync vs async, queues, pub/sub and logs, at-least-once with idempotent consumers, the outbox, and durable workflows for long agent runs.</span><span class="cm">SD-03 · TC-11</span></div>
+  <div class="chap" id="c-authn-authz"><span class="cn">27</span><span class="ct"><a href="authn-authz.html">AuthN and AuthZ end to end</a></span><span class="st done">Ready</span><span class="cs">OIDC and JWTs, sessions vs tokens, service identity and workload identity federation, mTLS, and where RBAC and ABAC decisions belong.</span><span class="cm">SD-04 · TC-09</span></div>
+  <div class="chap" id="c-state-data-scale"><span class="cn">28</span><span class="ct"><a href="state-data-scale.html">State, data and scale</a></span><span class="st done">Ready</span><span class="cs">Stateless workers, where agent state lives, partitioning and replication, transactions, caching tiers, and append-only evidence storage.</span><span class="cm">SD-05, SD-06 · DDIA</span></div>
+  <div class="chap" id="c-reliability"><span class="cn">29</span><span class="ct"><a href="reliability.html">Reliability for LLM systems</a></span><span class="st done">Ready</span><span class="cs">Timeouts, retries that respect effects, circuit breakers, bulkheads, rate limits, backpressure, load shedding and graceful degradation.</span><span class="cm">SD-07 · stability patterns</span></div>
+  <div class="chap" id="c-deployment-cicd"><span class="cn">30</span><span class="ct"><a href="deployment-cicd.html">Deployment and CI/CD for agents</a></span><span class="st done">Ready</span><span class="cs">Cloud Run vs GKE vs managed agent runtimes, infrastructure as code, keyless pipelines, environments and promotion, and the deployment unit for an agent.</span><span class="cm">SD-08 · M1 · BT12, BT13</span></div>
+  <div class="chap" id="c-observability-agentops"><span class="cn">31</span><span class="ct"><a href="observability-agentops.html">Observability, SLOs and AgentOps</a></span><span class="st done">Ready</span><span class="cs">Traces joined to evidence, OTel GenAI conventions, SLIs and error budgets for agents, alerts, incidents, runbooks and the kill switch.</span><span class="cm">SD-09 · BT09 · T01</span></div>
+  <div class="chap" id="c-security-multitenancy"><span class="cn">32</span><span class="ct"><a href="security-multitenancy.html">Security architecture and multi-tenancy</a></span><span class="st done">Ready</span><span class="cs">Threat modelling agents, segmentation and egress, secrets and keys, tenant isolation of data, cache and memory, and the supply chain.</span><span class="cm">SD-10 · OWASP Agentic</span></div>
+  <div class="chap" id="c-capacity-cost-regions"><span class="cn">33</span><span class="ct"><a href="capacity-cost-regions.html">Capacity, cost and multi-region</a></span><span class="st done">Ready</span><span class="cs">Back-of-envelope for agents, tokens and quotas as the real bottleneck, cost per task, and RPO, RTO and residency across regions.</span><span class="cm">SD-11, SD-12</span></div>
+</div>
+<div class="part" id="p6">
+  <span class="pi">PART VI</span>
+  <h3>The agent lifecycle</h3>
+  <p class="pd">Building, shipping, running, improving and retiring agents as products: the development lifecycle, frameworks and studios, tools and sandboxes, runtimes and memory, versioning and release, evaluation and optimization, and maintenance.</p>
+  <div class="chap" id="c-agent-development-lifecycle"><span class="cn">34</span><span class="ct"><a href="agent-development-lifecycle.html">The agent development lifecycle</a></span><span class="st done">Ready</span><span class="cs">From use-case intake to retirement: phases, roles and artefacts, the agent as a product, the inner development loop, prompts and configuration as code, and where the gates sit in a delivery flow.</span><span class="cm">ADLC · LL1 · GEAP Build</span></div>
+  <div class="chap" id="c-frameworks-sdks-studios"><span class="cn">35</span><span class="ct"><a href="frameworks-sdks-studios.html">Frameworks, SDKs and studios</a></span><span class="st done">Ready</span><span class="cs">ADK, LangGraph, OpenAI Agents SDK, Claude Agent SDK, Microsoft Agent Framework, Strands, CrewAI, Pydantic AI and the low-code studios: what each assumes, how to choose, and how to keep the choice reversible.</span><span class="cm">TECH · LANDSCAPE · L-21</span></div>
+  <div class="chap" id="c-tools-integration-sandboxes"><span class="cn">36</span><span class="ct"><a href="tools-integration-sandboxes.html">Tools, integration, sandboxes and computer use</a></span><span class="st done">Ready</span><span class="cs">API management and connectors, MCP servers as a managed fleet, code-execution sandboxes, browser and computer use, agent UI protocols, and agent payments.</span><span class="cm">TC-03 · GEAP Build/Scale</span></div>
+  <div class="chap" id="c-runtime-sessions-memory"><span class="cn">37</span><span class="ct"><a href="runtime-sessions-memory.html">Runtimes, sessions and memory services</a></span><span class="st done">Ready</span><span class="cs">Managed agent runtimes against containers, session services, memory banks, scaling and isolation behaviour, and what each managed service does and does not govern.</span><span class="cm">GEAP Scale · AgentCore · Foundry</span></div>
+  <div class="chap" id="c-versioning-release"><span class="cn">38</span><span class="ct"><a href="versioning-release.html">Versioning, registries and release management</a></span><span class="st done">Ready</span><span class="cs">Versioning agents, prompts, tools, models, policies and eval sets as one release; agent registries and catalogs; canary, shadow, A/B and rollback.</span><span class="cm">BT12, BT13 · D57, D59</span></div>
+  <div class="chap" id="c-evaluation-simulation-optimization"><span class="cn">39</span><span class="ct"><a href="evaluation-simulation-optimization.html">Evaluation, simulation and optimization</a></span><span class="st done">Ready</span><span class="cs">Offline and online evaluation, user simulation, judges and their calibration, prompt and agent optimizers, tuning and distillation, and cost and latency optimization.</span><span class="cm">GEAP Optimize · T03</span></div>
+  <div class="chap" id="c-maintenance-evolution"><span class="cn">40</span><span class="ct"><a href="maintenance-evolution.html">Maintenance and evolution</a></span><span class="st done">Ready</span><span class="cs">Behaviour and data drift, model deprecations and retirements, framework and dependency upgrades, knowledge and memory hygiene, recertification, and retiring an agent.</span><span class="cm">D48 · D50 · lifecycle</span></div>
+</div>
+<div class="part" id="p7">
+  <span class="pi">PART VII</span>
+  <h3>Platforms and tools</h3>
+  <p class="pd">The managed services an enterprise actually buys, platform by platform (Google Cloud, AWS, Microsoft, and the data, SaaS and model-provider platforms), one capability map across them, and the independent tool market.</p>
+  <div class="chap" id="c-google-cloud"><span class="cn">41</span><span class="ct"><a href="google-cloud.html">Google Cloud: Gemini Enterprise Agent Platform</a></span><span class="st done">Ready</span><span class="cs">Build, Scale, Govern and Optimize service by service, Gemini Enterprise for end users, where GEAP leads and lags, and the reference build&#x27;s live GCP bindings.</span><span class="cm">OWN · Trace E4 · BT14 · GF-4</span></div>
+  <div class="chap" id="c-aws"><span class="cn">42</span><span class="ct"><a href="aws.html">AWS: Bedrock and AgentCore</a></span><span class="st done">Ready</span><span class="cs">Bedrock models, guardrails, knowledge bases and agents; AgentCore runtime, memory, gateway, identity, sandboxes, observability, policy and evaluations; Strands and the AWS estate around them.</span><span class="cm">GF-4</span></div>
+  <div class="chap" id="c-microsoft"><span class="cn">43</span><span class="ct"><a href="microsoft.html">Microsoft: Foundry, Copilot Studio and Agent 365</a></span><span class="st done">Ready</span><span class="cs">Foundry and its Agent Service, Microsoft Agent Framework, Copilot Studio, Entra Agent ID, Agent 365, Purview and Defender for AI, and API Management as an AI gateway.</span><span class="cm">GF-4 · GF-1</span></div>
+  <div class="chap" id="c-data-saas-model-platforms"><span class="cn">44</span><span class="ct"><a href="data-saas-model-platforms.html">Data, SaaS and model-provider platforms</a></span><span class="st done">Ready</span><span class="cs">Databricks, Snowflake, Salesforce Agentforce, ServiceNow, IBM watsonx, OpenAI and Anthropic, and the SaaS problem: governing agents whose runtime you cannot instrument.</span><span class="cm">GF-4</span></div>
+  <div class="chap" id="c-across-platforms"><span class="cn">45</span><span class="ct"><a href="across-platforms.html">Across platforms: capability map and governance</a></span><span class="st done">Ready</span><span class="cs">One capability map across clouds and vendors, where each leads and lags, centralised rules with federated enforcement, normalised evidence, and portability.</span><span class="cm">Capstone B3</span></div>
+  <div class="chap" id="c-tool-landscape"><span class="cn">46</span><span class="ct"><a href="tool-landscape.html">The independent tool landscape and build vs buy</a></span><span class="st done">Ready</span><span class="cs">Gateways, observability, evals, guardrails, policy engines, identity, memory, sandboxes and open-source harnesses, with a method for build vs buy.</span><span class="cm">TECH · LANDSCAPE</span></div>
+</div>
+<div class="part" id="p8">
+  <span class="pi">PART VIII</span>
+  <h3>Frameworks and law</h3>
+  <p class="pd">External frameworks read through a working build, standards and law turned into an engineered crosswalk, and the overlays regulated industries add.</p>
+  <div class="chap" id="c-agt-through-your-build"><span class="cn">47</span><span class="ct"><a href="agt-through-your-build.html">Microsoft AGT through your build</a></span><span class="st done">Ready</span><span class="cs">The toolkit&#x27;s model, the parity spike, its gaps, why it was not adopted, and where it fits behind your seams.</span><span class="cm">GF-1 · R25 · BT16 · D63</span></div>
+  <div class="chap" id="c-standards-law-crosswalk"><span class="cn">48</span><span class="ct"><a href="standards-law-crosswalk.html">Standards, law and crosswalk engineering</a></span><span class="st done">Ready</span><span class="cs">OWASP Agentic, NIST AI RMF, ISO/IEC 42001, the EU AI Act and Singapore&#x27;s agentic framework, with crosswalks as code and honest Verify cells.</span><span class="cm">GF-2, GF-3, GF-6 · D44, D55</span></div>
+  <div class="chap" id="c-regulated-industries"><span class="cn">49</span><span class="ct"><a href="regulated-industries.html">Regulated industries</a></span><span class="st done">Ready</span><span class="cs">Banking model risk, insurance, healthcare and the public sector, and how an overlay changes the catalog, the tiers and the evidence.</span><span class="cm">Capstone B4</span></div>
+</div>
+<div class="part" id="p9">
+  <span class="pi">PART IX</span>
+  <h3>The operating model</h3>
+  <p class="pd">People, decision rights and process at the depth an AICoE lead needs, and how to start from low maturity.</p>
+  <div class="chap" id="c-aicoe-operating-model"><span class="cn">50</span><span class="ct"><a href="aicoe-operating-model.html">The AICoE operating model</a></span><span class="st done">Ready</span><span class="cs">Structures, decision rights, earned autonomy, roles and sizing, the weekly rhythm, and KPIs that show governance enabling delivery.</span><span class="cm">D45</span></div>
+  <div class="chap" id="c-readiness-first-90-days"><span class="cn">51</span><span class="ct"><a href="readiness-first-90-days.html">Readiness and the first 90 days</a></span><span class="st done">Ready</span><span class="cs">Assessment dimensions, minimum viable governance, interim vs target state, and sequencing a programme from low maturity.</span><span class="cm">Capstone B6</span></div>
+</div>
+<div class="part" id="p10">
+  <span class="pi">PART X</span>
+  <h3>Practice</h3>
+  <p class="pd">Turning knowledge into proof: the two capstones, defending your builds under questioning, and the design interview.</p>
+  <div class="chap" id="c-capstone-a"><span class="cn">52</span><span class="ct"><a href="capstone-a.html">Capstone A: govern a new agent by hand</a></span><span class="st done">Ready</span><span class="cs">A0–A6 with checkpoints, the keyless pipeline rebuild, and the two-page defence note.</span><span class="cm">GF-L2</span></div>
+  <div class="chap" id="c-capstone-b"><span class="cn">53</span><span class="ct"><a href="capstone-b.html">Capstone B: a framework for a client estate</a></span><span class="st done">Ready</span><span class="cs">Inventory, catalog cut, enforcement-point map, crosswalk, evidence, operating model and the toolkit.</span><span class="cm">GF-L3</span></div>
+  <div class="chap" id="c-defending-your-builds"><span class="cn">54</span><span class="ct"><a href="defending-your-builds.html">Defending your builds</a></span><span class="st done">Ready</span><span class="cs">The questions a GTM team, a client CISO, an auditor and an interviewer will ask about both builds, with evidence-backed answers and honest limits.</span><span class="cm">PROVE · T1_SELF_REVIEW</span></div>
+  <div class="chap" id="c-design-interview"><span class="cn">55</span><span class="ct"><a href="design-interview.html">The design interview for governed agents</a></span><span class="st done">Ready</span><span class="cs">Requirements, capacity, API, design, deep dives and trade-offs, worked on three twist scenarios.</span><span class="cm">PROVE</span></div>
+</div>
+<div class="part" id="pa">
+  <span class="pi">APPENDICES</span>
+  <h3>Appendices</h3>
+  <p class="pd">Reference material: glossary, the control catalog, patterns, decisions, reading map, cards, findings made while writing, and the living register of what comes next.</p>
+  <div class="chap" id="c-appendix-glossary"><span class="cn">A</span><span class="ct"><a href="appendix-glossary.html">Glossary</a></span><span class="st done">Ready</span><span class="cs">Every term of art in the book, with the chapter that defines it.</span></div>
+  <div class="chap" id="c-appendix-control-catalog"><span class="cn">B</span><span class="ct"><a href="appendix-control-catalog.html">Control catalog reference</a></span><span class="st done">Ready</span><span class="cs">Every control and invariant in the reference build: trigger, tier, scope, enforcement point, test and crosswalk.</span></div>
+  <div class="chap" id="c-appendix-patterns"><span class="cn">C</span><span class="ct"><a href="appendix-patterns.html">Patterns catalog</a></span><span class="st done">Ready</span><span class="cs">The recurring design patterns of the book in one place, each with its problem, mechanism and where it appears.</span></div>
+  <div class="chap" id="c-appendix-decisions"><span class="cn">D</span><span class="ct"><a href="appendix-decisions.html">Decision index</a></span><span class="st done">Ready</span><span class="cs">The build decisions worth knowing cold, grouped by theme, each with its one-line principle.</span></div>
+  <div class="chap" id="c-appendix-reading"><span class="cn">E</span><span class="ct"><a href="appendix-reading.html">Reading map and sources</a></span><span class="st done">Ready</span><span class="cs">The books, papers, specifications and your own library, mapped to chapters, with what to read and what to skip.</span></div>
+  <div class="chap" id="c-appendix-cards"><span class="cn">F</span><span class="ct"><a href="appendix-cards.html">Card bank</a></span><span class="st done">Ready</span><span class="cs">Candidate review cards per chapter, to promote into cards/REVIEW.md once defended.</span></div>
+  <div class="chap" id="c-appendix-findings"><span class="cn">G</span><span class="ct"><a href="appendix-findings.html">Findings and errata</a></span><span class="st done">Ready</span><span class="cs">Inconsistencies, latent bugs and stale statements found in the builds and the learning system while writing this book, with suggested fixes.</span></div>
+  <div class="chap" id="c-appendix-register"><span class="cn">H</span><span class="ct"><a href="appendix-register.html">Living register</a></span><span class="st done">Ready</span><span class="cs">What this book is waiting for: items each chapter will revise when the builds grow, platform facts to re-verify, and directions for future editions.</span></div>
+  <div class="chap" id="c-appendix-service-map"><span class="cn">I</span><span class="ct"><a href="appendix-service-map.html">Service map across platforms</a></span><span class="st done">Ready</span><span class="cs">Agent platform services and the foundation services around them, by concern, across Google Cloud, AWS, Microsoft and independent options.</span></div>
+</div>
+<!--CONTENTS:END-->
+
+<h2 id="shelf">The reading shelf</h2>
+<p>The book links out to the works that cover a topic better than a chapter can. These are the ones it leans on most; <a class="xref" data-ch="appendix-reading" data-style="title" href="appendix-reading.html">Appendix E, Reading map and sources</a> maps every source to chapters, says which parts to read and which to skip, and includes your own downloaded library.</p>
+<div class="tw shelf"><table>
+<thead><tr><th>Work</th><th>Why it is on the shelf</th><th>Leaned on in</th></tr></thead>
+<tbody>
+<tr><td>Martin Kleppmann &amp; Chris Riccomini, <cite>Designing Data-Intensive Applications</cite>, 2nd ed. (O'Reilly, 2026)</td><td>The reference for replication, partitioning, transactions, streams and the trade-offs behind every state decision an agent platform makes</td><td>Part V, esp. <span class="seq" data-path="communication-durable-execution , state-data-scale , capacity-cost-regions">26, 28, 33</span></td></tr>
+<tr><td>Chip Huyen, <cite>AI Engineering</cite> (O'Reilly, 2025)</td><td>The application builder's view of foundation models: evaluation, prompt and context engineering, RAG, agents, guardrails, inference optimisation</td><td>Parts I, II; <span class="seq" data-path="evals-as-gates , evaluation-simulation-optimization">23, 39</span></td></tr>
+<tr><td>Jay Alammar &amp; Maarten Grootendorst, <cite>Hands-On Large Language Models</cite> (O'Reilly, 2024)</td><td>The clearest visual explanation of tokens, embeddings and attention, with runnable notebooks</td><td><span class="seq" data-path="transformers-tokens , retrieval-grounding">8, 4</span></td></tr>
+<tr><td>Sebastian Raschka, <cite>Build a Large Language Model (From Scratch)</cite> (Manning, 2024) and <cite>Build a Reasoning Model (From Scratch)</cite> (Manning)</td><td>Builds the decoder stack in code; the companion videos are in your CORE list</td><td><span class="seq" data-path="transformers-tokens , inference-serving , model-choice-risk">8, 9, 10</span></td></tr>
+<tr><td>Stas Bekman, <cite>Machine Learning Engineering</cite> (open book, <a href="https://github.com/stas00/ml-engineering">github.com/stas00/ml-engineering</a>)</td><td>Hardware, networking and inference-serving practice for large models, written by someone who ran the training of a large open model</td><td><span class="seq" data-path="inference-serving , capacity-cost-regions">9, 33</span></td></tr>
+<tr><td>Google, <cite>Site Reliability Engineering</cite>, <cite>The Site Reliability Workbook</cite> and <cite>Building Secure and Reliable Systems</cite> (free at <a href="https://sre.google/books/">sre.google/books</a>)</td><td>SLOs and error budgets, incident response, least privilege, and design for recovery</td><td><span class="seq" data-path="reliability , observability-agentops , security-multitenancy">29, 31, 32</span></td></tr>
+<tr><td>Michael Nygard, <cite>Release It!</cite>, 2nd ed. (Pragmatic Bookshelf, 2018)</td><td>The stability patterns (timeouts, circuit breakers, bulkheads, steady state) that your saved decks summarise</td><td><span class="seq" data-path="reliability">29</span></td></tr>
+<tr><td>Ross Anderson, <cite>Security Engineering</cite>, 3rd ed. (Wiley, 2020)</td><td>Access control, security policy models and the reference monitor, from which the PEP descends</td><td><span class="seq" data-path="governed-action , identity-delegation , security-multitenancy">16, 18, 32</span></td></tr>
+<tr><td>Adam Shostack, <cite>Threat Modeling</cite> (Wiley, 2014)</td><td>A working method for finding what can go wrong before choosing controls</td><td><span class="seq" data-path="risk-tiering , security-multitenancy">13, 32</span></td></tr>
+<tr><td>JJ Geewax, <cite>API Design Patterns</cite> (Manning, 2021)</td><td>Long-running operations, idempotency, pagination and versioning, all of which a run API needs</td><td><span class="seq" data-path="edge-api-design">25</span></td></tr>
+<tr><td>Charity Majors, Liz Fong-Jones &amp; George Miranda, <cite>Observability Engineering</cite> (O'Reilly, 2022)</td><td>Events and traces over metrics; debugging production from high-cardinality data</td><td><span class="seq" data-path="observability-agentops">31</span></td></tr>
+<tr><td>Your library: Himanshu Ramchandani, <cite>AI System Design Playbook</cite> (18 cases) · Lamhot Siagian, <cite>LLM System Design</cite> (preview) · the stability-pattern decks</td><td>Short, sourced production case studies (vLLM, prompt caching, Llama Guard, Character.AI's KV cache, RouteLLM) and an interview-grade LLM system-design reference</td><td><span class="seq" data-path="inference-serving , model-choice-risk , guardrails-injection , reliability , design-interview">9, 10, 20, 29, 55</span></td></tr>
+</tbody></table></div>
+
+<h2 id="edition">About this edition</h2>
+<p>The chapter files live in <code>genai-agent-mastery/learning/fieldguide/</code> and are published here from that folder. A small build script keeps chapter numbers, cross-references, section and figure numbers, and the living register consistent, so chapters can be reordered without broken links. Facts read from the builds carry the date they were read; when a build module changes, the chapter that cites it is due a refresh, and <a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a> says what each chapter is waiting for. Things found wrong while writing, in the builds or the learning system, are listed in <a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>.</p>
+<p>Four appendices assemble themselves from the chapters at every build, so they cannot drift: the reading map (<a class="xref" data-ch="appendix-reading" href="appendix-reading.html">Appendix E</a>), the card bank (<a class="xref" data-ch="appendix-cards" href="appendix-cards.html">Appendix F</a>), the living register (<a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>) and the foundation half of the service map (<a class="xref" data-ch="appendix-service-map" href="appendix-service-map.html">Appendix I</a>). The control catalog (<a class="xref" data-ch="appendix-control-catalog" href="appendix-control-catalog.html">Appendix B</a>) and the decision index (<a class="xref" data-ch="appendix-decisions" href="appendix-decisions.html">Appendix D</a>) are generated from the builds' own files by the scripts in <code>tools/</code>. <a href="field-guide.pdf">A PDF edition</a> (one file, A4, with bookmarks and working internal links) is published beside this page for offline reading and printing; <code>tools/make_pdf.py</code> regenerates it.</p>
+
+</div>

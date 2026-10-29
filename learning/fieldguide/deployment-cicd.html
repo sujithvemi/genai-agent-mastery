@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>30 · Deployment and CI/CD for agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 30</div>
+  <ol>
+    <li><a href="#unit">The deployment unit for an agent</a></li>
+    <li><a href="#hosting">Choosing where it runs</a></li>
+    <li><a href="#iac">Infrastructure as code</a></li>
+    <li><a href="#pipeline">A keyless pipeline</a></li>
+    <li><a href="#gate">The gate as a required check</a></li>
+    <li><a href="#supply">Images, signing and provenance</a></li>
+    <li><a href="#envs">Environments, secrets and configuration</a></li>
+    <li><a href="#arb">What your builds' pipelines show</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 30</div>
+  <h1>Deployment and CI/CD for agents</h1>
+  <p class="lede">An agent deploys like a service, with three additions: its release unit includes prompts, pins and policy as well as code; its pipeline must run the governance gate, not only the tests; and its runtime choice (containers, Kubernetes or a managed agent runtime) decides how much of identity, sessions and isolation you build yourself. This chapter covers the deployment mechanics; <a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a> covers what goes in a release and how it is rolled out.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-08 · M1 (keyless pipeline rebuild) · BT12 · BT13 · lab T16</span></div>
+    <div><b>Build links</b><span>ARB .github/workflows/ci.yml · Dockerfile · docker-compose.yml · GATE_AS_PROMOTION.md · pm-agent Dockerfile · design/pm-agent-at-scale.md §8</span></div>
+    <div><b>Read</b><span>~30 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (delivery services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your CI uses a service-account key stored as a repository secret. What is the risk, and what replaces it?</li>
+    <li>A container image builds and its tests pass, but in production every tool call is refused. What kind of fault is that, and is the refusal correct?</li>
+    <li>Cloud Run, GKE or Agent Runtime: which one questions decide?</li>
+  </ol>
+</div>
+
+<h2 id="unit"><span class="n">30.1</span>The deployment unit for an agent</h2>
+<p><span class="tag gen">Generic</span> What ships: a container image (code, dependencies from a lock file, framework version), the configuration that governs behaviour (prompts, manifest, model pins, policy bundle, parameters), infrastructure definitions, database migrations and, for the gate, the evaluation sets and baselines. The image and the configuration may deploy separately, but they are versioned and approved together (<a class="xref" data-ch="versioning-release" data-sec="#unit" href="versioning-release.html#unit">Chapter 38</a>).</p>
+
+<h2 id="hosting"><span class="n">30.2</span>Choosing where it runs</h2>
+<div class="tw"><table>
+<thead><tr><th>Question</th><th>Points to</th></tr></thead>
+<tbody>
+<tr><td>Need per-session sandboxes, node-level isolation, GPUs, sidecars or custom networking?</td><td>GKE (or another Kubernetes)</td></tr>
+<tr><td>Need sessions, memory, per-agent identity and long runs without building them?</td><td>A managed agent runtime (Agent Runtime on GCP)</td></tr>
+<tr><td>Plain HTTP services, tools, APIs, non-ADK framework hosts, simplest operations?</td><td>Cloud Run</td></tr>
+<tr><td>Strict portability across clouds?</td><td>Containers (Cloud Run or Kubernetes) behind your own seams</td></tr>
+<tr><td>Team skills and existing platform?</td><td>Often decisive; do not introduce Kubernetes for one agent</td></tr>
+</tbody></table></div>
+<p>The third prediction question: isolation needs, how much platform you want to inherit, and operational capacity. Many estates use all three: Agent Runtime for agents, Cloud Run for APIs and tools, GKE for sandboxed executors (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>).</p>
+
+<h2 id="iac"><span class="n">30.3</span>Infrastructure as code</h2>
+<p><span class="tag gen">Generic</span> Every environment is created from code (Terraform, Pulumi, or the cloud's own tooling), reviewed, planned and applied by the pipeline, never by hand. For agent platforms the code includes the agent's identity and its grants, gateway and policy configuration, Model Armor templates, VPC Service Controls perimeters, buckets with retention locks for evidence anchors, KMS keys, and monitoring. Policy-as-code checks on the infrastructure itself (for example, no public buckets, retention locked on evidence buckets) run in the same pipeline.</p>
+
+<h2 id="pipeline"><span class="n">30.4</span>A keyless pipeline</h2>
+<p><span class="tag gen">Generic</span> The first prediction question: a long-lived key in CI is a standing credential that leaks through logs, forks and compromised runners, and it cannot tell which workflow is using it. Replace it with <strong>workload identity federation</strong>: the CI system (GitHub Actions, GitLab, Cloud Build) gets a short-lived OIDC token for each job; the cloud trusts tokens from that repository, branch or environment, and exchanges them for short-lived cloud credentials scoped to what the job needs. Your M0 milestone built exactly this for GCP; the M1 rep rebuilds it from memory. Add environment protection rules so production deploys require approval and run only from the main branch.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 290" role="img" aria-label="A keyless delivery pipeline for an agent. Stages: pull request with code and configuration; build with a frozen lock file and an SBOM; check and gate, running tests and the governance gate against the live enforcement plane as a required check so a blocked agent cannot merge; sign and attest with cosign and SLSA provenance; staging with a smoke test inside the built image; production behind an environment approval and a canary, where admission allows only signed images with provenance. Below, the CI job's OIDC token, scoped to repository, branch and environment, is exchanged through workload identity federation for a short-lived credential scoped to the job; no keys are stored.">
+<defs><marker id="p30" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="5" y="62" width="130" height="62" rx="6"/>
+<text class="tx-b" x="70" y="88" text-anchor="middle">Pull request</text>
+<text class="tx-s" x="70" y="108" text-anchor="middle">code + config</text>
+<line class="ln" x1="135" y1="93" x2="155" y2="93" marker-end="url(#p30)"/>
+<rect class="box" x="157" y="62" width="130" height="62" rx="6"/>
+<text class="tx-b" x="222" y="88" text-anchor="middle">Build</text>
+<text class="tx-s" x="222" y="108" text-anchor="middle">frozen lock · SBOM</text>
+<line class="ln" x1="287" y1="93" x2="307" y2="93" marker-end="url(#p30)"/>
+<rect class="box-acc" x="309" y="62" width="130" height="62" rx="6"/>
+<text class="tx-acc" x="374" y="88" text-anchor="middle">Check + gate</text>
+<text class="tx-s" x="374" y="108" text-anchor="middle">tests · gov-fleet</text>
+<line class="ln" x1="439" y1="93" x2="459" y2="93" marker-end="url(#p30)"/>
+<rect class="box" x="461" y="62" width="130" height="62" rx="6"/>
+<text class="tx-b" x="526" y="88" text-anchor="middle">Sign + attest</text>
+<text class="tx-s" x="526" y="108" text-anchor="middle">cosign · SLSA</text>
+<line class="ln" x1="591" y1="93" x2="611" y2="93" marker-end="url(#p30)"/>
+<rect class="box" x="613" y="62" width="130" height="62" rx="6"/>
+<text class="tx-b" x="678" y="88" text-anchor="middle">Staging</text>
+<text class="tx-s" x="678" y="108" text-anchor="middle">smoke in image</text>
+<line class="ln" x1="743" y1="93" x2="763" y2="93" marker-end="url(#p30)"/>
+<rect class="box-ok" x="765" y="62" width="130" height="62" rx="6"/>
+<text class="tx-ok" x="830" y="88" text-anchor="middle">Production</text>
+<text class="tx-s" x="830" y="108" text-anchor="middle">approval · canary</text>
+<text class="tx-s" x="374" y="44" text-anchor="middle">required check: BLOCKED cannot merge</text>
+<line class="ln-acc" x1="374" y1="49" x2="374" y2="60" style="stroke-dasharray:3 3"/>
+<text class="tx-s" x="895" y="44" text-anchor="end">admission: signed + provenance only</text>
+<line class="ln-ok" x1="830" y1="49" x2="830" y2="60" style="stroke-dasharray:3 3"/>
+<rect class="box-strong" x="157" y="176" width="210" height="52" rx="6"/>
+<text class="tx-b" x="262" y="198" text-anchor="middle">CI job OIDC token</text>
+<text class="tx-s" x="262" y="217" text-anchor="middle">repo · branch · environment</text>
+<line class="ln" x1="367" y1="202" x2="398" y2="202" marker-end="url(#p30)"/>
+<rect class="box-strong" x="400" y="176" width="210" height="52" rx="6"/>
+<text class="tx-b" x="505" y="198" text-anchor="middle">Federation / STS</text>
+<text class="tx-s" x="505" y="217" text-anchor="middle">trusts only this repo + env</text>
+<line class="ln" x1="610" y1="202" x2="641" y2="202" marker-end="url(#p30)"/>
+<rect class="box-strong" x="643" y="176" width="252" height="52" rx="6"/>
+<text class="tx-b" x="769" y="198" text-anchor="middle">Short-lived credential</text>
+<text class="tx-s" x="769" y="217" text-anchor="middle">scoped to the job · minutes</text>
+<text class="tx-s" x="10" y="198">Keyless</text>
+<text class="tx-s" x="10" y="214">identity</text>
+<line class="ln" x1="222" y1="126" x2="222" y2="174" style="stroke-dasharray:3 4"/>
+<line class="ln" x1="830" y1="126" x2="830" y2="174" style="stroke-dasharray:3 4"/>
+<text class="tx-s" x="450" y="268" text-anchor="middle">Build pushes and Production deploys with the job's credential; nothing long-lived is stored in CI.</text>
+</svg>
+</div>
+<figcaption><b>Fig 30.1</b>A keyless pipeline for an agent. The governance gate is a required check alongside the tests, signing and provenance are verified again at admission, and the pipeline's identity is borrowed per job rather than stored.</figcaption>
+</figure>
+<h2 id="gate"><span class="n">30.5</span>The gate as a required check</h2>
+<p><span class="tag own">Reference build</span> ARB's CI runs four steps in one job: sync the locked environment, <code>make check</code> (lint, types and tests), <code>make gov-validate</code> (catalog, crosswalk and parameter consistency), and <code>make gov-fleet</code>, the ADLC gate run against the live enforcement plane for every agent. Branch protection makes the job a required check, so a BLOCKED agent cannot merge. Because <code>gov-fleet</code> discovers manifests by directory, onboarding an agent extends the required check without editing the workflow (<code>docs/operating/GATE_AS_PROMOTION.md</code>). The conformance report the gate reads is generated in the run, never committed, so nobody can edit a table to make an agent look deployable.</p>
+
+<h2 id="supply"><span class="n">30.6</span>Images, signing and provenance</h2>
+<ul>
+  <li><strong>Minimal base images</strong> and multi-stage builds; pinned digests for base images.</li>
+  <li><strong>Lock files</strong> installed in frozen mode (<code>uv sync --frozen</code> in ARB), so CI builds exactly what was reviewed.</li>
+  <li><strong>SBOM</strong> generated per image; vulnerability scanning in the pipeline and on a schedule.</li>
+  <li><strong>Signing and provenance</strong>: sign images (for example with Sigstore cosign) and produce SLSA provenance; enforce at deploy time with Binary Authorization or an admission policy.</li>
+</ul>
+<p>The second prediction question has a real answer in your build. ARB's Dockerfile notes that the Rego engine's native library links <code>libatomic</code>, which the slim Python image does not include: "Without it the policy engine cannot load, the plane fails closed (GBL-DENY-01 refuses every call) and the gate BLOCKS - correct behaviour, wrong image (found E1-S3)." It is a packaging fault, and the refusal is exactly right. A container-level smoke test that runs the gate inside the built image catches it before production.</p>
+
+<h2 id="envs"><span class="n">30.7</span>Environments, secrets and configuration</h2>
+<ul>
+  <li><strong>Environments</strong> differ in what they connect to: fakes in CI, live models with synthetic data in test, production-like integrations in staging (<a class="xref" data-ch="versioning-release" data-sec="#promotion" href="versioning-release.html#promotion">Chapter 38</a>).</li>
+  <li><strong>Secrets</strong> live in a secret manager, are fetched at runtime with the workload's identity, and never appear in images, prompts, logs or sandboxes.</li>
+  <li><strong>Configuration</strong> that governs behaviour is versioned with the release and hashed into the sign-off where the tier demands it; environment-specific values (endpoints, project ids) are separate and not behaviour-setting.</li>
+  <li><strong>Migrations</strong> are backward compatible across one release so rollback works: expand, migrate, contract.</li>
+</ul>
+
+<h2 id="arb"><span class="n">30.8</span>What your builds' pipelines show</h2>
+<p><span class="tag own">Your builds</span> ARB builds two images from one Dockerfile: a runtime image with the CLI and runtime dependencies, and a demo image with the whole repository, because the demo replays the red-team corpus and portability suites and runs the framework hosts' environments. A Compose file runs the demo, including a portability run across bindings (<code>make demo-portability-compose</code>). pm-agent has its own Dockerfile and a Compose file for its Postgres-backed memory. Neither build deploys to a production environment yet; that is ARB's E6 and pm-agent's hosted release (<a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>).</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §8</span>
+  <p>Choose hosting per component with the rejected alternative; sketch the pipeline (stages, required checks including the gate, identity federation, environment approvals); and the release strategy from <a class="xref" data-ch="versioning-release" data-sec="#progressive" href="versioning-release.html#progressive">Chapter 38</a>.</p>
+</div>
+
+<h2 id="services"><span class="n">30.9</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> Delivery services by platform. The last two rows are agent-specific: each platform now ships a path from framework code to its managed runtime, and an evaluation step meant to run in the pipeline (<a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a>).</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>CI</td><td>Cloud Build</td><td>CodeBuild; CodePipeline</td><td>Azure Pipelines; GitHub Actions</td><td>GitHub Actions; GitLab CI; Buildkite</td></tr>
+<tr><td>Keyless CI identity</td><td>Workload Identity Federation</td><td>IAM OIDC identity providers</td><td>Entra workload identity federation</td><td>OIDC tokens from the CI system</td></tr>
+<tr><td>Progressive delivery</td><td>Cloud Deploy (canary for Cloud Run and GKE); Cloud Run revisions with traffic splitting</td><td>CodeDeploy; ECS built-in blue/green; Lambda alias traffic shifting</td><td>Container Apps revisions and traffic splitting; App Service deployment slots</td><td>Argo CD and Argo Rollouts; Flux; Flagger</td></tr>
+<tr><td>Infrastructure as code</td><td>Terraform via Infrastructure Manager; Config Connector</td><td>CloudFormation; CDK</td><td>Bicep; Azure Verified Modules</td><td>Terraform and OpenTofu; Pulumi; Crossplane</td></tr>
+<tr><td>Registries and scanning</td><td>Artifact Registry; Artifact Analysis</td><td>ECR; Amazon Inspector (scanning, SBOM export)</td><td>Azure Container Registry; Defender for Containers</td><td>Harbor; Trivy; Grype; Syft</td></tr>
+<tr><td>Signing, provenance and admission</td><td>Binary Authorization; Cloud Build SLSA provenance</td><td>AWS Signer with Notation; ECR image signing</td><td>Notation with Key Vault; Ratify with Azure Policy on AKS</td><td>Sigstore cosign; SLSA generators; Kyverno; OPA Gatekeeper</td></tr>
+<tr><td>Agent deployment path</td><td>ADK deploy to Agent Runtime; Agent Starter Pack templates</td><td>AgentCore starter toolkit and CLI to AgentCore Runtime</td><td>Azure Developer CLI templates to Foundry hosted agents</td><td>LangSmith Deployment; your own container path</td></tr>
+<tr><td>Evaluation as a pipeline step</td><td>Gen AI evaluation service; Agent Evaluation in GEAP</td><td>Bedrock evaluations; AgentCore Evaluations</td><td>Foundry evaluation actions for GitHub and Azure DevOps</td><td>promptfoo; DeepEval; LangSmith and Langfuse experiments; your gate</td></tr>
+</tbody></table></div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Signing ecosystems split between Sigstore (cosign) and Notary Project (Notation); check which one the target platform's admission control verifies before choosing. Platform agent deployment tools are young and change monthly; quote the documented command only after checking it.</p>
+</div>
+
+<h2 id="fail"><span class="n">30.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Long-lived CI keys</td><td>Workload identity federation</td></tr>
+<tr><td>Gate not a required check</td><td>Branch protection on the gate job</td></tr>
+<tr><td>Committed conformance reports</td><td>Generate in the run that consumes them</td></tr>
+<tr><td>Image differs from what was tested</td><td>Frozen lock files; signed images; admission policy</td></tr>
+<tr><td>Packaging breaks a control at runtime</td><td>Run the gate inside the built image</td></tr>
+<tr><td>Hand-made environments</td><td>Infrastructure as code with plan review</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">30.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Who can change what the agent says?"</strong> "Its prompts, model choice and policies ship like code: reviewed, tested, gated and signed. A change nobody approved cannot reach production, because the gate and the admission check both refuse it."</li>
+    <li><strong>"How fast can you undo a bad release?"</strong> "Minutes. The previous version stays deployed beside the new one and traffic moves back; data changes are written so the old version still works with them."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">30.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · M1, BT12, BT13, lab T16</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four steps of ARB's CI job and what each proves.</li>
+    <li><span class="lvl">Apply</span>M1: rebuild the keyless pipeline from memory, then compare with your M0 version.</li>
+    <li><span class="lvl">Design</span>A pipeline for pm-agent that deploys the API to Cloud Run and executors to GKE, with the gate and image signing.</li>
+    <li><span class="lvl">Trade-off</span>Agent Runtime against Cloud Run for ARB's customer-service agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>no keys in CI</em> · <em>correct behaviour, wrong image</em> · <em>the gate is a required check</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">30.13</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Jez Humble and David Farley, <cite>Continuous Delivery</cite> (2010); Kief Morris, <cite>Infrastructure as Code</cite> 2nd ed. (2020).</li>
+  <li><b>Specifications.</b> SLSA; Sigstore; Google Cloud Workload Identity Federation with deployment pipelines.</li>
+  <li><b>Your library.</b> The CI/CD/DevOps playlist; your M0 pipeline in <code>genai-agent-mastery/infra/</code>.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>.github/workflows/ci.yml</code>, <code>Dockerfile</code>, <code>docs/operating/GATE_AS_PROMOTION.md</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="reliability.html"><small>Previous</small>29 · Reliability for LLM systems</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="observability-agentops.html"><small>Next</small>31 · Observability, SLOs and AgentOps</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

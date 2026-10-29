@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>31 · Observability, SLOs and AgentOps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 31</div>
+  <ol>
+    <li><a href="#signals">Four signals, not three</a></li>
+    <li><a href="#view">Traces as a view of evidence</a></li>
+    <li><a href="#otel">OpenTelemetry for agents</a></li>
+    <li><a href="#slos">SLIs and SLOs for agents</a></li>
+    <li><a href="#govslo">SLOs for the governance plane</a></li>
+    <li><a href="#alerts">Alerts</a></li>
+    <li><a href="#incidents">Incidents and runbooks</a></li>
+    <li><a href="#kill">The kill switch</a></li>
+    <li><a href="#tools">AgentOps tools</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 31</div>
+  <h1>Observability, SLOs and AgentOps</h1>
+  <p class="lede">Operating agents means answering two kinds of question: is it working (latency, errors, cost, quality), and can we defend what it did (who decided, on what facts, under which control)? The first is observability; the second is evidence. Your builds make a strong architectural choice that this chapter recommends: traces are a view of the evidence, joined to it one to one and never a second record. Then it covers SLOs for agents and for the governance plane, alerting, incident response and how to stop an agent.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS · OWN</span></div>
+    <div><b>Reps</b><span>SD-09 · BT09 · T01, T02 (observability bake-off)</span></div>
+    <div><b>Build links</b><span>ARB docs/operating/SLOS.md · RUNBOOKS.md · pm-agent platform/observability (tracing, join, alerts, defensibility) · design/pm-agent-at-scale.md §9</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (observability services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your traces and your evidence log disagree about whether a tool call happened. Which is right, and how did they come to disagree?</li>
+    <li>What should the SLO target be for "every tool call has an evidence record": 99.9% or something else?</li>
+    <li>An agent is misbehaving in production. What are the three fastest ways to stop it, and what does each leave running?</li>
+  </ol>
+</div>
+
+<h2 id="signals"><span class="n">31.1</span>Four signals, not three</h2>
+<p><span class="tag gen">Generic</span> Classic observability has metrics, logs and traces. Agents need a fourth: <strong>evidence</strong>, the tamper-evident record of decisions and effects (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>). The difference is purpose and guarantees: telemetry is sampled, best-effort and optimised for debugging; evidence is complete, ordered, signed and retained for defence. Mixing them up produces either expensive telemetry or untrustworthy evidence.</p>
+
+<h2 id="view"><span class="n">31.2</span>Traces as a view of evidence</h2>
+<p><span class="tag own">pm-agent</span> pm-agent's tracing module states the rule: "evidence stays the system of record and spans are the view." Three mechanisms make it hold:</p>
+<ul>
+  <li><strong>Fail-soft tracing.</strong> Every tracer is wrapped so that a failing tracer degrades to no-op; it "never blocks a run, never swallows an exception from the code the span wraps, never touches evidence."</li>
+  <li><strong>The join.</strong> After each evidence record is durably appended, its id is attached to the innermost open span. A join check then verifies both directions: every evidence id on a span resolves to a record (no <em>dangling</em> claims), every record in the traced window belongs to exactly one span (no <em>orphans</em>, no <em>duplicates</em>), every node and PEP span carries at least one evidence id (no <em>bare</em> spans), and each PEP decision span claims exactly one tool-call record.</li>
+  <li><strong>Falsifiers.</strong> Breaking the evidence hook, dropping a PEP span, or a node that writes no evidence turns the join red.</li>
+</ul>
+<p>The first prediction question: the evidence is right, by design. A disagreement means a span was dropped or invented, and the join is the test that finds it. ARB takes the same position from the other side: traces are derived from evidence through one redaction policy, so telemetry can never leak more than evidence minimisation allows (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 310" role="img" aria-label="Two pipelines from one agent run. Telemetry: spans, metrics and logs go to an OpenTelemetry collector that samples and redacts, then to trace back ends such as Langfuse, Datadog or Cloud Trace, used for debugging, SLOs and alerts; sampled, best effort, retained for days to weeks. Evidence: decision and effect records are appended in order, hash-chained and signed, anchored to a WORM bucket, and used to defend decisions in audit and sign-off; complete, ordered, signed and retained for years. A join check links them: each evidence id is attached to its span, and the check runs in both directions.">
+<defs><marker id="o31" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box-strong" x="10" y="115" width="130" height="80" rx="6"/>
+<text class="tx-b" x="75" y="148" text-anchor="middle">Agent run</text>
+<text class="tx-s" x="75" y="168" text-anchor="middle">nodes · PEP · tools</text>
+<text class="tx-s" x="180" y="22">Telemetry: sampled, best effort, kept days to weeks</text>
+<text class="tx-ok" x="180" y="296">Evidence: complete, ordered, signed, kept for years</text>
+<rect class="box" x="180" y="32" width="160" height="56" rx="6"/>
+<text class="tx-b" x="260" y="55" text-anchor="middle">Spans · metrics</text>
+<text class="tx-s" x="260" y="75" text-anchor="middle">logs</text>
+<line class="ln" x1="340" y1="60" x2="378" y2="60" marker-end="url(#o31)"/>
+<rect class="box" x="380" y="32" width="150" height="56" rx="6"/>
+<text class="tx-b" x="455" y="55" text-anchor="middle">OTel collector</text>
+<text class="tx-s" x="455" y="75" text-anchor="middle">sample · redact</text>
+<line class="ln" x1="530" y1="60" x2="548" y2="60" marker-end="url(#o31)"/>
+<rect class="box" x="550" y="32" width="200" height="56" rx="6"/>
+<text class="tx-b" x="650" y="55" text-anchor="middle">Trace back ends</text>
+<text class="tx-s" x="650" y="75" text-anchor="middle">Langfuse · Datadog · Trace</text>
+<line class="ln" x1="750" y1="60" x2="768" y2="60" marker-end="url(#o31)"/>
+<rect class="box" x="770" y="32" width="120" height="56" rx="6"/>
+<text class="tx-b" x="830" y="55" text-anchor="middle">Debug</text>
+<text class="tx-s" x="830" y="75" text-anchor="middle">SLOs · alerts</text>
+<rect class="box-ok" x="180" y="220" width="160" height="56" rx="6"/>
+<text class="tx-ok" x="260" y="243" text-anchor="middle">Evidence records</text>
+<text class="tx-s" x="260" y="263" text-anchor="middle">decision · effect</text>
+<line class="ln" x1="340" y1="248" x2="378" y2="248" marker-end="url(#o31)"/>
+<rect class="box-ok" x="380" y="220" width="150" height="56" rx="6"/>
+<text class="tx-ok" x="455" y="243" text-anchor="middle">Append + chain</text>
+<text class="tx-s" x="455" y="263" text-anchor="middle">order · hash · sign</text>
+<line class="ln" x1="530" y1="248" x2="548" y2="248" marker-end="url(#o31)"/>
+<rect class="box-ok" x="550" y="220" width="200" height="56" rx="6"/>
+<text class="tx-ok" x="650" y="243" text-anchor="middle">Anchors</text>
+<text class="tx-s" x="650" y="263" text-anchor="middle">WORM bucket · signed</text>
+<line class="ln" x1="750" y1="248" x2="768" y2="248" marker-end="url(#o31)"/>
+<rect class="box-ok" x="770" y="220" width="120" height="56" rx="6"/>
+<text class="tx-ok" x="830" y="243" text-anchor="middle">Defend</text>
+<text class="tx-s" x="830" y="263" text-anchor="middle">audit · sign-off</text>
+<line class="ln" x1="140" y1="135" x2="178" y2="64" marker-end="url(#o31)"/>
+<line class="ln" x1="140" y1="175" x2="178" y2="244" marker-end="url(#o31)"/>
+<rect class="box-acc" x="200" y="124" width="190" height="62" rx="6"/>
+<text class="tx-acc" x="295" y="148" text-anchor="middle">Join check</text>
+<text class="tx-s" x="295" y="168" text-anchor="middle">evidence id on its span</text>
+<line class="ln-acc" x1="260" y1="90" x2="260" y2="122" style="stroke-dasharray:4 3"/>
+<line class="ln-acc" x1="260" y1="188" x2="260" y2="218" style="stroke-dasharray:4 3"/>
+<text class="tx-s" x="410" y="142">no dangling ids · no orphan records</text>
+<text class="tx-s" x="410" y="160">no bare PEP spans · one record per decision</text>
+<text class="tx-s" x="410" y="178">a disagreement means a span is wrong</text>
+</svg>
+</div>
+<figcaption><b>Fig 31.1</b>Telemetry and evidence are separate pipelines with different guarantees, joined by the evidence id. Telemetry may be sampled, delayed or lost without harm; evidence may not, which is why a failed evidence write refuses the action while a failed tracer degrades to a no-op.</figcaption>
+</figure>
+<h2 id="otel"><span class="n">31.3</span>OpenTelemetry for agents</h2>
+<p><span class="tag gen">Generic</span> OpenTelemetry's generative-AI semantic conventions standardise attributes for model calls (operation, provider, requested and response model, input and output token counts) and spans for agent invocations and tool executions, so traces from different frameworks and platforms look alike <span class="tag ver">Verify</span> the current status and names, since the conventions were still evolving at last check. Practical rules:</p>
+<ul>
+  <li>Instrument with OpenTelemetry and choose back ends separately (Langfuse, Phoenix, Datadog, Cloud Trace); your builds bind OTel to Langfuse.</li>
+  <li>Record the <em>response</em> model, not only the requested one; record token usage and cost per span.</li>
+  <li>Do not put prompts and outputs in traces by default; if you do, apply the same redaction as evidence.</li>
+  <li>Propagate trace context across the gateway, A2A calls and tools, so a multi-agent run is one trace.</li>
+  <li>Turn off vendor default exporters you did not choose (<a class="xref" data-ch="frameworks-sdks-studios" data-sec="#hooks" href="frameworks-sdks-studios.html#hooks">Chapter 35</a>).</li>
+</ul>
+
+<h2 id="slos"><span class="n">31.4</span>SLIs and SLOs for agents</h2>
+<div class="tw"><table>
+<thead><tr><th>SLI</th><th>Measured as</th><th>Typical target (assumption)</th></tr></thead>
+<tbody>
+<tr><td>Time to first progress event</td><td>p95 from request to first streamed event</td><td>Under 3 seconds (pm-agent's scenario)</td></tr>
+<tr><td>Run success</td><td>Runs ending in a valid outcome, excluding correct refusals</td><td>95%+</td></tr>
+<tr><td>Task quality</td><td>Online judge or rubric score on sampled runs</td><td>Baseline minus a tolerance</td></tr>
+<tr><td>Cost per successful task</td><td>Tokens and tool costs per success</td><td>Budgeted per tenant</td></tr>
+<tr><td>Escalation and abandonment</td><td>Share handed to humans or dropped</td><td>Trend, by intent</td></tr>
+<tr><td>Control decision rates</td><td>Refusals per control per thousand calls</td><td>Alert on sharp change, not on level</td></tr>
+</tbody></table></div>
+<p>Error budgets work as for services: when a budget is spent, releases slow and reliability work comes first. Distinguish correct refusals (a control doing its job) from failures; counting refusals as errors pressures teams to weaken controls.</p>
+
+<h2 id="govslo"><span class="n">31.5</span>SLOs for the governance plane</h2>
+<p><span class="tag own">Reference build</span> ARB's <code>docs/operating/SLOS.md</code> defines three SLOs, each against an artefact the build already produces, with the command that computes it today:</p>
+<ol>
+  <li><strong>Evidence-write success: 100%.</strong> The second prediction question. This is "not a 'four nines' availability number": because a failed evidence write refuses the action (GBL-EVID-01), anything below 100% would mean unrecorded actions, "the exact defect GBL-EVID-01 exists to make impossible". It is an invariant to verify (<code>make audit-verify</code>), not a performance level to tolerate.</li>
+  <li><strong>Anchor freshness within the stated window</strong> (every 10 records or 300 seconds, whichever first). A widened window "is an incident ... not a metric to average over a week".</li>
+  <li><strong>Conformance coverage: 100%</strong> of each agent's derived control set bound, checked and passing, distinguishing a <em>gap</em> (no check exists: a build defect) from a <em>fail</em> (the check ran and failed: a runtime regression), because they need different owners.</li>
+</ol>
+<p>The document is candid that none has a live dashboard yet, and names the counter that live wiring would add. Defining SLOs as falsifiable before they are wired to alerts is the right order.</p>
+
+<h2 id="alerts"><span class="n">31.6</span>Alerts</h2>
+<p><span class="tag own">pm-agent</span> pm-agent evaluates six alert rules over the evidence log rather than over live processes: a spike in deny rate, a broken hash chain, an unsigned tail, the rate of plans with quarantined items, the rate of wholly blocked plans (warn-only until thresholds are ratified from live data), and memory-integrity failures. Rates compare exact fractions with no rounding, and fire only when at least one event was counted, so a threshold of zero means "any one" and an empty window never fires. Alert on symptoms users feel and on control-plane integrity; page a human only for what needs a human now.</p>
+
+<h2 id="incidents"><span class="n">31.7</span>Incidents and runbooks</h2>
+<p><span class="tag own">Reference build</span> ARB's governance-incident runbook covers three triggers (a control fired in production, a red-team finding outside the corpus, the evidence chain looks broken) with one shape:</p>
+<ol>
+  <li>Identify the control and run from the evidence record; reconstruct the decision with <code>aicoe audit trace</code>, revealing no more than the investigating principal already holds.</li>
+  <li>Confirm the control behaved as designed: a refusal that matches its trigger "is normal operation, not an incident, however alarming the refusal reads".</li>
+  <li>If the chain looks broken, verify against anchors; treat truncation or divergence as a possible tamper event, freeze changes to the sink, preserve the files, escalate to the data-governance owner and the CISO.</li>
+  <li>Turn every new finding into a red-team case; record gaps and get a ruling before changing the enforcement plane.</li>
+  <li>The gate is the backstop: a regressed binding re-blocks the agent on the next run.</li>
+</ol>
+<p>The other runbooks (control changes, onboarding agents and edges, re-pinning MCP tools, framework currency, approval sessions) are the operational counterpart of the lifecycle in Part VI.</p>
+
+<h2 id="kill"><span class="n">31.8</span>The kill switch</h2>
+<p><span class="tag gen">Generic</span> The third prediction question. Three levers, fastest first:</p>
+<div class="tw"><table>
+<thead><tr><th>Lever</th><th>Effect</th><th>Leaves running</th></tr></thead>
+<tbody>
+<tr><td>Deny at the enforcement point (registry state "suspended", or a deny rule at the gateway)</td><td>No new effects anywhere, immediately</td><td>Reads and conversations, unless also blocked</td></tr>
+<tr><td>Revoke the agent's identity and credentials</td><td>The agent cannot authenticate to anything</td><td>In-flight calls with unexpired tokens; make tokens short-lived</td></tr>
+<tr><td>Stop the runtime (scale to zero, disable the endpoint)</td><td>No new runs</td><td>Parked runs in storage; resume them deliberately or cancel them safely</td></tr>
+</tbody></table></div>
+<p>Have all three scripted, tested, and owned, with the evidence of who pulled which lever. ARB's inventory check is the first lever already: a subject not registered and DEPLOYABLE is refused at the chokepoint, the tool gateway and the model gateway (CTL-0023).</p>
+
+<h2 id="tools"><span class="n">31.9</span>AgentOps tools</h2>
+<p>Langfuse, LangSmith, Arize Phoenix and AX, Datadog LLM Observability, Weights &amp; Biases Weave and the platforms' own (GEAP Agent Observability, AgentCore Observability, Foundry Control Plane) all trace agents and increasingly evaluate them. Labs T01 and T02 send the same traces to four of them; choose on data residency, OpenTelemetry fidelity, evaluation integration and cost (<a class="xref" data-ch="tool-landscape" href="tool-landscape.html">Chapter 46</a>).</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §9</span>
+  <p>Define pm-agent's SLIs and SLOs (agent and governance plane), the trace-evidence join in production, alert rules with owners, the incident runbook and the three kill-switch levers.</p>
+</div>
+
+<h2 id="services"><span class="n">31.10</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> Observability by platform, from the general-purpose stack to the agent-specific layer and, newest, AI agents that investigate incidents. An agent estate uses all three layers; the choice that matters most is where prompts and outputs are allowed to land, because a trace store holding them is a data store under the same rules as evidence (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Metrics, logs and traces</td><td>Cloud Monitoring; Cloud Logging; Cloud Trace (OTLP ingestion); Managed Service for Prometheus</td><td>CloudWatch (metrics, Logs, Application Signals); X-Ray; Managed Service for Prometheus; Managed Grafana</td><td>Azure Monitor; Log Analytics; Application Insights; Managed Prometheus and Managed Grafana</td><td>OpenTelemetry Collector; Prometheus; Grafana (Loki, Tempo); Datadog; Honeycomb</td></tr>
+<tr><td>Agent observability</td><td>GEAP Agent Observability (traces, dashboards for Agent Runtime agents) (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>AgentCore Observability (OpenTelemetry-based, in CloudWatch GenAI observability)</td><td>Foundry observability and Control Plane (tracing via Application Insights, fleet view)</td><td>Langfuse; LangSmith; Arize Phoenix and AX; Datadog LLM Observability; W&amp;B Weave; Braintrust</td></tr>
+<tr><td>Online evaluation of production traffic</td><td>Agent Evaluation online monitors</td><td>AgentCore Evaluations</td><td>Foundry continuous evaluation</td><td>LLM-as-judge in Langfuse, LangSmith, Phoenix or Braintrust</td></tr>
+<tr><td>Audit logs of the platform itself</td><td>Cloud Audit Logs (admin and data access)</td><td>CloudTrail</td><td>Activity Log; Entra audit logs; Purview audit</td><td>SIEM ingestion (Splunk, Sentinel, Chronicle)</td></tr>
+<tr><td>Incidents and on-call</td><td>Cloud Monitoring alerting; Personalized Service Health</td><td>CloudWatch alarms; Incident Manager in Systems Manager</td><td>Azure Monitor alerts; action groups</td><td>PagerDuty; Opsgenie; incident.io; Rootly</td></tr>
+<tr><td>AI operations agents</td><td>Gemini Cloud Assist investigations</td><td>AWS DevOps Agent (GA March 2026)</td><td>Azure SRE Agent (GA)</td><td>Datadog Bits AI SRE; PagerDuty and others</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The AI operations agents in the last row are themselves agents acting on production: they read telemetry, propose or take remediations and open tickets. Govern them with this book's own tools: an identity with least privilege, actions that change infrastructure behind approval, and their decisions recorded. They are a useful first in-house case for the fleet's tiering, because their blast radius is your own platform.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Agent-observability features differ in what they capture by default; several record prompts and completions unless switched off. Check the default content-capture setting, the retention period and the storage region for each, and check which OpenTelemetry generative-AI convention version the service emits before joining traces across vendors.</p>
+</div>
+
+<h2 id="fail"><span class="n">31.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Traces treated as the record</td><td>Evidence as system of record; tested join</td></tr>
+<tr><td>Prompts and PII in telemetry</td><td>One redaction policy for traces and evidence</td></tr>
+<tr><td>Refusals counted as errors</td><td>Separate correct refusals from failures</td></tr>
+<tr><td>Invariants given availability targets</td><td>100% invariants, verified</td></tr>
+<tr><td>Alert fatigue</td><td>Symptom-based alerts; warn-only until thresholds come from data</td></tr>
+<tr><td>No tested way to stop an agent</td><td>Three scripted kill-switch levers</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">31.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Can we see everything the agent did?"</strong> "Two ways. Traces show how a run went, for engineers fixing problems; they may be sampled. The evidence record shows every decision and every change, complete and tamper-evident, for audit. They are linked, and we check the link."</li>
+    <li><strong>"How do we stop it in an emergency?"</strong> "Three switches, fastest first: refuse all of its actions at the enforcement point, revoke its credentials, then stop the runtime. Each is scripted, tested and logged, and the first takes effect in seconds."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">31.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-09, BT09, T01</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>pm-agent's join checks: dangling, orphans, duplicates, bare, PEP mismatch.</li>
+    <li><span class="lvl">Recall</span>ARB's three governance-plane SLOs and why the first is 100%.</li>
+    <li><span class="lvl">Apply</span>Lab T01: instrument the target with OTel; send to Langfuse and Phoenix; verify the join holds in both.</li>
+    <li><span class="lvl">Design</span>An on-call model for 30 agents across two teams.</li>
+    <li><span class="lvl">Trade-off</span>Prompts in traces for debugging against minimisation for compliance.</li>
+  </ol>
+  <p class="small">Card candidates: <em>spans are the view, evidence is the record</em> · <em>an invariant is not an SLO</em> · <em>three kill-switch levers</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">31.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Charity Majors, Liz Fong-Jones and George Miranda, <cite>Observability Engineering</cite> (2022); Google, <cite>The Site Reliability Workbook</cite> (2018), chapters on SLOs and alerting.</li>
+  <li><b>Specifications.</b> OpenTelemetry semantic conventions for generative AI.</li>
+  <li><b>Your library.</b> Arize's LLM Tracing &amp; Observability playlist.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/operating/SLOS.md</code>, <code>RUNBOOKS.md</code>; pm-agent <code>platform/observability/tracing.py</code>, <code>join.py</code>, <code>alerts.py</code>, <code>defensibility.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="deployment-cicd.html"><small>Previous</small>30 · Deployment and CI/CD for agents</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="security-multitenancy.html"><small>Next</small>32 · Security architecture and multi-tenancy</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

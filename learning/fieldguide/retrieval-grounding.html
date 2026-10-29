@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>4 · Retrieval and grounding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 4</div>
+  <ol>
+    <li><a href="#pipeline">Retrieval as a pipeline</a></li>
+    <li><a href="#lexical">Lexical, semantic, hybrid</a></li>
+    <li><a href="#builds">What your builds chose</a></li>
+    <li><a href="#grounding">Grounding as a control</a></li>
+    <li><a href="#degraded">Saying what you didn't find</a></li>
+    <li><a href="#evaluate">Evaluating retrieval</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 4</div>
+  <h1>Retrieval and grounding</h1>
+  <p class="lede">Retrieval decides what the model can know; grounding decides whether what it says is supported by what it was given. The first is an information-retrieval problem with well-known tools. The second can be made a control: a citation that the turn did not retrieve, or a policy claim with no retrieval at all, never reaches the user.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · TECH</span></div>
+    <div><b>Reps</b><span>T14 · R01</span></div>
+    <div><b>Build modules</b><span>platform/retrieval · enforcement/grounding.py · answer_contract.py · pm platform/cache</span></div>
+    <div><b>Decisions</b><span>CTL-0014 · CTL-0015 · CTL-0026 · ADR-0002 (pm)</span></div>
+    <div><b>Read</b><span>~30 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Asked about a student discount, a support agent answers with a citation to an article. How would you check the citation is real without reading the article?</li>
+    <li>When is keyword search better than embeddings for an agent?</li>
+    <li>Your retrieval returned nothing relevant. What should the agent say?</li>
+  </ol>
+</div>
+
+<h2 id="pipeline"><span class="n">4.1</span>Retrieval as a pipeline</h2>
+<p><span class="tag gen">Generic</span> Retrieval-augmented generation is usually described as "search, then generate". In production it is a pipeline with a decision at every stage, and each decision changes what the model can be wrong about:</p>
+<div class="tw"><table>
+<thead><tr><th>Stage</th><th>Decision</th><th>Typical failure</th></tr></thead>
+<tbody>
+<tr><td>Ingest</td><td>Which sources, who owns them, how often refreshed, what labels carried</td><td>Stale or unowned content treated as truth</td></tr>
+<tr><td>Chunk</td><td>Size, overlap, structure-aware splitting (headings, tables)</td><td>Answers split across chunks; tables destroyed</td></tr>
+<tr><td>Index</td><td>Lexical (BM25), vector (embeddings), or both; metadata and entitlements</td><td>Index ignores permissions; embeddings miss exact identifiers</td></tr>
+<tr><td>Query</td><td>Rewrite, expand, decompose the question</td><td>The model searches for the wrong thing</td></tr>
+<tr><td>Rank</td><td>Hybrid fusion, cross-encoder re-ranking, top-k</td><td>The right passage ranked eleventh</td></tr>
+<tr><td>Assemble</td><td>What goes into context, in what order, fenced how</td><td>Lost in the middle; injected text unfenced</td></tr>
+<tr><td>Ground</td><td>Does the answer rest on what was retrieved?</td><td>Fabricated citations; unsupported claims</td></tr>
+</tbody></table></div>
+<p>Agents add one more choice: retrieval can be a <em>tool</em> the model calls when it decides to (agentic retrieval), rather than a fixed step before generation. That gives flexibility and a failure mode: the model can decide not to search at all and answer from its weights.</p>
+
+<h2 id="lexical"><span class="n">4.2</span>Lexical, semantic, hybrid</h2>
+<p><span class="tag gen">Generic</span> Lexical search (BM25 and relatives) matches terms; vector search matches meaning through embeddings. Each misses what the other catches: embeddings blur exact identifiers ("PLAT-104", a policy number, an error code), while keyword search misses paraphrase. Hybrid search runs both and fuses the rankings (reciprocal rank fusion is the usual method), often followed by a cross-encoder re-ranker. For enterprise agents, where questions mix identifiers and concepts, hybrid is the sensible default.</p>
+<p>Two observations temper the enthusiasm for vectors. The harness study (<a class="xref" data-ch="harness-anatomy" href="harness-anatomy.html">Chapter 1</a>) found that none of eleven production coding agents uses embedding retrieval over code: they search deterministically, just in time. And deterministic retrieval is easier to govern: the same query returns the same results, which makes tests exact and evidence reproducible.</p>
+
+<h2 id="builds"><span class="n">4.3</span>What your builds chose</h2>
+<p><span class="tag own">Your build</span> ARB's default retriever is a deterministic Okapi BM25 implementation with no dependencies and no network; ties are broken by document id, so the same corpus and query always give the same ranked hits, safe to assert in tests and to cite in evidence. An embedding retriever sits behind the same <code>Retriever</code> seam, off by default; a hosted vector store would be another binding. The seam knows only <code>Document</code> (id, text, metadata), not knowledge-base articles, so it serves both agents.</p>
+<p><span class="tag own">pm-agent</span> pm-agent does not index Jira at all. It reads on demand through the Jira adapter using the requester's identity, behind a read-through cache keyed by the user's entitlement scope, the resource and a version or time-to-live; vector memory was deferred until a concrete need appears (ADR-0002). The design choice is about authority as much as freshness: a standing mirror would need its own permissions model; reading through as the user inherits Jira's.</p>
+
+<h2 id="grounding"><span class="n">4.4</span>Grounding as a control</h2>
+<p><span class="tag own">Your build</span> GAP-15 is the clearest failure in the build's history. Asked about a student discount, the live model made no <code>search_kb</code> call at all and answered with a citation to <code>[KB-0000]</code>, an article that does not exist. The instruction asked for search first and citations; nothing checked either. <span class="ctl">CTL-0015</span> is the check, run after the turn and before the answer reaches the customer:</p>
+<ul>
+  <li>Every <code>[KB-####]</code> in the answer must be an id that <code>search_kb</code> actually returned <em>this turn</em>. The chokepoint saw those calls, so the retrieved set is evidence, not the model's word.</li>
+  <li>An answer that asserts policy in a turn with no retrieval at all is refused.</li>
+  <li>A failure is not softened or annotated: the answer is replaced with the authored refusal, and the verdict goes to evidence with both id sets (<code>cited ⊆ retrieved</code>).</li>
+</ul>
+<p>The heuristic had a residual: an answer could state policy without citing anything and slip past a check that only inspects visible citations (RESID-03). <span class="ctl">CTL-0026</span> closed it by construction, by making the only acceptable answer a typed object with at least one citation from this turn's retrieval (<a class="xref" data-ch="loop-tools-typed-outputs" data-sec="#contract" href="loop-tools-typed-outputs.html#contract">Chapter 2</a>), with a monotone support classifier able to hold an answer whose citations do not support what it says.</p>
+<p><span class="tag gen">Generic</span> The pattern generalises beyond knowledge bases. "Cited ⊆ retrieved this turn" works for any identifier the system can observe being fetched: ticket keys, policy numbers, document ids, URLs. pm-agent's rubric scores the share of plan items that cite only retrieved keys, and its output checks quarantine items whose identifiers were not retrieved.</p>
+
+<h2 id="degraded"><span class="n">4.5</span>Saying what you didn't find</h2>
+<p><span class="tag own">pm-agent</span> A grounded answer from partial retrieval can still mislead: the plan is accurate about the issues it saw and silent about the ones it could not fetch. pm-agent has a control for exactly this, degraded-context disclosure: when retrieval was partial (a fetch failed, a scope was refused, a limit was hit), the plan says so. It was ruled a genuine control rather than a nicety (D-PM-P3-g), mapped to the transparency and human-AI configuration risks in the standards. The general rule: an agent's output should disclose the limits of what it looked at, not only cite what it found.</p>
+
+<h2 id="evaluate"><span class="n">4.6</span>Evaluating retrieval</h2>
+<p><span class="tag gen">Generic</span> Evaluate the retriever separately from the answer, or a good model will hide a bad retriever and vice versa:</p>
+<div class="tw"><table>
+<thead><tr><th>Metric</th><th>Asks</th></tr></thead>
+<tbody>
+<tr><td>Recall@k</td><td>Is the passage that answers the question in the top k?</td></tr>
+<tr><td>Precision@k, MRR, nDCG</td><td>How high, and how cleanly, is it ranked?</td></tr>
+<tr><td>Citation precision</td><td>Of the citations in answers, how many were retrieved this turn? (ARB's live report: 7 of 7 on 2026-10-16)</td></tr>
+<tr><td>Faithfulness or groundedness</td><td>Is every claim in the answer supported by the retrieved text?</td></tr>
+<tr><td>Abstention quality</td><td>When the answer is not in the corpus, does the agent say so?</td></tr>
+</tbody></table></div>
+<p>Ragas and DeepEval implement most of these; the hard part is the labelled set of questions with known supporting passages, which has to be built from real questions and kept current as the corpus changes.</p>
+
+<h2 id="alts"><span class="n">4.7</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Retrieval method</td><td>BM25 · vectors · hybrid with re-ranking · structural (code search, SQL)</td><td>Deterministic lexical is testable and exact on identifiers; hybrid wins on mixed queries; structural wins on structured sources</td></tr>
+<tr><td>Where the index lives</td><td>Mirror into a vector store · read through the system of record</td><td>Mirrors are fast and need their own permissions; read-through inherits permissions and freshness at latency cost</td></tr>
+<tr><td>When to retrieve</td><td>Always before generating · agent-decided tool · both</td><td>Agentic retrieval needs a grounding check that refuses answers with no retrieval</td></tr>
+<tr><td>Grounding check</td><td>Model-as-judge · citation-set check · typed contract</td><td>Set checks and contracts are deterministic; judges add semantic support checks, as monotone classifiers only</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">4.8</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Fabricated citations</td><td>Cited ⊆ retrieved this turn, checked from the chokepoint's record</td></tr>
+<tr><td>Answering from weights</td><td>Refuse policy claims in turns with no retrieval; typed contract</td></tr>
+<tr><td>Silent partial retrieval</td><td>Degraded-context disclosure</td></tr>
+<tr><td>Permission leaks through the index</td><td>Entitlement-aware retrieval and cache keys (<a class="xref" data-ch="data-boundaries" data-sec="#see" href="data-boundaries.html#see">Chapter 21</a>)</td></tr>
+<tr><td>Poisoned documents</td><td>Fence retrieved text; taint; decisions on facts not text</td></tr>
+<tr><td>Stale corpus</td><td>Source ownership and refresh SLAs; dates in metadata and answers</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">4.9</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our assistant always cites its sources."</strong> Ask whether anything checks that each citation was actually retrieved in that answer's turn, and what happens when retrieval returns nothing.</li>
+    <li><strong>"Should we build a vector database of everything?"</strong> "Only if a read-through to the systems of record, with the user's permissions, is too slow; a mirror is a second copy of your data with its own access problem."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">4.10</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with T14 and R01</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The seven pipeline stages and a failure at each.</li>
+    <li><span class="lvl">Recall</span>GAP-15, CTL-0015's two checks, and why CTL-0026 was still needed.</li>
+    <li><span class="lvl">Apply</span>Design "cited ⊆ retrieved" for pm-agent plans that cite Jira keys and Confluence page ids.</li>
+    <li><span class="lvl">Design</span>Choose a retrieval design for a 2-million-document HR corpus with folder permissions and many policy numbers.</li>
+    <li><span class="lvl">Trade-off</span>BM25-only (ARB) versus hybrid with re-ranking for ARB's knowledge advisor.</li>
+  </ol>
+  <p class="small">Card candidates: <em>cited ⊆ retrieved this turn</em> · <em>GAP-15 [KB-0000]</em> · <em>disclose what you didn't find</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">4.11</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Jay Alammar and Maarten Grootendorst, <cite>Hands-On Large Language Models</cite>, the chapters on semantic search and RAG; Chip Huyen, <cite>AI Engineering</cite>, the RAG chapter.</li>
+  <li><b>Papers.</b> Patrick Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (2020); Stephen Robertson and Hugo Zaragoza, "The Probabilistic Relevance Framework: BM25 and Beyond" (2009).</li>
+  <li><b>Your library.</b> Ramchandani's case study on how Perplexity turns a question into a cited answer (case 1); the Zilliz vector-search playlist.</li>
+  <li><span class="tag own">Your build</span> <code>platform/retrieval/keyword.py</code>, <code>enforcement/grounding.py</code>, <code>enforcement/answer_contract.py</code>. pm-agent ADR-0002, D-PM-P3-g.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="context-memory-state.html"><small>Previous</small>3 · Context, memory and state</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="protocols-trust.html"><small>Next</small>5 · Protocols and trust between agents</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

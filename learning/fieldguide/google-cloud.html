@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>41 · Google Cloud: Gemini Enterprise Agent Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VII · Platforms and tools</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 41</div>
+  <ol>
+    <li><a href="#shape">The shape of Google's offer</a></li>
+    <li><a href="#build">Build</a></li>
+    <li><a href="#scale">Scale</a></li>
+    <li><a href="#govern">Govern</a></li>
+    <li><a href="#policy">Policy on the gateway, examined</a></li>
+    <li><a href="#optimize">Optimize</a></li>
+    <li><a href="#map">Mapping GEAP to your catalog</a></li>
+    <li><a href="#leadlag">Where GEAP leads and lags</a></li>
+    <li><a href="#arb">Your reference build on GCP</a></li>
+    <li><a href="#aicoe">A reference landing for an AICoE</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VII · CHAPTER 41</div>
+  <h1>Google Cloud: Gemini Enterprise Agent Platform</h1>
+  <p class="lede">Your AICoE standardises on Google Cloud, so this is the platform to know service by service. In April 2026 Google folded Vertex AI into the Gemini Enterprise Agent Platform (GEAP) and organised it as Build, Scale, Govern and Optimize. This chapter walks each pillar with its current status, examines the gateway's policy model closely, maps GEAP to your control catalog, and states plainly where it leads and where AWS and Microsoft are ahead.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>Trace E4 · BT14 · GF-4</span></div>
+    <div><b>Build links</b><span>ARB live GCP bindings (POSTURE.md) · platform/model/vertex_provider.py · platform/state/firestore.py · platform/anchor/gcs.py · platform/signing_kms.py</span></div>
+    <div><b>Read</b><span>~50 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (docs and release notes read that day)</span></div>
+  </div>
+</div>
+
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Statuses here come from GEAP's release notes and documentation as read on 2026-10-21, and some pages disagree with each other (noted where they do). Re-check before naming a feature to a client; this chapter is on the quarterly re-verification list in <a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>.</p>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Can GEAP's gateway refuse a refund larger than the order total, using only native policy?</li>
+    <li>A gateway policy denies tools whose <code>destructive_hint</code> is true. Who decides whether a tool is destructive?</li>
+    <li>A natural-language governance policy is enforced by a model. Under which rule from Part IV may that be on the enforcement path?</li>
+  </ol>
+</div>
+
+<h2 id="shape"><span class="n">41.1</span>The shape of Google's offer</h2>
+<p><span class="tag gen">Generic</span> At Cloud Next on 22 April 2026, Google relaunched its enterprise AI offer as <strong>Gemini Enterprise</strong>, in three parts:</p>
+<ul>
+  <li><strong>Gemini Enterprise Agent Platform</strong>, the developer platform, described as "the evolution of Vertex AI". Google states that "all Vertex AI services and roadmap evolutions will be delivered exclusively through the Agent Platform".</li>
+  <li><strong>The Gemini Enterprise app</strong>, where employees discover, create and run agents: a no-code Agent Designer for scheduled and triggered agents, an Agent Gallery of validated partner agents with an IT request-and-approval flow, and an Inbox for managing and monitoring agents.</li>
+  <li><strong>A partner ecosystem</strong> of third-party agents (Oracle, Salesforce, ServiceNow, Adobe, Workday among those named).</li>
+</ul>
+<p>Names changed with the launch: Vertex AI Agent Engine became Agent Runtime, and the evaluation, memory and session services were renamed under the Agent Platform. Older documentation, blog posts and your own build's early records use the old names (ARB's D32 recorded the rename at the time).</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 440" role="img" aria-label="GEAP's four pillars with services and status as read on 2026-10-21. Build: ADK, Agent Studio, Agent Garden, Model Garden with Gemini, third-party and open models, RAG Engine, Vector Search, Managed Agents API (preview), grounding options, model tuning, Cloud Marketplace agents (pre-GA), protocols A2A, MCP, A2UI, AP2 and UCP. Scale: Agent Runtime (long-running up to 7 days; revisions and traffic splitting in preview), Sessions, Memory Bank (profiles GA), Sandbox (code, shell and computer use GA). Govern: Agent Identity (SPIFFE-based), Agent Registry (GA), Agent Gateway (GA per release notes), IAM access policies (GA), semantic governance policies (pre-GA), Model Armor, Agent Security (Security Command Center AI Protection), Agent Compliance (Compliance Manager frameworks), Agent Anomaly Detection (private preview). Optimize: evaluation with online monitors, simulation, observability (GA), optimizer. Below, the layer that remains yours: the rulebook and catalog, a PDP with trusted facts reached through a gateway service extension or your chokepoint, the evidence plane, and the lifecycle gate.">
+  <g>
+    <rect class="box" x="10" y="10" width="210" height="310" rx="8"/>
+    <text class="tx-b" x="115" y="34" text-anchor="middle">Build</text>
+    <text class="tx-s" x="22" y="60">ADK (graph sub-agents)</text>
+    <text class="tx-s" x="22" y="80">Agent Studio (low-code)</text>
+    <text class="tx-s" x="22" y="100">Agent Garden (templates)</text>
+    <text class="tx-s" x="22" y="120">Model Garden · Gemini,</text>
+    <text class="tx-s" x="22" y="138">  third-party, open models</text>
+    <text class="tx-s" x="22" y="158">RAG Engine · Vector Search</text>
+    <text class="tx-s" x="22" y="178">Managed Agents API (pre)</text>
+    <text class="tx-s" x="22" y="198">A2A · MCP · A2UI</text>
+    <text class="tx-s" x="22" y="218">AP2 · UCP · connectors</text>
+    <text class="tx-s" x="22" y="238">Grounding: Search, Maps,</text>
+    <text class="tx-s" x="22" y="256">  Agent Search, web (ent.)</text>
+    <text class="tx-s" x="22" y="276">Tuning: SFT, pref., RL</text>
+    <text class="tx-s" x="22" y="296">Marketplace agents (pre)</text>
+    <rect class="box" x="232" y="10" width="210" height="310" rx="8"/>
+    <text class="tx-b" x="337" y="34" text-anchor="middle">Scale</text>
+    <text class="tx-s" x="244" y="60">Agent Runtime</text>
+    <text class="tx-s" x="244" y="78">  long runs to 7 days</text>
+    <text class="tx-s" x="244" y="96">  revisions, traffic split (pre)</text>
+    <text class="tx-s" x="244" y="118">Sessions (own session ids)</text>
+    <text class="tx-s" x="244" y="138">Memory Bank · profiles (GA)</text>
+    <text class="tx-s" x="244" y="158">Sandbox: code, shell,</text>
+    <text class="tx-s" x="244" y="176">  computer use (GA Sep)</text>
+    <text class="tx-s" x="244" y="198">PayGo tiers · Priority · Flex</text>
+    <text class="tx-s" x="244" y="216">Provisioned Throughput</text>
+    <rect class="box-acc" x="454" y="10" width="210" height="310" rx="8"/>
+    <text class="tx-acc" x="559" y="34" text-anchor="middle">Govern</text>
+    <text class="tx-s" x="466" y="60">Agent Identity (SPIFFE, DPoP)</text>
+    <text class="tx-s" x="466" y="80">Agent Registry (GA Jun)</text>
+    <text class="tx-s" x="466" y="100">Agent Gateway (GA Jun*)</text>
+    <text class="tx-s" x="466" y="120">IAM access policies (GA Aug)</text>
+    <text class="tx-s" x="466" y="140">Semantic governance (pre-GA)</text>
+    <text class="tx-s" x="466" y="160">Model Armor on gateway</text>
+    <text class="tx-s" x="466" y="180">Agent Security (SCC AI</text>
+    <text class="tx-s" x="466" y="198">  Protection; GA Mar)</text>
+    <text class="tx-s" x="466" y="218">Agent Compliance (SCC</text>
+    <text class="tx-s" x="466" y="236">  Compliance Manager)</text>
+    <text class="tx-s" x="466" y="256">Anomaly Detection (pre)</text>
+    <text class="tx-s" x="466" y="276">VPC-SC · CMEK · audit logs</text>
+    <rect class="box-ok" x="676" y="10" width="214" height="310" rx="8"/>
+    <text class="tx-ok" x="783" y="34" text-anchor="middle">Optimize</text>
+    <text class="tx-s" x="688" y="60">Evaluation (offline)</text>
+    <text class="tx-s" x="688" y="80">Online monitors</text>
+    <text class="tx-s" x="688" y="100">Multi-turn autoraters</text>
+    <text class="tx-s" x="688" y="120">Simulation (synthetic users)</text>
+    <text class="tx-s" x="688" y="140">Observability (GA Jun)</text>
+    <text class="tx-s" x="688" y="160">Unified Trace Viewer</text>
+    <text class="tx-s" x="688" y="180">Optimizer (instructions,</text>
+    <text class="tx-s" x="688" y="198">  tool descriptions)</text>
+    <text class="tx-s" x="688" y="218">Example Store · feedback</text>
+    <text class="tx-s" x="688" y="240">CodeMender (in Build)</text>
+  </g>
+  <rect class="box-strong" x="10" y="340" width="880" height="84" rx="8"/>
+  <text class="tx-b" x="24" y="366">Still yours</text>
+  <text class="tx-s" x="24" y="390">rulebook and catalog · PDP on trusted facts (via a gateway authorization service extension, or your chokepoint)</text>
+  <text class="tx-s" x="24" y="410">tamper-evident evidence plane · lifecycle gate and sign-off digest · cross-platform registry of record</text>
+  <text class="tx-s" x="740" y="366">* docs disagree</text>
+</svg>
+</div>
+<figcaption><b>Fig 41.1</b>GEAP by pillar, with status where the release notes state one (read 2026-10-21; "pre" means preview or pre-GA). The bottom band is the part of the reference model no platform supplies.</figcaption>
+</figure>
+
+<h2 id="build"><span class="n">41.2</span>Build</h2>
+<ul>
+  <li><strong>ADK</strong> is the code-first framework, model-agnostic, now with graph-based sub-agent networks; Google reports more than six trillion tokens a month through it (<a class="xref" data-ch="frameworks-sdks-studios" href="frameworks-sdks-studios.html">Chapter 35</a>).</li>
+  <li><strong>Agent Studio</strong> is the low-code canvas, exportable to ADK; <strong>Agent Garden</strong> holds templates (invoice processing, financial analysis and others).</li>
+  <li><strong>Model Garden</strong> offers 200+ models: Gemini, Gemma, and third-party models including Anthropic's Claude family. For your pins, the provider-reported <code>model_version</code> is what CTL-0021 checks (<a class="xref" data-ch="model-choice-risk" data-sec="#pinning" href="model-choice-risk.html#pinning">Chapter 10</a>).</li>
+  <li><strong>RAG Engine</strong> and <strong>Vector Search</strong> for retrieval; enterprise search over documents, which the documentation now also labels <em>Agent Search</em> (formerly Vertex AI Search).</li>
+  <li><strong>Grounding</strong> is a family of options, not one service. The grounding documentation lists Google Search, Google Maps, Agent Search (your indexed enterprise content), Elasticsearch, Parallel and Exa web search, your own search API, RAG, and <em>Web Grounding for Enterprise</em>, a web-grounding variant aimed at regulated customers <span class="tag ver">Verify</span> its data-handling terms before quoting. Grounding attaches sources to an answer; it does not by itself prove the answer used them, which is why your builds check cited ⊆ retrieved (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>).</li>
+  <li><strong>Model training and inference.</strong> Gemini models can be tuned with supervised fine-tuning (text, documents, images, audio, video and function calling), preference tuning and reinforcement-learning fine-tuning, including continuous tuning; open models in Model Garden support supervised and distillation fine-tuning and LoRA/QLoRA; embedding models can be tuned too. Inference runs on the consumption options in <a class="sref" href="#scale">41.3</a> and on your own endpoints for open models (<a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>). A tuned model is a new model: it gets its own pin, evaluation and sign-off, and Security Command Center now reports tuned models that Model Armor does not protect (<a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>).</li>
+  <li><strong>Managed Agents API</strong> (preview since May 2026): a REST-first API for autonomous agents in a managed sandbox, Google's counterpart to managed harnesses elsewhere.</li>
+  <li><strong>Protocols</strong>: A2A (Agent Registry supports A2A 1.0), MCP, A2UI for agent-generated interfaces, and AP2 and UCP for payments and commerce (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>).</li>
+  <li><strong>Cloud Marketplace</strong> is the procurement path for third-party agents: A2A agents bought through Marketplace are added to a Gemini Enterprise app by an administrator, move from <em>procured</em> to <em>integrated</em>, and appear in the Agent Gallery under the visibility the admin sets (Pre-GA as read 2026-10-21). The documentation is explicit that Gemini Enterprise's console Model Armor settings do not protect Marketplace agents; the provider must configure Model Armor in the agent's own code. A bought agent is still an agent in your inventory, with a tier and an owner on your side (<a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a>).</li>
+  <li>Also: batch and event-driven agents triggered from BigQuery and Pub/Sub, multimodal live streaming, and CodeMender for finding and fixing code vulnerabilities.</li>
+</ul>
+
+<h2 id="scale"><span class="n">41.3</span>Scale</h2>
+<ul>
+  <li><strong>Agent Runtime</strong>: managed hosting with sub-second cold starts, provisioning in under a minute, long-running operations up to seven days, custom containers, and revisions with traffic splitting (preview) (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>).</li>
+  <li><strong>Sessions</strong> with your own session ids; <strong>Memory Bank</strong> with automated generation from event streams, revision history and memory profiles (GA July 2026); multi-region and global endpoints (GA June 2026).</li>
+  <li><strong>Sandbox</strong>: code execution, plus shell and computer-use sandboxes (GA September 2026), custom containers and snapshots (preview).</li>
+  <li><strong>Consumption</strong>: Standard PayGo on dynamic shared quota with spend-based usage tiers, Priority and Flex PayGo, Provisioned Throughput, batch, and the global endpoint (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+</ul>
+
+<h2 id="govern"><span class="n">41.4</span>Govern</h2>
+<div class="tw"><table>
+<thead><tr><th>Service</th><th>What it does</th><th>Status · notes</th></tr></thead>
+<tbody>
+<tr><td>Agent Identity</td><td>A unique cryptographic identity per agent, based on SPIFFE (<code>spiffe://&lt;trust-domain&gt;/resources/…</code>); auto-provisioned X.509 certificates valid 24 hours; mTLS to Google APIs; access tokens bound to the certificate; DPoP across Agent Gateway. Cannot be impersonated and has no long-lived keys, unlike service accounts. Supported on Agent Runtime, Gemini Enterprise and Cloud Run. An auth manager handles user consent (three-legged OAuth) and the gateway decrypts user credentials so "the agent never sees the raw credential"</td><td>Agent Identity API preview (June 2026); doc updated 2026-10-13</td></tr>
+<tr><td>Agent Registry</td><td>Catalogue of agents, tools, MCP servers and skills; A2A 1.0 support</td><td>GA June 2026; skill registry preview</td></tr>
+<tr><td>Agent Gateway</td><td>The enforcement point for agent traffic: authentication, IAM access policies, Model Armor, egress, VPC Service Controls, Cloud Trace integration (preview)</td><td>GA per release notes (June 2026); the governance template page still says private preview</td></tr>
+<tr><td>IAM access policies</td><td>Allow and deny rules in CEL over agent principals and destinations</td><td>GA August 2026 (<a class="sref" href="#policy">41.5</a>)</td></tr>
+<tr><td>Semantic governance policies</td><td>Natural-language business constraints judged by a model at the gateway</td><td>Pre-GA; billed per evaluation since 1 August 2026</td></tr>
+<tr><td>Model Armor</td><td>Screens prompts and responses for injection and jailbreak, sensitive data and harmful content; Google also positions it against tool poisoning</td><td>On the gateway, GA June 2026; your build uses it live (E4)</td></tr>
+<tr><td>Agent Security (the Agent Platform <em>Security</em> tab)</td><td>Findings for deployed agents drawn from Security Command Center's AI Protection: AI threats against control planes and runtimes; AI risks ranked by exposure, including toxic combinations; Agent Platform Vulnerability Assessment (which since July also scans deployed containers for plaintext secrets); agents with excessive permissions; content violations from Model Armor; runtime detectors including a "malicious skill" detector (August 2026)</td><td>AI Protection GA (March 2026, Premium); agentic workload support and several widgets preview; Premium or Enterprise tier for most features</td></tr>
+<tr><td>Agent Compliance</td><td>Security Command Center's Compliance Manager monitors projects against predefined frameworks, including an expanded <em>AI Essentials</em> framework alongside NIST 800-53, ISO 27001, PCI DSS and CIS</td><td>Premium or Enterprise; per-project enablement since May 2026. It checks cloud configuration posture, not your control catalog's run-time controls</td></tr>
+<tr><td>Agent Anomaly Detection</td><td>An asynchronous audit layer over agent traces: a statistical pass over all traffic, a reasoning pass over flagged sessions, and invocation-level analysis of tool calls and parameter histories. Detects tool misuse, identity and privilege abuse, cascading failures, rogue agents and resource exhaustion (mapped to OWASP ASI02, 03, 08, 10). Findings go to Security Command Center with severity and explanation; an ADK callback can block or halt a turn on a threshold</td><td>Private preview (September 2026); Agent Runtime and ADK for Python only; needs raw prompt and response telemetry in US or EU multi-region buckets</td></tr>
+</tbody></table></div>
+
+<p>Three reading notes on the last three rows, because each is easy to oversell:</p>
+<ul>
+  <li><strong>Agent Compliance checks posture, not behaviour.</strong> Compliance Manager evaluates cloud configuration against frameworks (is Model Armor attached, are permissions excessive, is data residency set). It cannot tell you whether a refund above the order total was refused; that evidence comes from your enforcement and evidence planes (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>). Report the two side by side and label which is which.</li>
+  <li><strong>Agent Anomaly Detection is detective and asynchronous.</strong> It finds patterns after the fact, which is valuable for the behaviours no rule anticipated (the catalog-scraping example in Google's announcement is exactly that). Its optional ADK callback that blocks a tool call above a severity threshold is a model-judged restriction: admissible under D52 because it can only restrict, never as the control a deterministic limit should be (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>).</li>
+  <li><strong>Anomaly Detection needs raw prompt and response telemetry.</strong> Your builds deliberately keep arguments and results out of spans and route content through one redaction policy (D26; <a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>). Enabling the service means accepting a second store of raw content, in a US or EU multi-region log bucket, with its own access and retention. Decide that per agent and per data class, and record it; it is a data-boundary decision, not a monitoring toggle (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</li>
+</ul>
+
+<h2 id="policy"><span class="n">41.5</span>Policy on the gateway, examined</h2>
+<p><span class="tag gen">Generic</span> GEAP has two native policy types, and the difference between them is the most important thing for an architect to understand about the platform.</p>
+<p><strong>IAM access policies</strong> (unified access policies) are deterministic. Each policy holds rules with an allow or deny effect, deny overrides allow, and there are dry-run and enforce modes. The CEL attributes documented are about the <em>destination</em>: registered or not, the MCP server, method, tool name, prompts and resources, and the tool's annotations (<code>read_only_hint</code>, <code>destructive_hint</code>, <code>idempotent_hint</code>, <code>open_world_hint</code>); for unregistered destinations, host, path and method. Principals are SPIFFE agent identities. The documentation lists no attributes for tool-call <em>argument values</em> or for business facts.</p>
+<p><strong>Semantic governance policies</strong> are natural-language constraints ("always use UPS for shipments within the USA") that a model evaluates against tool calls and user intent. The documentation says plainly that the service "uses an LLM to implement natural language policies" and that verdicts "may not be accurate"; the sample configuration fails closed; evaluations consume model tokens and are billed.</p>
+<p>The prediction questions follow:</p>
+<ol>
+  <li><strong>"Refund ≤ order total" is not expressible natively</strong> in a deterministic GEAP policy, because it needs an argument value and a trusted fact (the order total) read from the order system. You can express it in a semantic policy, but then a probabilistic judge decides a financial limit. The deterministic answer on GCP is to keep your PDP and PIP: either behind your own chokepoint, as ARB does, or behind the gateway's <strong>authorization service extension</strong>, the programmable hook that Google's governance template uses for custom authorisation (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</li>
+  <li><strong>Tool annotations are declared by the tool's server.</strong> A rule on <code>destructive_hint</code> is only as good as the server's honesty. Verify annotations at registration and pin them with the description (your CTL-0024 hashes name, description and schema; extend it to annotations), or a mislabelled tool walks through a "deny destructive" rule.</li>
+  <li><strong>A model-based policy may only restrict</strong> (D52). Semantic governance fits that rule when it can only deny and fails closed, and when it never stands in for a deterministic limit. Use it for business-intent constraints that cannot be written as code, layered on top of deterministic controls (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>).</li>
+</ol>
+<div class="panel p-note">
+  <span class="k">Compare</span>
+  <p>AWS AgentCore Policy evaluates Cedar over the tool call, including its input arguments, deterministically, with default deny and forbid-wins (GA March 2026) (<a class="xref" data-ch="aws" href="aws.html">Chapter 42</a>). Even there, a rule such as <code>context.input.amount &lt; 1000</code> checks what the agent <em>asserted</em>; a limit against a trusted fact still needs a PIP. No platform supplies the PIP for your business systems.</p>
+</div>
+
+<h2 id="optimize"><span class="n">41.6</span>Optimize</h2>
+<ul>
+  <li><strong>Evaluation</strong> through the Gen AI evaluation service: offline evaluation, online monitors on live traffic, multi-turn autoraters that evaluate whole conversations, failure clusters and quality alerts.</li>
+  <li><strong>Simulation</strong>: synthetic users and virtualised tools, scoring task success and safety.</li>
+  <li><strong>Observability</strong> (GA June 2026): dashboards and traces, a unified trace viewer, an App Topology API, ADK telemetry metrics.</li>
+  <li><strong>Optimizer</strong>: clusters real-world failures and proposes refined system instructions and tool descriptions; treat its output as a candidate change (<a class="xref" data-ch="evaluation-simulation-optimization" data-sec="#prompt" href="evaluation-simulation-optimization.html#prompt">Chapter 39</a>).</li>
+  <li>Also: Example Store for few-shot examples, and a feedback service (preview).</li>
+</ul>
+
+<h2 id="map"><span class="n">41.7</span>Mapping GEAP to your catalog</h2>
+<p><span class="tag asm">Assumption</span> A first cut, to be validated in E6 when ARB binds a real organisation:</p>
+<div class="tw"><table>
+<thead><tr><th>ARB control</th><th>GEAP native support</th><th>Gap you fill</th></tr></thead>
+<tbody>
+<tr><td>CTL-0001 refund ceiling</td><td>Semantic policy only (probabilistic)</td><td>Deterministic PDP via service extension or chokepoint</td></tr>
+<tr><td>CTL-0002, CTL-0003 trusted-fact limits and preconditions</td><td>None</td><td>PIP reading order and payment systems</td></tr>
+<tr><td>CTL-0004, CTL-0005 approval and separation of duties</td><td>Inbox for monitoring; no native approval binding to an action</td><td>Approval service bound to the exact action (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>)</td></tr>
+<tr><td>CTL-0008, CTL-0017 verified principals</td><td>Agent Identity; auth manager for user delegation</td><td>Mapping the user to your directory subject (D33)</td></tr>
+<tr><td>CTL-0011 tamper-evident evidence</td><td>Cloud Audit Logs, traces</td><td>Hash-chained, signed evidence; GCS bucket-lock anchors (ARB already uses them)</td></tr>
+<tr><td>CTL-0013, CTL-0014, CTL-0025 screening</td><td>Model Armor</td><td>Composition so screening only restricts</td></tr>
+<tr><td>CTL-0016 to CTL-0019 cross-agent</td><td>A2A via registry; agent identities</td><td>Provenance envelope, declared topology</td></tr>
+<tr><td>CTL-0020 model budget</td><td>Project quotas and spend tiers</td><td>Per-agent, per-principal token ledger</td></tr>
+<tr><td>CTL-0021 model pin</td><td>Versioned model ids; reported <code>model_version</code></td><td>The pin check and alias refusal</td></tr>
+<tr><td>CTL-0022 sign-off digest</td><td>None</td><td>Your gate and digest</td></tr>
+<tr><td>CTL-0023 inventory</td><td>Agent Registry; <code>destination.is_registered</code> in policy</td><td>Registry of record across platforms; refusal of unregistered subjects</td></tr>
+<tr><td>CTL-0024 MCP integrity</td><td>Registry and access policies by tool name</td><td>Description, schema and annotation hash pinning</td></tr>
+</tbody></table></div>
+
+<h2 id="leadlag"><span class="n">41.8</span>Where GEAP leads and lags</h2>
+<p><span class="tag asm">Assumption</span> A judgement as of October 2026, from the platforms' own documentation; revisit quarterly.</p>
+<div class="tw"><table>
+<thead><tr><th>GEAP leads</th><th>GEAP lags</th></tr></thead>
+<tbody>
+<tr><td>Agent identity design: SPIFFE ids, short-lived certificates, token binding and DPoP, no impersonation</td><td>Deterministic argument-level tool policy: AWS AgentCore Policy (Cedar, with the Dogwood temporal extension) is GA; GEAP's deterministic policy covers destinations, and argument rules go to a pre-GA model-judged service</td></tr>
+<tr><td>Integration of models, Model Armor and the gateway in one path</td><td>Breadth of managed agent primitives at GA: AWS has GA harness, payments, evaluations, optimization with A/B testing, and registry</td></tr>
+<tr><td>Data platform adjacency: BigQuery, Vector Search and Registry MCP servers</td><td>Estate-wide governance of agents built elsewhere: Microsoft's Agent 365 and Entra Agent ID (sponsors, conditional access, access reviews) and ServiceNow's AI Control Tower reach further across SaaS and Microsoft 365</td></tr>
+<tr><td>End-user distribution through the Gemini Enterprise app, with a gallery and IT approval</td><td>Documentation consistency during the transition (feature statuses differ across pages; renamed services)</td></tr>
+<tr><td>Evaluation and simulation lineage from Vertex AI</td><td>Maturity of several governance features still in preview</td></tr>
+</tbody></table></div>
+
+<h2 id="arb"><span class="n">41.9</span>Your reference build on GCP</h2>
+<p><span class="tag own">Reference build</span> ARB runs offline on scripted models for every demo, and its live evidence is separate and dated. Exercised live on a real, non-organisation GCP project between 12 and 17 October 2026 (<code>docs/defense/POSTURE.md</code>):</p>
+<ul>
+  <li>Vertex <code>gemini-3.8-flash</code>, both through the model gateway and in process;</li>
+  <li>Firestore as the control-state store (counters and ledgers, GAP-20);</li>
+  <li>GCS evidence anchors under a <strong>locked</strong> retention policy;</li>
+  <li>Model Armor screening;</li>
+  <li>Cloud KMS Ed25519 signing;</li>
+  <li>the host-credential probe.</li>
+</ul>
+<p><strong>Faked, and labelled as such everywhere</strong>: Cloud Identity, Organization Policy, VPC Service Controls and organisation-level audit sinks, because they need a GCP organisation (E6, GTM release GR3). Separately, your own M0 milestone in the learning repository set up keyless CI through Workload Identity Federation, the pattern any production pipeline here should use.</p>
+<div class="panel p-future" data-trigger="ARB E6 binds its own GCP organisation (GR3)">
+  <span class="k">Waiting on the builds</span>
+  <p>When E6 lands, replace the faked rows with what was deployed: Cloud Identity as the directory, Organization Policy constraints, the VPC-SC perimeter and audit sinks. Decide and record whether ARB's agents move to Agent Runtime with Agent Identity, register in Agent Registry, and put the chokepoint behind Agent Gateway through an authorization service extension. Re-run the mapping table above against what was actually configured.</p>
+</div>
+
+<h2 id="aicoe"><span class="n">41.10</span>A reference landing for an AICoE</h2>
+<p><span class="tag asm">Assumption</span> For a GCP-standard AICoE, a defensible default:</p>
+<div class="tw"><table>
+<thead><tr><th>Layer</th><th>Default</th></tr></thead>
+<tbody>
+<tr><td>Organisation</td><td>Folders per environment; Organization Policy; VPC Service Controls perimeters around data and model APIs; CMEK where required; org-level audit sinks</td></tr>
+<tr><td>Identity</td><td>Agent Identity per agent; Workload Identity Federation for pipelines; user delegation through the auth manager</td></tr>
+<tr><td>Hosting</td><td>Agent Runtime for ADK agents; Cloud Run for APIs, tools and non-ADK hosts; GKE only for sandboxed executors or special isolation</td></tr>
+<tr><td>Traffic</td><td>Agent Gateway for all agent egress; access policies (deny by default where possible); Model Armor; a service extension to your PDP for business rules</td></tr>
+<tr><td>Data</td><td>BigQuery and Registry MCP servers; RAG Engine or Vertex AI Search with permission-aware retrieval</td></tr>
+<tr><td>Assurance</td><td>Your evidence plane (Firestore or Cloud SQL plus GCS bucket-lock anchors and KMS signing); Agent Observability and Cloud Trace for operations</td></tr>
+<tr><td>Lifecycle</td><td>Your gate as a required check in Cloud Build or GitHub Actions; evaluation and simulation services for quality; Agent Registry plus a registry of record</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">41.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Doesn't GEAP govern agents for us?"</strong> "It supplies strong enforcement points: identity, a gateway, access policies, Model Armor, a registry. The business rules that need your data, the approvals, the tamper-evident evidence and the release gate are still yours, and they plug into those points."</li>
+    <li><strong>"Can we enforce our refund policy in the gateway?"</strong> "Deterministically, through a service extension that calls your policy engine with facts from your order system. The natural-language policy feature is a useful extra layer, not the limit itself."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">41.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · BT14, GF-4</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Two services in each GEAP pillar, with status.</li>
+    <li><span class="lvl">Recall</span>Agent Identity's credential model and why it differs from a service account.</li>
+    <li><span class="lvl">Apply</span>Write an IAM access policy that lets a support agent read tickets and denies destructive tools, then name its weakness.</li>
+    <li><span class="lvl">Design</span>Put ARB's chokepoint behind Agent Gateway: where the service extension calls, what it receives, how evidence is joined.</li>
+    <li><span class="lvl">Trade-off</span>Semantic governance policies against your own deterministic PDP for a CRITICAL agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>GEAP deterministic policy sees destinations, not arguments</em> · <em>annotations are the server's claim</em> · <em>Agent Identity: SPIFFE, 24-hour certs, DPoP, no impersonation</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">41.13</span>Further reading</h2>
+<ul>
+  <li><b>Google Cloud.</b> "Introducing Gemini Enterprise Agent Platform" and "The new Gemini Enterprise" (blog, 22 April 2026); GEAP overview and release notes; Agent Identity overview; IAM access policies and CEL attributes; configuring semantic governance policies; the Application Design Center "Agent Platform with governance" template; "Reduce 429 errors on Vertex AI" (12 March 2026).</li>
+  <li><b>Your library.</b> The Google ADK documentation; the reference build's E4 trace rep.</li>
+  <li><span class="tag own">Your builds</span> ARB <code>docs/defense/POSTURE.md</code> (live and faked), <code>governance/reports/live_2026-10-1*.md</code>, D32, D65–D71.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="maintenance-evolution.html"><small>Previous</small>40 · Maintenance and evolution</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="aws.html"><small>Next</small>42 · AWS: Bedrock and AgentCore</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

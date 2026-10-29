@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>24 · Proving controls fire</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part IV · The referee</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 24</div>
+  <ol>
+    <li><a href="#standard">The standard</a></li>
+    <li><a href="#conformance">Conformance per control</a></li>
+    <li><a href="#falsify">Falsifiers</a></li>
+    <li><a href="#vacuity">Vacuity, made explicit</a></li>
+    <li><a href="#hostile">Hostile models</a></li>
+    <li><a href="#redteam">A red-team programme</a></li>
+    <li><a href="#independent">Independent verification</a></li>
+    <li><a href="#release">Posture as a release criterion</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART IV · CHAPTER 24</div>
+  <h1>Proving controls fire</h1>
+  <p class="lede">A control is a claim until something tries to break it. Proof has three layers: a conformance check per control, run against the real enforcement plane on this build; a falsifier that shows the check would fail if the mechanism were gone; and a red team that assumes the model is fully hostile and hunts for any input where the enforced decision changes.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · PROVE</span></div>
+    <div><b>Reps</b><span>R04 · Capstone A6</span></div>
+    <div><b>Build modules</b><span>enforcement/conformance.py · tests/redteam/ · tests/test_no_dead_policy.py</span></div>
+    <div><b>Decisions</b><span>D22 · D27 · D29 · D30 · D39 · D52 · D56 · D-PM-P4-n</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A red team reports that the model said something offensive. Is that a governance finding?</li>
+    <li>Every control in your report shows "passed". Name two ways that could be true while a control is broken.</li>
+    <li>Why might the person who built a control be the wrong person to sign off that it works?</li>
+  </ol>
+</div>
+
+<h2 id="standard"><span class="n">24.1</span>The standard</h2>
+<p><span class="tag own">Your build</span> D29 set the standard the red team works to, and it is worth adopting word for word: <strong>a control holds if, under adversarial input, the enforced decision is unchanged</strong>. The money still does not move, the evidence still records, a cited article still had to be retrieved, whatever the model says or does. A red-team success is a reproducing test that turns red; the fix is a policy or middleware change that turns it green while the parity and conformance suites stay green.</p>
+<p>D29 also drew the boundary that keeps a red team useful: <strong>model quality is out of scope for a governance finding</strong>. A wrong answer that was refused is a model bug, not a control failure. A prompt that makes the model rude is not a finding; a prompt that makes the refund execute is. Without that line, red-teaming drifts into theatre about what the model said, and stops measuring whether enforcement holds, which is the only claim a governance build makes.</p>
+<p>Three failure classes to attack, from D29: a control that fires on the happy path but can be bypassed by phrasing, encoding or injection; a decision that rests on facts the model supplied instead of facts derived from trusted state; and a record or approval produced without the authority it claims (forgery, self-approval, replay).</p>
+
+<h2 id="conformance"><span class="n">24.2</span>Conformance per control</h2>
+<p><span class="tag own">Your build</span> <a class="xref" data-ch="lifecycle-gates" data-sec="#gate" href="lifecycle-gates.html#gate">Chapter 15</a> described the conformance report as the gate's input. Here are the properties that make it proof rather than paperwork:</p>
+<ul>
+  <li><strong>It runs against the real plane</strong>, not a unit-tested rule in isolation (D22). A conformance check for the refund ceiling drives a refund above the cap through the actual chokepoint and asserts the refusal, the control id and the evidence record.</li>
+  <li><strong>It is driven by the derived required set</strong> (D27), so a required control with no check appears as a row reading <code>check_ran: false</code>, not as an absence.</li>
+  <li><strong>Every row points at chained evidence</strong> agreeing with it, so the report cannot claim more than the run recorded.</li>
+  <li><strong>It is generated each run and never committed</strong>, because a committed report is a table someone wrote.</li>
+  <li><strong>It is positive per agent</strong> (D39). Each agent's required controls must each be shown firing for <em>that</em> agent. When the second archetype onboarded, four required controls could not fire for it, because their bindings had been written behind a write-only guard. Fleet-level conformance would have hidden that; per-agent conformance exposed it.</li>
+</ul>
+
+<h2 id="falsify"><span class="n">24.3</span>Falsifiers</h2>
+<p><span class="tag gen">Generic</span> A passing test proves nothing unless it could have failed. A <strong>falsifier</strong> is the deliberate act of removing or disabling the mechanism under test and confirming the test now fails. It is the cheapest high-value practice in this book.</p>
+
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 220" role="img" aria-label="The falsifier loop. A control's check passes. Disable the mechanism (unbind the control, make the scorer return nothing, remove the comparison). The check must now fail; if it still passes, the test was vacuous and is an escalation. Restore the mechanism and keep the falsifier as a permanent test.">
+  <defs><marker id="a24" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box-ok" x="20" y="70" width="170" height="70" rx="6"/>
+  <text class="tx-ok" x="105" y="98" text-anchor="middle">check passes</text>
+  <text class="tx-s" x="105" y="118" text-anchor="middle">mechanism in place</text>
+  <rect class="box-acc" x="250" y="70" width="190" height="70" rx="6"/>
+  <text class="tx-acc" x="345" y="98" text-anchor="middle">disable mechanism</text>
+  <text class="tx-s" x="345" y="118" text-anchor="middle">unbind · stub · remove</text>
+  <rect class="box-no" x="500" y="20" width="170" height="70" rx="6"/>
+  <text class="tx-no" x="585" y="48" text-anchor="middle">check fails</text>
+  <text class="tx-s" x="585" y="68" text-anchor="middle">good: it could fail</text>
+  <rect class="box-no" x="500" y="130" width="170" height="70" rx="6"/>
+  <text class="tx-no" x="585" y="158" text-anchor="middle">check still passes</text>
+  <text class="tx-s" x="585" y="178" text-anchor="middle">vacuous → escalate</text>
+  <rect class="box" x="720" y="20" width="160" height="70" rx="6"/>
+  <text class="tx-b" x="800" y="48" text-anchor="middle">keep as a test</text>
+  <text class="tx-s" x="800" y="68" text-anchor="middle">restore; falsifier stays</text>
+  <line class="ln" x1="190" y1="105" x2="246" y2="105" marker-end="url(#a24)"/>
+  <line class="ln" x1="440" y1="95" x2="496" y2="60" marker-end="url(#a24)"/>
+  <line class="ln" x1="440" y1="115" x2="496" y2="160" marker-end="url(#a24)"/>
+  <line class="ln" x1="670" y1="55" x2="716" y2="55" marker-end="url(#a24)"/>
+</svg>
+</div>
+<figcaption><b>Fig 24.1</b>The falsifier loop. The branch that matters is the bottom one: a check that still passes with its mechanism disabled was never testing that mechanism.</figcaption>
+</figure>
+
+<p><span class="tag own">Your build</span> The builds use falsifiers in several forms:</p>
+<ul>
+  <li><strong>Unbind a control, watch the gate block.</strong> <code>make demo-gate-flip</code>: the gate as designed (blocked), the live gate (allowed), one control unbound in a copy (blocked again). Fail-closed is proven, not asserted.</li>
+  <li><strong>Disable a mechanism, run the full suite</strong> (D56). Three mechanisms survived a full 912-test run with their mechanism disabled, including the golden scorer. D55's crosswalk rule now requires, for every row claiming a control or mechanism, a test that fails when it is removed; if none exists, the builder escalates rather than writing a vacuous one.</li>
+  <li><strong>Attribute refusals to the mechanism</strong> (pm-agent D-PM-P4-n). Removing the approver-versus-executor comparison passed every test, because a different rule refused the same probes under the same control id. The fix made the conformance rows require refusal by the comparison itself, identified by reason, and added a gate that removes only that comparison.</li>
+  <li><strong>Falsifier switches in the product.</strong> pm-agent's output guard can be disabled by an explicit injectable (<code>Guardrail(output_guard=None)</code>, and a CLI flag labelled "FALSIFIER ONLY"), so "disable the guard and the steer is obeyed again" is runnable offline and live (D-PM-P5-c).</li>
+  <li><strong>Reachability</strong> (<code>test_no_dead_policy.py</code>) and <strong>the import firewall</strong> are falsifiers for whole classes: a rule nothing can reach, or a vendor import that leaks past a seam, turns a test red.</li>
+</ul>
+
+<h2 id="vacuity"><span class="n">24.4</span>Vacuity, made explicit</h2>
+<p><span class="tag own">Your build</span> Some required controls cannot be triggered by some agents. Separation of duties holds for a read-only agent because it has nothing to approve. D39 accepted that, with a rule worth adopting everywhere: <strong>a vacuously satisfied control must say so, and its precondition must be tested</strong>. The advisor's conformance row records "no approval-requiring write in this agent's tool surface, so separation of duties is not applicable, satisfied by shape", and it asserts that precondition. The day someone adds a write tool to the advisor, the vacuity assertion fails and forces a re-derivation, instead of a dormant invariant quietly becoming load-bearing without anyone noticing.</p>
+
+<h2 id="hostile"><span class="n">24.5</span>Hostile models</h2>
+<p><span class="tag gen">Generic</span> The red team's most useful assumption is that the model is fully adversarial: it will call any tool, with any arguments, say anything, and obey any injected instruction. If the controls hold under that model, they hold under any real one. This is cheaper than it sounds, because you do not need a jailbroken frontier model; you need a scripted fake that behaves like one.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's harness has scripted adversaries: a model that obeys whatever a hostile comment says (it extracts the comment body from the plan prompt and echoes it), and a model that fabricates citations to issues that do not exist. ADR-0005's proof replaces the planner entirely with a hostile model emitting arbitrary actions from the attack corpus, and requires zero attacker-originated executed effects. <span class="tag own">Your build</span> ARB extends the same standard to classifiers (D52): the red team includes a fully compromised classifier, and the control holds if no decision is more permissive with it than without it (<code>test_s10_classifier_compromise.py</code>).</p>
+
+<h2 id="redteam"><span class="n">24.6</span>A red-team programme</h2>
+<p><span class="tag own">Your build</span> ARB's red-team corpus lives in <code>tests/redteam/</code>, organised by attack class, with a harness, invariants and a report. On 2026-10-20 it held 20 files and about 170 test functions:</p>
+<div class="tw"><table>
+<thead><tr><th>Suite</th><th>Attacks</th></tr></thead>
+<tbody>
+<tr><td>S2 guardrail evasion</td><td>Encodings, homoglyphs, format characters, fence forgery</td></tr>
+<tr><td>S3 trust boundary</td><td>Decisions resting on model-supplied facts; preconditions bypassed by phrasing</td></tr>
+<tr><td>S4 evidence integrity</td><td>Edits, truncation, refused writes, unrecorded effects (RT-11)</td></tr>
+<tr><td>S5 cross-agent</td><td>Spoofed senders, undeclared edges, authority smuggled in messages, lost provenance</td></tr>
+<tr><td>S6 model plane</td><td>Runaway loops against budgets, impostor models against the pin</td></tr>
+<tr><td>S7 sign-off and inventory</td><td>Stale or edited sign-offs, unregistered agents, the pre-deployment escape hatch</td></tr>
+<tr><td>S8 MCP integrity</td><td>Swapped tool descriptions and endpoints</td></tr>
+<tr><td>S9 approval UI</td><td>CSRF, DNS rebinding, replay, payload substitution, clickjacking</td></tr>
+<tr><td>S10 classifier compromise</td><td>A fully hostile classifier must never relax a decision</td></tr>
+<tr><td>S11 evolution pass</td><td>Re-attacks after the evolution phases</td></tr>
+</tbody></table></div>
+<p>The P5 verdict (D30) is the template for reporting one: 41 attacks; 27 held on first contact; 14 exposed a finding, 11 distinct; all closed by an authored policy or middleware change, none by changing a tool contract or weakening fail-closed. And the sentence that matters more than the ratio: <strong>one finding moved real money</strong>. RT-11 found that an evidence sink which accepted the decision record and refused the action record let a fully approved refund execute unrecorded, while the audit still reported VERIFIED. That a red team found a money-mover on an "enforced, auditable" build is the whole point of having one.</p>
+<p>D30 also turned findings into standing principles, which is how a red team improves a programme rather than a build: a probabilistic detector is only ever a second tripwire; identity is resolved, not compared; a rule that cannot fire is not a control; a detection window must be declared, not discovered; and an anti-abuse control that miscounts must miscount toward less budget and fewer writes. Residuals that need infrastructure a local build cannot provide are named, bounded and scheduled, not hidden.</p>
+<p>The demonstration to show anyone is <code>make demo-redteam</code>: it replays named attacks, including RT-11, and judges each from its evidence.</p>
+
+<h2 id="independent"><span class="n">24.7</span>Independent verification</h2>
+<p><span class="tag gen">Generic</span> The builder of a control is the person least likely to find the input that defeats it, because they designed against the attacks they imagined. Independent verification is a structural answer, not a matter of trust.</p>
+<p><span class="tag own">pm-agent</span> pm-agent runs a separate validation thread (T3) for every stage gate. It receives the stage's acceptance criteria and the code, not the builder's reasoning, writes a report with findings and a verdict (PASS, CONDITIONAL PASS, FAIL), and the owner's thread (T1) rules on each finding. Many of the decisions cited in this book came from T3 findings: the off-PEP registry call, the SoD attribution gap, the over-redacting fence, the URL fragments surviving redaction, the provenance lane that depended on the detector. A build that only grades itself would have shipped every one of them.</p>
+
+<h2 id="release"><span class="n">24.8</span>Posture as a release criterion</h2>
+<p><span class="tag gen">Generic</span> Combine the ladder from <a class="xref" data-ch="control-as-contract" data-sec="#ladder" href="control-as-contract.html#ladder">Chapter 14</a> with this chapter's proofs and you get a release criterion that is hard to argue with: for each required control, state its rung and the artifact that earns it.</p>
+<div class="tw"><table>
+<thead><tr><th>Rung</th><th>Artifact</th><th>Minimum for</th></tr></thead>
+<tbody>
+<tr><td>Specified</td><td>Catalog entry; gate lists it as required</td><td>Prototype stage</td></tr>
+<tr><td>Enforced</td><td>Binding plus passing conformance row with evidence, this run</td><td>Any release; LOW and MEDIUM</td></tr>
+<tr><td>Falsified</td><td>A test that fails with the mechanism disabled</td><td>Any release claiming the control</td></tr>
+<tr><td>Verified</td><td>Red-team corpus run against the control's attack class; findings closed or named residuals</td><td>HIGH and CRITICAL</td></tr>
+<tr><td>Independently verified</td><td>A validator who did not build it signs the report</td><td>CRITICAL; any external assurance claim</td></tr>
+</tbody></table></div>
+
+<h2 id="alts"><span class="n">24.9</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Approach</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td>Unit tests of rules only</td><td>Fast</td><td>Miss wiring, reachability and attribution failures</td></tr>
+<tr><td>Generated conformance against the real plane</td><td>Proves the control fires on this build</td><td>Needs a check per control and a hostile or scripted model</td></tr>
+<tr><td>Manual penetration test once a year</td><td>Finds creative attacks</td><td>Not repeatable; regressions return</td></tr>
+<tr><td>Automated red-team corpus in CI</td><td>Repeatable; regressions caught</td><td>Only as creative as its authors; refresh it</td></tr>
+<tr><td>Vendor red-team tools (promptfoo red-team, PyRIT, garak) <span class="tag ver">Verify</span></td><td>Broad attack libraries quickly</td><td>Model-centred: many findings are model-quality, not control failures; filter through D29</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">24.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Theatre: red-team findings about what the model said</td><td>D29's line: findings are about enforced decisions</td></tr>
+<tr><td>Vacuous pass</td><td>Falsifiers; mechanism-level attribution</td></tr>
+<tr><td>Fleet-level green, agent-level red</td><td>Positive conformance per agent</td></tr>
+<tr><td>Silent vacuity</td><td>Record it and test its precondition</td></tr>
+<tr><td>Self-graded release</td><td>Independent validator for HIGH and CRITICAL</td></tr>
+<tr><td>Stale corpus</td><td>Re-attack after each phase (S11); add every finding as a regression test</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">24.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Our controls are tested."</strong> Ask: would any test fail if you removed the control? Has anyone outside the team tried to break it? Does the test run against the deployed configuration?</li>
+    <li><strong>"What did your red team find?"</strong> Lead with the money-mover: "The most important finding was one where a refund could execute without its record. We fixed it by reversing any effect whose record cannot be written, and that attack is now a permanent test."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">24.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R04 and Capstone A6</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>D29's standard, the three failure classes, and what is out of scope.</li>
+    <li><span class="lvl">Recall</span>D30's verdict numbers and the five standing principles.</li>
+    <li><span class="lvl">Apply</span>Explain RT-11 end to end: the attack, why audit still said VERIFIED, the fix, and the test.</li>
+    <li><span class="lvl">Design</span>Plan the five-attack red team for Capstone A's agent: one attack per class, the falsifier for each control, the vacuity rows.</li>
+    <li><span class="lvl">Trade-off</span>An in-house red-team corpus versus a vendor red-team tool for a client with 200 agents.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a control holds iff the enforced decision is unchanged (D29)</em> · <em>falsifier loop</em> · <em>vacuity explicit, precondition tested (D39)</em> · <em>RT-11</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">24.13</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Neal Ford, Rebecca Parsons and Patrick Kua, <cite>Building Evolutionary Architectures</cite>, on fitness functions; Adam Shostack, <cite>Threat Modeling</cite>, for building attack classes systematically.</li>
+  <li><b>Frameworks.</b> OWASP Top 10 for Agentic Applications, as an attack-class checklist; MITRE ATLAS for adversary techniques against AI systems.</li>
+  <li><span class="tag own">Your build</span> <code>enforcement/conformance.py</code>, <code>tests/redteam/</code> (start with <code>harness.py</code> and <code>invariants.py</code>), <code>tests/test_no_dead_policy.py</code>; Makefile <code>demo-redteam</code>, <code>demo-gate-flip</code>; DECISIONS D22, D27, D29, D30, D39, D52, D55, D56. pm-agent: <code>docs/validation/</code> (T3 reports), D-PM-P4-n, D-PM-P5-c.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="evals-as-gates.html"><small>Previous</small>23 · Evals as gates</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="edge-api-design.html"><small>Next</small>25 · Edge, request path and API design</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

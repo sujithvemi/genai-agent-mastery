@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>A · Glossary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Appendices</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Appendix A</div>
+  <ol>
+    <li><a href="#how">How to use the glossary</a></li>
+    <li><a href="#terms">Terms</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">APPENDIX A</div>
+  <h1>Glossary</h1>
+  <p class="lede">The terms of art used in this book, each defined in a sentence and linked to the chapter that explains it.</p>
+  <div class="meta">
+    <div><b>Terms</b><span>79</span></div>
+  </div>
+</div>
+<h2 id="how"><span class="n">A.1</span>How to use the glossary</h2>
+<p>79 terms of art, each with a one-sentence definition and the chapter that explains it. Jump: <a href="#g-a">A</a> · <a href="#g-b">B</a> · <a href="#g-c">C</a> · <a href="#g-d">D</a> · <a href="#g-e">E</a> · <a href="#g-f">F</a> · <a href="#g-g">G</a> · <a href="#g-h">H</a> · <a href="#g-i">I</a> · <a href="#g-k">K</a> · <a href="#g-l">L</a> · <a href="#g-m">M</a> · <a href="#g-o">O</a> · <a href="#g-p">P</a> · <a href="#g-r">R</a> · <a href="#g-s">S</a> · <a href="#g-t">T</a> · <a href="#g-v">V</a> · <a href="#g-w">W</a>.</p>
+
+<h2 id="terms"><span class="n">A.2</span>Terms</h2>
+<div class="tw"><table>
+<thead><tr><th>Term</th><th>Definition</th><th>Where</th></tr></thead>
+<tbody>
+<tr id="g-a"><td><b>A2A</b></td><td>Agent2Agent, an open protocol for agents to discover each other through agent cards and exchange tasks and messages.</td><td class="small"><a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td><b>ADLC gate</b></td><td>The release gate of the agent development lifecycle: reads the manifest, derives the tier and required controls, and refuses promotion unless generated conformance shows every control bound and firing.</td><td class="small"><a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a></td></tr>
+<tr><td><b>Agent card</b></td><td>A description of an agent (purpose, owner, tools, data, autonomy); in A2A, a signed document advertising an agent's skills and endpoint.</td><td class="small"><a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td><b>Agent identity</b></td><td>An identity issued to an agent itself: a workload identity, a directory object with an owner and sponsor, or a broker of users' tokens, depending on the vendor.</td><td class="small"><a class="xref" data-ch="authn-authz" data-sec="#services" href="authn-authz.html#services">Chapter 27</a></td></tr>
+<tr><td><b>AI gateway</b></td><td>A gateway for model traffic: token-based limits, token metrics, semantic caching, backend pools with circuit breaking, model pinning.</td><td class="small"><a class="xref" data-ch="edge-api-design" data-sec="#gateways" href="edge-api-design.html#gateways">Chapter 25</a></td></tr>
+<tr><td><b>Allowlist (evidence)</b></td><td>The rule that evidence records contain only enumerated fields, so nothing unexpected is recorded.</td><td class="small"><a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a></td></tr>
+<tr><td><b>Anchor</b></td><td>A copy of the evidence chain's head hash stored outside the log, in immutable storage, so a rewrite of the whole log is detectable.</td><td class="small"><a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a></td></tr>
+<tr><td><b>Annex III</b></td><td>The EU AI Act annex listing high-risk use areas (employment, credit, essential services and others); obligations apply from 2 December 2027 after the Omnibus.</td><td class="small"><a class="xref" data-ch="standards-law-crosswalk" data-sec="#euaia" href="standards-law-crosswalk.html#euaia">Chapter 48</a></td></tr>
+<tr><td><b>Approval grant</b></td><td>A signed, single-use authorisation bound to the hash of one exact action, verified at the PEP before execution.</td><td class="small"><a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a></td></tr>
+<tr><td><b>ASI01–ASI10</b></td><td>The ids in OWASP's Top 10 for Agentic Applications (version 2026).</td><td class="small"><a class="xref" data-ch="security-multitenancy" data-sec="#owasp" href="security-multitenancy.html#owasp">Chapter 32</a></td></tr>
+<tr id="g-b"><td><b>Backend pool</b></td><td>A set of model deployments behind an AI gateway, with priorities, weights and circuit breaking, used to spill from reserved to pay-as-you-go capacity.</td><td class="small"><a class="xref" data-ch="reliability" data-sec="#services" href="reliability.html#services">Chapter 29</a></td></tr>
+<tr><td><b>Blast radius</b></td><td>One of the five tiering axes: how many records or systems a single mistake can reach.</td><td class="small"><a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a></td></tr>
+<tr><td><b>Business associate agreement (BAA)</b></td><td>The HIPAA contract required before a service may receive protected health information.</td><td class="small"><a class="xref" data-ch="regulated-industries" data-sec="#health" href="regulated-industries.html#health">Chapter 49</a></td></tr>
+<tr id="g-c"><td><b>Chokepoint</b></td><td>The single function every tool call passes through, where the PEP sits.</td><td class="small"><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><b>Circuit breaker</b></td><td>A mechanism that stops calling a failing dependency for a time so callers fail fast.</td><td class="small"><a class="xref" data-ch="reliability" data-sec="#breakers" href="reliability.html#breakers">Chapter 29</a></td></tr>
+<tr><td><b>Conditional write</b></td><td>An atomic "change only if" operation in a store, used to prevent write skew on budgets and counters.</td><td class="small"><a class="xref" data-ch="state-data-scale" data-sec="#skew" href="state-data-scale.html#skew">Chapter 28</a></td></tr>
+<tr><td><b>Conformance (generated)</b></td><td>The report of which controls are bound and fire for an agent, produced by running checks in the build, never edited by hand.</td><td class="small"><a class="xref" data-ch="lifecycle-gates" href="lifecycle-gates.html">Chapter 15</a></td></tr>
+<tr><td><b>Context engineering</b></td><td>Deciding what enters the model's context window at each step: instructions, tools, retrieved content, memory, history.</td><td class="small"><a class="xref" data-ch="context-memory-state" href="context-memory-state.html">Chapter 3</a></td></tr>
+<tr><td><b>Control</b></td><td>A rule with an objective, trigger, owner, evidence, test method and exception path.</td><td class="small"><a class="xref" data-ch="control-as-contract" href="control-as-contract.html">Chapter 14</a></td></tr>
+<tr><td><b>Control decision rate</b></td><td>Refusals per control per thousand calls, monitored for sharp changes rather than levels.</td><td class="small"><a class="xref" data-ch="observability-agentops" data-sec="#slos" href="observability-agentops.html#slos">Chapter 31</a></td></tr>
+<tr><td><b>CRITICAL treatment</b></td><td>The hardening at the top tier: non-waivable approvals, mandatory signed human approval, real-time oversight, executive sign-off.</td><td class="small"><a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a></td></tr>
+<tr><td><b>Crosswalk</b></td><td>A mapping between your controls and an external framework's requirements; as code, every cell carries a status and how it was verified.</td><td class="small"><a class="xref" data-ch="standards-law-crosswalk" data-sec="#crosswalk" href="standards-law-crosswalk.html#crosswalk">Chapter 48</a></td></tr>
+<tr id="g-d"><td><b>Delegation (token exchange)</b></td><td>Obtaining a narrower token that represents "this agent acting for this user", recording both.</td><td class="small"><a class="xref" data-ch="authn-authz" data-sec="#delegation" href="authn-authz.html#delegation">Chapter 27</a></td></tr>
+<tr><td><b>Deployer and provider</b></td><td>EU AI Act roles: the provider places a system on the market; the deployer uses it under its authority. Duties differ by role.</td><td class="small"><a class="xref" data-ch="standards-law-crosswalk" data-sec="#euaia" href="standards-law-crosswalk.html#euaia">Chapter 48</a></td></tr>
+<tr><td><b>Digest (sign-off)</b></td><td>A hash over the governed configuration that a sign-off approves; any change makes the sign-off stale.</td><td class="small"><a class="xref" data-ch="versioning-release" data-sec="#digest" href="versioning-release.html#digest">Chapter 38</a></td></tr>
+<tr><td><b>Durable execution</b></td><td>Running long processes as code that survives crashes by recording each step's result and replaying from history.</td><td class="small"><a class="xref" data-ch="communication-durable-execution" data-sec="#durable" href="communication-durable-execution.html#durable">Chapter 26</a></td></tr>
+<tr id="g-e"><td><b>Earned autonomy</b></td><td>Granting an agent more autonomy per action class on measured evidence, revocable on a trigger, capped by tier.</td><td class="small"><a class="xref" data-ch="aicoe-operating-model" data-sec="#autonomy" href="aicoe-operating-model.html#autonomy">Chapter 50</a></td></tr>
+<tr><td><b>Effect</b></td><td>Any change an agent causes outside itself: a write, a payment, a message sent.</td><td class="small"><a class="xref" data-ch="governance-when-software-acts" href="governance-when-software-acts.html">Chapter 11</a></td></tr>
+<tr><td><b>Effect-aware retry</b></td><td>A retry policy that never repeats a turn after an effect completed in that attempt.</td><td class="small"><a class="xref" data-ch="reliability" data-sec="#retries" href="reliability.html#retries">Chapter 29</a></td></tr>
+<tr><td><b>Enforcement point</b></td><td>Where a control is applied: design time (the gate), run time (the PEP, gateways) or the evidence plane.</td><td class="small"><a class="xref" data-ch="reference-model" href="reference-model.html">Chapter 12</a></td></tr>
+<tr><td><b>Evidence plane</b></td><td>The subsystem that records decisions and effects completely, in order, signed and anchored, as the system of record for defence.</td><td class="small"><a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a></td></tr>
+<tr><td><b>Exception path</b></td><td>The documented way a control may be waived, by whom and with what compensation; none for non-waivable controls.</td><td class="small"><a class="xref" data-ch="control-as-contract" href="control-as-contract.html">Chapter 14</a></td></tr>
+<tr id="g-f"><td><b>Falsifier</b></td><td>A test that disables a control and expects a failure, proving the control is what makes the result pass.</td><td class="small"><a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td></tr>
+<tr><td><b>Fleet-first</b></td><td>Authoring controls and tiers for the whole fleet, with each control's scope intrinsic to it, rather than per agent.</td><td class="small"><a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a></td></tr>
+<tr id="g-g"><td><b>Golden set</b></td><td>A curated set of tasks with expected outcomes used to gate releases.</td><td class="small"><a class="xref" data-ch="evals-as-gates" href="evals-as-gates.html">Chapter 23</a></td></tr>
+<tr><td><b>GPAI</b></td><td>General-purpose AI model, in EU AI Act terms; obligations fall mainly on model providers since 2 August 2025.</td><td class="small"><a class="xref" data-ch="standards-law-crosswalk" data-sec="#euaia" href="standards-law-crosswalk.html#euaia">Chapter 48</a></td></tr>
+<tr><td><b>Grounding</b></td><td>Constraining a model's answer to supplied sources, with citations that can be checked.</td><td class="small"><a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a></td></tr>
+<tr id="g-h"><td><b>Harness</b></td><td>The code around a model that runs the agent loop: prompts, tool calls, context, memory and stopping rules.</td><td class="small"><a class="xref" data-ch="harness-anatomy" href="harness-anatomy.html">Chapter 1</a></td></tr>
+<tr><td><b>Hash chain</b></td><td>A sequence of records in which each includes the hash of the previous one, so edits are detectable.</td><td class="small"><a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a></td></tr>
+<tr id="g-i"><td><b>Idempotency key</b></td><td>An identifier that lets a target system recognise and ignore a repeated request.</td><td class="small"><a class="xref" data-ch="communication-durable-execution" data-sec="#delivery" href="communication-durable-execution.html#delivery">Chapter 26</a></td></tr>
+<tr><td><b>Inventory (registry of record)</b></td><td>The authoritative list of agents, tools and MCP servers with owners and states; unregistered subjects are refused.</td><td class="small"><a class="xref" data-ch="across-platforms" data-sec="#registry" href="across-platforms.html#registry">Chapter 45</a></td></tr>
+<tr id="g-k"><td><b>KV cache</b></td><td>The stored attention keys and values for tokens already processed, the main memory cost of serving long contexts.</td><td class="small"><a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a></td></tr>
+<tr id="g-l"><td><b>Little's law</b></td><td>L = λW: items in flight equal arrival rate times time in system; used to size concurrency.</td><td class="small"><a class="xref" data-ch="capacity-cost-regions" data-sec="#estimate" href="capacity-cost-regions.html#estimate">Chapter 33</a></td></tr>
+<tr id="g-m"><td><b>MCP</b></td><td>Model Context Protocol, an open protocol for exposing tools, resources and prompts to models.</td><td class="small"><a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td><b>MCP pin</b></td><td>A recorded hash of a tool's name, description and schema; a change withholds the tool until re-reviewed.</td><td class="small"><a class="xref" data-ch="tools-integration-sandboxes" data-sec="#fleet" href="tools-integration-sandboxes.html#fleet">Chapter 36</a></td></tr>
+<tr><td><b>Minimum viable governance</b></td><td>The seven items every later control depends on: inventory, tiering, approvals and kill switch on CRITICAL, a chokepoint, evidence, a gate, a rulings log.</td><td class="small"><a class="xref" data-ch="readiness-first-90-days" data-sec="#mvg" href="readiness-first-90-days.html#mvg">Chapter 51</a></td></tr>
+<tr><td><b>Model pin</b></td><td>The provider, model id, version and settings an agent is approved to use; a change re-gates.</td><td class="small"><a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a></td></tr>
+<tr><td><b>Model risk management</b></td><td>A bank's framework for inventory, validation and monitoring of models; in the US now SR 26-2.</td><td class="small"><a class="xref" data-ch="regulated-industries" data-sec="#banking" href="regulated-industries.html#banking">Chapter 49</a></td></tr>
+<tr><td><b>Monotone-restrictive</b></td><td>A property required of model-based classifiers on the enforcement path: they can only make a decision stricter.</td><td class="small"><a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a></td></tr>
+<tr id="g-o"><td><b>Outbox</b></td><td>Writing an event to a table in the same transaction as the state change, then publishing it, so neither is lost.</td><td class="small"><a class="xref" data-ch="communication-durable-execution" data-sec="#outbox" href="communication-durable-execution.html#outbox">Chapter 26</a></td></tr>
+<tr><td><b>Overlay</b></td><td>A versioned layer that adds controls, tier floors, retention and roles on top of a generic core, never removing anything.</td><td class="small"><a class="xref" data-ch="regulated-industries" data-sec="#overlay" href="regulated-industries.html#overlay">Chapter 49</a></td></tr>
+<tr id="g-p"><td><b>Paved road</b></td><td>The platform, templates and pipeline that make the governed way the easiest way to ship.</td><td class="small"><a class="xref" data-ch="aicoe-operating-model" data-sec="#purpose" href="aicoe-operating-model.html#purpose">Chapter 50</a></td></tr>
+<tr><td><b>PDP</b></td><td>Policy decision point: evaluates policy on facts and returns allow or deny with reasons.</td><td class="small"><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><b>PEP</b></td><td>Policy enforcement point: intercepts the action, asks the PDP, and enforces the answer.</td><td class="small"><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><b>PIP</b></td><td>Policy information point: supplies trusted facts to the PDP from systems of record.</td><td class="small"><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><b>Prefix caching</b></td><td>Reusing computation for a shared prompt prefix across requests; reduces cost and latency, and must be scoped by tenant.</td><td class="small"><a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a></td></tr>
+<tr><td><b>Prompt injection</b></td><td>Instructions placed in content the agent reads, intended to change what it does.</td><td class="small"><a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a></td></tr>
+<tr><td><b>Provenance envelope</b></td><td>Metadata travelling with cross-agent content saying where it came from, so it is treated as data.</td><td class="small"><a class="xref" data-ch="protocols-trust" href="protocols-trust.html">Chapter 5</a></td></tr>
+<tr><td><b>Provisioned throughput</b></td><td>Reserved model capacity bought for a term, with spill-over to pay-as-you-go.</td><td class="small"><a class="xref" data-ch="capacity-cost-regions" data-sec="#tiers" href="capacity-cost-regions.html#tiers">Chapter 33</a></td></tr>
+<tr id="g-r"><td><b>Reachability</b></td><td>Whether some input the PIP can build makes a policy rule fire; unreachable rules are removed.</td><td class="small"><a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td></tr>
+<tr><td><b>Red-team corpus</b></td><td>A versioned set of attacks run in CI against the enforcement plane.</td><td class="small"><a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a></td></tr>
+<tr><td><b>Run API</b></td><td>An API that starts a run (202 with an id), streams resumable events, and accepts approvals and cancellation.</td><td class="small"><a class="xref" data-ch="edge-api-design" href="edge-api-design.html">Chapter 25</a></td></tr>
+<tr id="g-s"><td><b>Saga</b></td><td>A sequence of local transactions with compensating actions instead of a distributed transaction.</td><td class="small"><a class="xref" data-ch="communication-durable-execution" data-sec="#sagas" href="communication-durable-execution.html#sagas">Chapter 26</a></td></tr>
+<tr><td><b>Sandbox</b></td><td>An isolated environment for code or browser execution with no ambient credentials and limited egress.</td><td class="small"><a class="xref" data-ch="tools-integration-sandboxes" data-sec="#sandbox" href="tools-integration-sandboxes.html#sandbox">Chapter 36</a></td></tr>
+<tr><td><b>Semantic caching</b></td><td>Returning an earlier answer to a similar question; a data store that must be scoped by tenant and permission.</td><td class="small"><a class="xref" data-ch="edge-api-design" data-sec="#gateways" href="edge-api-design.html#gateways">Chapter 25</a></td></tr>
+<tr><td><b>Separation of duties</b></td><td>The rule that the requester of an action cannot approve it.</td><td class="small"><a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a></td></tr>
+<tr><td><b>Shadow decision point</b></td><td>A second engine that evaluates every decision for comparison but never acts.</td><td class="small"><a class="xref" data-ch="agt-through-your-build" data-sec="#fit" href="agt-through-your-build.html#fit">Chapter 47</a></td></tr>
+<tr><td><b>SLI, SLO, error budget</b></td><td>A measured indicator, its target, and the allowed shortfall that governs release pace.</td><td class="small"><a class="xref" data-ch="observability-agentops" data-sec="#slos" href="observability-agentops.html#slos">Chapter 31</a></td></tr>
+<tr><td><b>Speculative decoding</b></td><td>Generating draft tokens with a small model and verifying them with the large one to cut latency.</td><td class="small"><a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a></td></tr>
+<tr><td><b>SPIFFE</b></td><td>A standard for workload identities and their credentials, used by GEAP Agent Identity.</td><td class="small"><a class="xref" data-ch="authn-authz" data-sec="#workload" href="authn-authz.html#workload">Chapter 27</a></td></tr>
+<tr id="g-t"><td><b>Tier</b></td><td>LOW, MEDIUM, HIGH or CRITICAL, derived from five axes by highest-wins banding.</td><td class="small"><a class="xref" data-ch="risk-tiering" href="risk-tiering.html">Chapter 13</a></td></tr>
+<tr><td><b>Tool gateway</b></td><td>A gateway between agents and tools that authenticates agents, applies policy and pins, and routes MCP and A2A.</td><td class="small"><a class="xref" data-ch="edge-api-design" data-sec="#gateways" href="edge-api-design.html#gateways">Chapter 25</a></td></tr>
+<tr><td><b>Trajectory evaluation</b></td><td>Scoring the sequence of steps and tool calls an agent took, not only its final answer.</td><td class="small"><a class="xref" data-ch="evaluation-simulation-optimization" href="evaluation-simulation-optimization.html">Chapter 39</a></td></tr>
+<tr><td><b>Trusted fact</b></td><td>A value read by the PIP from a system of record, never from the model's arguments.</td><td class="small"><a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a></td></tr>
+<tr><td><b>Typed output</b></td><td>A response constrained to a schema and validated before use.</td><td class="small"><a class="xref" data-ch="loop-tools-typed-outputs" href="loop-tools-typed-outputs.html">Chapter 2</a></td></tr>
+<tr id="g-v"><td><b>Verify cell</b></td><td>A crosswalk cell tagged as not yet checked against a primary source.</td><td class="small"><a class="xref" data-ch="standards-law-crosswalk" data-sec="#verify" href="standards-law-crosswalk.html#verify">Chapter 48</a></td></tr>
+<tr id="g-w"><td><b>Waiver</b></td><td>A time-limited, owned exception to a control with a compensating control.</td><td class="small"><a class="xref" data-ch="aicoe-operating-model" data-sec="#rights" href="aicoe-operating-model.html#rights">Chapter 50</a></td></tr>
+<tr><td><b>Workload identity federation</b></td><td>Exchanging an external identity token (from CI or another cloud) for short-lived cloud credentials, without stored keys.</td><td class="small"><a class="xref" data-ch="deployment-cicd" data-sec="#pipeline" href="deployment-cicd.html#pipeline">Chapter 30</a></td></tr>
+<tr><td><b>Write skew</b></td><td>Two transactions each valid on what they read that together violate a constraint.</td><td class="small"><a class="xref" data-ch="state-data-scale" data-sec="#skew" href="state-data-scale.html#skew">Chapter 28</a></td></tr>
+</tbody></table></div>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="design-interview.html"><small>Previous</small>55 · The design interview for governed agents</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="appendix-control-catalog.html"><small>Next</small>B · Control catalog reference</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

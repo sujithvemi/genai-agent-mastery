@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>32 · Security architecture and multi-tenancy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 32</div>
+  <ol>
+    <li><a href="#model">Threat modelling an agent</a></li>
+    <li><a href="#owasp">The OWASP agentic risks</a></li>
+    <li><a href="#boundaries">Trust boundaries</a></li>
+    <li><a href="#network">Segmentation and egress</a></li>
+    <li><a href="#secrets">Secrets and keys</a></li>
+    <li><a href="#supply">Supply chain</a></li>
+    <li><a href="#tenancy">Tenant isolation, store by store</a></li>
+    <li><a href="#test">Testing security</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 32</div>
+  <h1>Security architecture and multi-tenancy</h1>
+  <p class="lede">Agents add new attack surfaces (instructions hidden in content, tools that can be misused, memory that can be poisoned, other agents that can lie) to all the old ones. Part IV built the controls; this chapter is the security architect's view around them: threat modelling, trust boundaries, network segmentation and egress, secrets, supply chain, and keeping tenants apart in every store an agent touches.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS · SECURITY</span></div>
+    <div><b>Reps</b><span>SD-10 · GF-2 (OWASP) · TC-17 (red team) · lab T18</span></div>
+    <div><b>Build links</b><span>ARB tests/redteam (corpus) · CTL-0013, CTL-0014, CTL-0016 to CTL-0019, CTL-0024 · pm-agent CTL-0021 (permission-scoped cache) · design/pm-agent-at-scale.md §10</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (security services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>In a threat model of an agent, which component do you draw as untrusted that you would draw as trusted for an ordinary service?</li>
+    <li>Your agent's sandbox can reach the internet. What is the worst thing injected content can make it do?</li>
+    <li>Name four stores where tenant data can leak across tenants in an agent system, other than the main database.</li>
+  </ol>
+</div>
+
+<h2 id="model"><span class="n">32.1</span>Threat modelling an agent</h2>
+<p><span class="tag gen">Generic</span> Start with a data-flow diagram and its trust boundaries, then enumerate threats per element (STRIDE works: spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege), then add the agent-specific ones. The first prediction question: <strong>the model's output</strong>. In an ordinary service the application logic is trusted; in an agent, the component choosing actions can be steered by any text it reads, so its proposals are untrusted input to your enforcement point (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>). Frameworks that help structure this: OWASP's agentic threats and mitigations guidance, the Cloud Security Alliance's MAESTRO layers, and MITRE ATLAS for adversary techniques.</p>
+
+<h2 id="owasp"><span class="n">32.2</span>The OWASP agentic risks</h2>
+<p><span class="tag gen">Generic</span> The OWASP GenAI Security Project published the <strong>Top 10 for Agentic Applications</strong> (version 2026) on 9 December 2025. Mapped to the controls in this book:</p>
+<div class="tw"><table>
+<thead><tr><th>Id</th><th>Risk</th><th>Primary controls</th></tr></thead>
+<tbody>
+<tr><td>ASI01</td><td>Agent goal hijack</td><td>Effects decided outside the model; injection boundary (CTL-0014); typed outputs (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>)</td></tr>
+<tr><td>ASI02</td><td>Tool misuse and exploitation</td><td>PEP with trusted facts; tool contracts; value limits (CTL-0001 to CTL-0007)</td></tr>
+<tr><td>ASI03</td><td>Identity and privilege abuse</td><td>Verified principals; delegation that narrows; separation of duties (CTL-0005, CTL-0008)</td></tr>
+<tr><td>ASI04</td><td>Agentic supply chain vulnerabilities</td><td>MCP pins (CTL-0024); model pins (CTL-0021); signed images; lock files</td></tr>
+<tr><td>ASI05</td><td>Unexpected code execution</td><td>Sandboxes without ambient credentials; egress limits (<a class="xref" data-ch="tools-integration-sandboxes" data-sec="#sandbox" href="tools-integration-sandboxes.html#sandbox">Chapter 36</a>)</td></tr>
+<tr><td>ASI06</td><td>Memory and context poisoning</td><td>Memory as hint; scoped, signed memory; provenance (<a class="xref" data-ch="context-memory-state" href="context-memory-state.html">Chapter 3</a>)</td></tr>
+<tr><td>ASI07</td><td>Insecure inter-agent communication</td><td>Messages carry no authority; resolved senders; declared edges; provenance (CTL-0016 to CTL-0019)</td></tr>
+<tr><td>ASI08</td><td>Cascading failures</td><td>Budgets, caps, breakers, bulkheads (<a class="xref" data-ch="reliability" href="reliability.html">Chapter 29</a>)</td></tr>
+<tr><td>ASI09</td><td>Human-agent trust exploitation</td><td>Approval surfaces that show facts; fatigue monitoring (<a class="xref" data-ch="human-oversight" href="human-oversight.html">Chapter 19</a>)</td></tr>
+<tr><td>ASI10</td><td>Rogue agents</td><td>Inventory and refusal of unregistered agents (CTL-0023); kill switch; anomaly detection</td></tr>
+</tbody></table></div>
+<p class="small muted"><span class="tag own">Your builds</span> ARB's <code>STANDARDS_MAPPING.md</code> cites the companion OWASP list, "Agentic AI Threats and Mitigations" (T-numbers such as T9 identity spoofing), while <code>POSTURE.md</code> calls it the "Agentic Top 10". pm-agent's P2 kit lists the ASI 2026 ids as a crosswalk source. Adding ASI ids to ARB's crosswalk, alongside the T-numbers, is finding F-07 (<a class="xref" data-ch="appendix-findings" href="appendix-findings.html">Appendix G</a>).</p>
+
+<h2 id="boundaries"><span class="n">32.3</span>Trust boundaries</h2>
+<p>Draw these explicitly, and put an enforcement point on every one an effect crosses:</p>
+<ul>
+  <li>User to agent (authentication, input screening);</li>
+  <li>Agent to model provider (data egress, model identity);</li>
+  <li>Model output to agent logic (untrusted proposals);</li>
+  <li>Agent to tools and business systems (the PEP);</li>
+  <li>Retrieved content and tool results to the model (untrusted data in context);</li>
+  <li>Agent to agent (no transitive authority);</li>
+  <li>Agent to sandbox and sandbox to network;</li>
+  <li>Tenant to tenant.</li>
+</ul>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 360" role="img" aria-label="Trust boundaries for an agent. The user calls the agent loop inside your network. The loop's proposals are untrusted. Model calls go through a model gateway to the provider over private connectivity. Effects go through the policy enforcement point to business systems. Code runs in a sandbox with no credentials, and its traffic goes through an egress proxy that allows only listed destinations; the internet is denied by default. A band along the bottom shows the stores that must be scoped per tenant: caches, memory, vectors, sessions and evidence.">
+  <defs><marker id="a32" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect x="150" y="30" width="490" height="300" rx="10" class="ln-mute" style="fill:none" stroke-dasharray="6 5"/>
+  <text class="tx-m" x="164" y="52">your network</text>
+  <rect class="box" x="20" y="95" width="100" height="56" rx="6"/><text class="tx-b" x="70" y="120" text-anchor="middle">User</text><text class="tx-s" x="70" y="138" text-anchor="middle">or caller</text>
+  <rect class="box-acc" x="180" y="70" width="140" height="120" rx="6"/><text class="tx-acc" x="250" y="114" text-anchor="middle">Agent loop</text><text class="tx-s" x="250" y="136" text-anchor="middle">its proposals are</text><text class="tx-no" x="250" y="156" text-anchor="middle">untrusted</text>
+  <rect class="box" x="370" y="70" width="130" height="50" rx="6"/><text class="tx-b" x="435" y="100" text-anchor="middle">Model gateway</text>
+  <rect class="box-strong" x="370" y="140" width="130" height="50" rx="6"/><text class="tx-ok" x="435" y="163" text-anchor="middle">PEP</text><text class="tx-s" x="435" y="180" text-anchor="middle">trusted facts</text>
+  <rect class="box" x="180" y="220" width="140" height="50" rx="6"/><text class="tx-b" x="250" y="243" text-anchor="middle">Sandbox</text><text class="tx-s" x="250" y="260" text-anchor="middle">no credentials</text>
+  <rect class="box" x="370" y="220" width="130" height="50" rx="6"/><text class="tx-b" x="435" y="243" text-anchor="middle">Egress proxy</text><text class="tx-s" x="435" y="260" text-anchor="middle">allow-list · log</text>
+  <rect class="box" x="180" y="288" width="440" height="30" rx="6"/><text class="tx-s" x="400" y="308" text-anchor="middle">per-tenant stores: cache · memory · vectors · sessions · evidence</text>
+  <rect class="box" x="680" y="70" width="200" height="50" rx="6"/><text class="tx-b" x="780" y="100" text-anchor="middle">Model provider</text>
+  <rect class="box" x="680" y="140" width="200" height="50" rx="6"/><text class="tx-b" x="780" y="170" text-anchor="middle">Business systems</text>
+  <rect class="box-no" x="680" y="220" width="200" height="50" rx="6"/><text class="tx-no" x="780" y="243" text-anchor="middle">Internet</text><text class="tx-s" x="780" y="260" text-anchor="middle">denied by default</text>
+  <line class="ln" x1="120" y1="123" x2="176" y2="123" marker-end="url(#a32)"/>
+  <line class="ln" x1="320" y1="95" x2="366" y2="95" marker-end="url(#a32)"/>
+  <line class="ln-ok" x1="320" y1="165" x2="366" y2="165" marker-end="url(#a32)"/>
+  <line class="ln" x1="250" y1="190" x2="250" y2="216" marker-end="url(#a32)"/>
+  <line class="ln" x1="320" y1="245" x2="366" y2="245" marker-end="url(#a32)"/>
+  <line class="ln" x1="500" y1="95" x2="676" y2="95" marker-end="url(#a32)"/>
+  <line class="ln-ok" x1="500" y1="165" x2="676" y2="165" marker-end="url(#a32)"/>
+  <line class="ln" x1="500" y1="245" x2="676" y2="245" marker-end="url(#a32)"/>
+  <text class="tx-s" x="570" y="87" text-anchor="middle">private link</text>
+  <text class="tx-s" x="570" y="157" text-anchor="middle">effects only here</text>
+  <text class="tx-s" x="570" y="237" text-anchor="middle">listed hosts</text>
+  <text class="tx-s" x="660" y="348" text-anchor="middle">Every arrow that crosses the dashed line has an enforcement point on it.</text>
+</svg>
+</div>
+<figcaption><b>Fig 32.1</b>Trust boundaries for an agent. The loop proposes; the gateway, PEP and egress proxy decide what leaves the network, and every store is scoped per tenant.</figcaption>
+</figure>
+
+<h2 id="network"><span class="n">32.4</span>Segmentation and egress</h2>
+<p><span class="tag gen">Generic</span> The second prediction question: anything the network allows. Injected instructions can make a code sandbox or browser exfiltrate data to an attacker's server, download tools, or attack internal services. Controls:</p>
+<ul>
+  <li><strong>Default-deny egress</strong> for agents and sandboxes, with an allow-list of model, tool and data endpoints, enforced by an egress proxy or gateway that logs destinations (GEAP Agent Gateway egress, AgentCore VPC egress, firewall policies).</li>
+  <li><strong>Service perimeters</strong> around data and model APIs (VPC Service Controls on Google Cloud; private endpoints elsewhere) so stolen credentials cannot pull data out from outside.</li>
+  <li><strong>Private connectivity</strong> to model endpoints and tools (Private Service Connect, PrivateLink).</li>
+  <li><strong>Segmented workloads</strong>: executors and sandboxes in separate networks from the control plane and evidence stores.</li>
+</ul>
+
+<h2 id="secrets"><span class="n">32.5</span>Secrets and keys</h2>
+<ul>
+  <li>No secrets in prompts, tool descriptions, memories, logs, sandboxes or images. A secret the model can see is a secret injected text can ask it to repeat.</li>
+  <li>Workload identity instead of keys; a secret manager for what remains; rotation on a schedule and on suspicion.</li>
+  <li>Signing keys (evidence, sign-offs, approval grants) in a KMS, with custody and rotation documented; ARB uses Cloud KMS for Ed25519 evidence signing live, and finding F-01 notes that verification of those signatures is not yet wired.</li>
+  <li>Downstream user credentials held by a vault or gateway, never by agent code (<a class="xref" data-ch="authn-authz" data-sec="#delegation" href="authn-authz.html#delegation">Chapter 27</a>).</li>
+</ul>
+
+<h2 id="supply"><span class="n">32.6</span>Supply chain</h2>
+<p>An agent's supply chain is wider than its dependencies: models (pinned, identity-checked), MCP servers (registered, description-pinned), tools and connectors, prompts and skills from shared libraries, framework and SDK versions, container base images, and evaluation datasets. Apply the same discipline to each: provenance, pinning, review, and detection of change (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>).</p>
+
+<h2 id="tenancy"><span class="n">32.7</span>Tenant isolation, store by store</h2>
+<p><span class="tag gen">Generic</span> The third prediction question has many answers. Tenant data can cross tenants in:</p>
+<div class="tw"><table>
+<thead><tr><th>Store or channel</th><th>Leak</th><th>Control</th></tr></thead>
+<tbody>
+<tr><td>Response and tool caches</td><td>A cached result served to another tenant or user</td><td>Keys include tenant and permission scope (pm-agent CTL-0021)</td></tr>
+<tr><td>Prompt and prefix caches</td><td>Timing side channel reveals another tenant's prompt</td><td>Per-tenant cache scope (<a class="xref" data-ch="inference-serving" data-sec="#prefix" href="inference-serving.html#prefix">Chapter 9</a>)</td></tr>
+<tr><td>Long-term memory</td><td>Facts about one tenant recalled for another</td><td>Scope by tenant and user; tests with two principals</td></tr>
+<tr><td>Vector indexes</td><td>Retrieval returns another tenant's documents</td><td>Tenant and permission filters at query time, or separate indexes</td></tr>
+<tr><td>Session and checkpoint stores</td><td>Run state readable across tenants</td><td>Tenant-scoped access and keys</td></tr>
+<tr><td>Traces and logs</td><td>Operators or tools see other tenants' content</td><td>Redaction; per-tenant access to telemetry</td></tr>
+<tr><td>Evaluation datasets</td><td>Production samples reused across tenants</td><td>Consent, minimisation, tenant tagging</td></tr>
+<tr><td>Fine-tuned models</td><td>One tenant's data shapes another's outputs</td><td>Per-tenant tuning or none</td></tr>
+<tr><td>Quotas and budgets</td><td>Noisy neighbour denial of service</td><td>Per-tenant limits and bulkheads</td></tr>
+</tbody></table></div>
+<p>The test that catches most of these is simple and should exist for every store: two principals in two tenants request the same thing, and neither sees the other's data (pm-agent's cache test is the template).</p>
+
+<h2 id="test"><span class="n">32.8</span>Testing security</h2>
+<p>A red-team corpus run in CI (ARB's <code>tests/redteam/</code> has suites for guardrail evasion, trust boundaries, evidence integrity, cross-agent attacks, the model plane, sign-off and inventory, MCP integrity, the approval UI, classifier compromise and an evolution pass; every finding becomes a case), automated scanners (garak, PyRIT, promptfoo's red-team mode; lab T18), periodic human red teams against current techniques, and falsifiers that show each control fires (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>).</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §10</span>
+  <p>Draw pm-agent's trust boundaries and enforcement points; list egress allow-lists for workers and executors; place secrets and keys; and fill the tenant-isolation table for every store pm-agent will have.</p>
+</div>
+
+<h2 id="services"><span class="n">32.9</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> Security services by platform. Two rows are new since 2024 and agent-specific: screening services for prompts and responses, and posture and threat detection that now inventory models and agents. The rest are the ordinary controls every agent platform still depends on.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Prompt and response screening</td><td>Model Armor (prompt injection and jailbreak, sensitive data, malicious URLs, responsible-AI filters), inline at Agent Gateway or Apigee</td><td>Bedrock Guardrails (content filters, prompt attack filter, PII, contextual grounding, Automated Reasoning checks); ApplyGuardrail API for any model</td><td>Azure AI Content Safety: Prompt Shields, groundedness detection, protected material; content filters on Foundry deployments</td><td>NVIDIA NeMo Guardrails; Llama Guard; Lakera; Prisma AIRS</td></tr>
+<tr><td>AI posture and threat detection</td><td>Security Command Center AI Protection (inventory of models, agents and data; threat findings) (<a class="xref" data-ch="google-cloud" href="google-cloud.html">Chapter 41</a>)</td><td>GuardDuty; Security Hub; Amazon Inspector</td><td>Defender for Cloud AI security posture and threat protection for AI services; Purview DSPM for AI</td><td>Wiz; Prisma Cloud; Orca</td></tr>
+<tr><td>Secrets</td><td>Secret Manager</td><td>Secrets Manager; Systems Manager Parameter Store</td><td>Key Vault</td><td>HashiCorp Vault; Infisical</td></tr>
+<tr><td>Keys and signing</td><td>Cloud KMS (incl. Ed25519 signing keys, as ARB uses); Cloud HSM; Cloud External Key Manager</td><td>AWS KMS; CloudHSM; external key store</td><td>Key Vault; Managed HSM</td><td>HashiCorp Vault transit; Sigstore for artefacts</td></tr>
+<tr><td>Perimeters, private access and egress</td><td>VPC Service Controls; Private Service Connect; Secure Web Proxy; Cloud NGFW</td><td>VPC endpoints and PrivateLink; Network Firewall; Route 53 Resolver DNS Firewall</td><td>Private Link; Azure Firewall; network security perimeter</td><td>Cilium network policies; mesh egress gateways</td></tr>
+<tr><td>Sensitive data discovery and DLP</td><td>Sensitive Data Protection</td><td>Amazon Macie; Guardrails PII filters</td><td>Microsoft Purview DLP and Information Protection</td><td>Microsoft Presidio</td></tr>
+<tr><td>Isolated code execution</td><td>GEAP Sandbox; GKE Sandbox (gVisor); Agent Sandbox on GKE (<a class="xref" data-ch="tools-integration-sandboxes" href="tools-integration-sandboxes.html">Chapter 36</a>)</td><td>AgentCore Code Interpreter and Browser</td><td>Container Apps dynamic sessions</td><td>E2B; Daytona; Modal; Firecracker</td></tr>
+<tr><td>Confidential computing</td><td>Confidential VMs and GKE nodes; Confidential Space</td><td>Nitro Enclaves</td><td>Confidential VMs and containers</td><td>Confidential Containers (CNCF)</td></tr>
+<tr><td>Red-team tooling</td><td>No first-party agent red-teaming service; Model Armor findings feed SCC</td><td>No first-party agent red-teaming service</td><td>AI Red Teaming Agent in Foundry (built on PyRIT)</td><td>PyRIT; garak; promptfoo red teaming; your corpus (ARB's red-team suite)</td></tr>
+</tbody></table></div>
+<p><span class="tag gen">Generic</span> The screening services in the first row are detectors. Under this book's rules they may restrict an action (D52) but never authorise one, and their findings are inputs to your PDP rather than decisions (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>). Measure each against your own red-team corpus before relying on it; published detection rates are for the vendor's test sets, not your tools and data.</p>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Screening services differ in where they can run (inline at a gateway, as an API, only on the platform's own models), which languages they cover, what they add to latency and how they are priced (per text unit, per request). Check each before putting one on the critical path of every tool call.</p>
+</div>
+
+<h2 id="fail"><span class="n">32.10</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Model output trusted as application logic</td><td>Model proposals are untrusted input to a PEP</td></tr>
+<tr><td>Open egress from sandboxes</td><td>Default-deny egress with logging</td></tr>
+<tr><td>Secrets visible to the model</td><td>Credentials outside prompts and sandboxes</td></tr>
+<tr><td>Tenancy only in the main database</td><td>Tenancy in every store; two-principal tests</td></tr>
+<tr><td>Signatures produced but never verified</td><td>Verification in audit tooling (F-01)</td></tr>
+<tr><td>Red-team findings fixed but not kept</td><td>Every finding becomes a regression case</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">32.11</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Can't we just turn on a prompt-injection filter?"</strong> "Turn one on, yes, and measure it. But a filter catches some attacks; it cannot stop the agent doing something harmful with an instruction it missed. What stops that is the agent having no authority to do it, checked on every action."</li>
+    <li><strong>"Could another customer's data show up in our answers?"</strong> "Every store that could carry it is listed, with the control that separates tenants and a test that tries to cross. The list includes the less obvious ones: caches, memories and traces."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">32.12</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-10, GF-2, lab T18</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The ten OWASP agentic risks and one control for each.</li>
+    <li><span class="lvl">Apply</span>Threat-model pm-agent's write path with STRIDE plus the agentic list.</li>
+    <li><span class="lvl">Apply</span>Lab T18: run garak and PyRIT against the target; turn two findings into corpus cases.</li>
+    <li><span class="lvl">Design</span>Egress design for a browsing research agent at a bank.</li>
+    <li><span class="lvl">Trade-off</span>Per-tenant vector indexes against shared indexes with query-time filters.</li>
+  </ol>
+  <p class="small">Card candidates: <em>the model's output is untrusted input</em> · <em>default-deny egress</em> · <em>tenancy in every store</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">32.13</span>Further reading</h2>
+<ul>
+  <li><b>Standards and guides.</b> OWASP Top 10 for Agentic Applications (2026) and Top 10 for LLM Applications (2025); OWASP Agentic AI Threats and Mitigations; CSA MAESTRO; MITRE ATLAS.</li>
+  <li><b>Books.</b> Adam Shostack, <cite>Threat Modeling: Designing for Security</cite> (2014); Ross Anderson, <cite>Security Engineering</cite> 3rd ed. (2020).</li>
+  <li><b>Papers.</b> Greshake et al., indirect prompt injection (arXiv 2302.12173); Debenedetti et al., CaMeL (arXiv 2503.18813).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>tests/redteam/</code>, <code>docs/defense/STANDARDS_MAPPING.md</code>; pm-agent <code>governance/catalog/CTL-0021.yaml</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="observability-agentops.html"><small>Previous</small>31 · Observability, SLOs and AgentOps</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="capacity-cost-regions.html"><small>Next</small>33 · Capacity, cost and multi-region</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

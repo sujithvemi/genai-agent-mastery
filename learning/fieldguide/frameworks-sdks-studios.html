@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>35 · Frameworks, SDKs and studios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 35</div>
+  <ol>
+    <li><a href="#what">What a framework gives you</a></li>
+    <li><a href="#families">Three families</a></li>
+    <li><a href="#landscape">The landscape</a></li>
+    <li><a href="#studios">Low-code studios</a></li>
+    <li><a href="#choose">How to choose</a></li>
+    <li><a href="#hooks">Where governance attaches</a></li>
+    <li><a href="#hosts">Frameworks as hosts behind gateways</a></li>
+    <li><a href="#reversible">Keeping the choice reversible</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 35</div>
+  <h1>Frameworks, SDKs and studios</h1>
+  <p class="lede">Agent frameworks are now plentiful, opinionated and short-lived: two of Microsoft's were folded into a third in 2026, and OpenAI is retiring its visual builder within a year of launch. An architect needs to know what each family assumes, where governance can attach in each, and how to choose one without letting it own the architecture. Your reference build shows the strongest answer: run any framework as a host that can reach tools and models only through governed gateways.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>TECH · LANDSCAPE</span></div>
+    <div><b>Reps</b><span>TC-01 · lab T07 · LL10</span></div>
+    <div><b>Build links</b><span>ARB hosts/langgraph · hosts/openai_agents · platform/runtime/adk.py · D53, D62, D63 · pm ADR-0001</span></div>
+    <div><b>Read</b><span>~40 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Which is easier to govern: a framework where you draw the graph, or one where the model drives the loop? Why?</li>
+    <li>Your framework offers a "before tool call" callback. Is putting your policy check there complete mediation?</li>
+    <li>A framework's tracing is on by default. What might that mean for a regulated client?</li>
+  </ol>
+</div>
+
+<h2 id="what"><span class="n">35.1</span>What a framework gives you</h2>
+<p><span class="tag gen">Generic</span> Recall the seven harness subsystems (<a class="xref" data-ch="harness-anatomy" href="harness-anatomy.html">Chapter 1</a>). A framework supplies some of them: the agent loop, model integration, tool binding and schemas, session state and memory interfaces, orchestration primitives (sequences, graphs, hand-offs, sub-agents), streaming, tracing hooks and deployment adapters. It does not supply your enforcement plane, your evidence, your identity model or your evaluation discipline. Every framework makes the first set easy; none makes the second set unnecessary.</p>
+
+<h2 id="families"><span class="n">35.2</span>Three families</h2>
+<div class="tw"><table>
+<thead><tr><th>Family</th><th>Control flow</th><th>Examples</th><th>Governance character</th></tr></thead>
+<tbody>
+<tr><td>Graph or workflow first</td><td>You define nodes and edges; the model works inside nodes</td><td>LangGraph, Microsoft Agent Framework workflows, ADK workflow agents and graph networks, LlamaIndex workflows</td><td>Edges are code and testable; approval gates are interrupts; easiest to reason about</td></tr>
+<tr><td>Model-driven loop</td><td>The model decides the next tool call until it answers</td><td>OpenAI Agents SDK, Claude Agent SDK, AWS Strands, smolagents</td><td>Fewer lines, more autonomy; every effect must be mediated outside the loop</td></tr>
+<tr><td>Managed harness</td><td>The provider runs the loop; you declare model, instructions and tools</td><td>AgentCore Harness, Claude Managed Agents, GEAP Managed Agents API, Foundry hosted agents</td><td>Least code; your controls attach only at the provider's gateways and policies</td></tr>
+</tbody></table></div>
+<p>The first prediction question has a qualified answer. A graph is easier to <em>reason about</em>, because the path is visible in code. But neither family is safe by construction: in both, the effect must be decided by an enforcement point the model cannot route around (<a class="xref" data-ch="governed-action" href="governed-action.html">Chapter 16</a>).</p>
+
+<h2 id="landscape"><span class="n">35.3</span>The landscape</h2>
+<p>As of October 2026 <span class="tag ver">Verify</span> versions and statuses before quoting:</p>
+<div class="tw"><table>
+<thead><tr><th>Framework</th><th>Owner · languages</th><th>Shape</th><th>Notable</th></tr></thead>
+<tbody>
+<tr><td>Agent Development Kit (ADK)</td><td>Google · Python, plus other languages</td><td>LLM agents, workflow agents (sequential, parallel, loop), graph-based sub-agent networks (2026)</td><td>Callbacks and plugins; session and memory services; built-in eval; deploys to Agent Runtime, Cloud Run, GKE. Google reports over six trillion tokens a month through ADK.</td></tr>
+<tr><td>LangGraph</td><td>LangChain · Python, TypeScript</td><td>Typed state graph</td><td>1.0 in October 2025; checkpoints, interrupts, durable execution; LangSmith for tracing and evals. pm-agent's runtime (ADR-0001).</td></tr>
+<tr><td>OpenAI Agents SDK</td><td>OpenAI · Python, TypeScript</td><td>Model-driven loop with hand-offs</td><td>Guardrails, sessions, tracing; OpenAI now recommends it over the Agent Builder it is retiring.</td></tr>
+<tr><td>Claude Agent SDK</td><td>Anthropic · Python, TypeScript</td><td>Claude Code's harness as a library</td><td>File system and shell tools, permission modes, hooks, sub-agents, skills, MCP.</td></tr>
+<tr><td>Microsoft Agent Framework</td><td>Microsoft · .NET, Python</td><td>Agents plus graph workflows</td><td>1.0 in April 2026, successor to Semantic Kernel and AutoGen (both now maintenance-only); checkpointing, middleware, MCP, A2A, DevUI.</td></tr>
+<tr><td>Strands Agents</td><td>AWS · Python first</td><td>Model-driven loop</td><td>Default framework in AgentCore tooling; multi-agent patterns.</td></tr>
+<tr><td>CrewAI</td><td>CrewAI · Python</td><td>Role-based crews plus flows</td><td>Fast to prototype multi-agent role play; check control over effects.</td></tr>
+<tr><td>Pydantic AI</td><td>Pydantic · Python</td><td>Typed agents with dependency injection</td><td>Strong typing of outputs and tools; Logfire tracing.</td></tr>
+<tr><td>LlamaIndex, Agno, Mastra, smolagents</td><td>Various</td><td>Mixed</td><td>LlamaIndex for retrieval-heavy agents; Mastra for TypeScript; smolagents for code-writing agents.</td></tr>
+</tbody></table></div>
+<p>Two moves in 2026 should temper any long bet on one framework: Microsoft folded Semantic Kernel and AutoGen into Agent Framework, and OpenAI announced that Agent Builder and its hosted Evals product leave the platform on 30 November 2026. Plan for framework churn the way you plan for model churn (<a class="xref" data-ch="maintenance-evolution" href="maintenance-evolution.html">Chapter 40</a>).</p>
+
+<h2 id="studios"><span class="n">35.4</span>Low-code studios</h2>
+<p><span class="tag gen">Generic</span> Studios let non-engineers build agents: GEAP Agent Studio (which exports to ADK), Microsoft Copilot Studio, Salesforce Agentforce Builder, ServiceNow's agent studio, Amazon Quick's no-code agents, and general automation tools such as n8n. They matter to an architect for two reasons. First, they create the agent sprawl an AICoE must govern, often faster than pro-code teams. Second, their governance is the platform's: environments, connector policies, data-loss prevention, publishing controls and the platform's registry. Ask four questions of any studio:</p>
+<ol>
+  <li>Can its agents be exported to code or at least versioned and diffed?</li>
+  <li>Can you test them against a golden set before publishing?</li>
+  <li>Which connectors can a maker use, and who approves new ones?</li>
+  <li>Does each agent get its own identity and an entry in a registry you can see?</li>
+</ol>
+
+<h2 id="choose"><span class="n">35.5</span>How to choose</h2>
+<div class="tw"><table>
+<thead><tr><th>Criterion</th><th>What to check</th></tr></thead>
+<tbody>
+<tr><td>Control-flow model</td><td>Graph, loop or managed; does it match how predictable the task is?</td></tr>
+<tr><td>State and durability</td><td>Checkpoints, resumption after a crash or an approval wait, and where state is stored</td></tr>
+<tr><td>Human in the loop</td><td>Interrupt and resume as a first-class feature, not a workaround</td></tr>
+<tr><td>Protocols</td><td>MCP client, A2A, AG-UI support; OpenAI-compatible model endpoints</td></tr>
+<tr><td>Observability</td><td>OpenTelemetry export, and where traces go by default</td></tr>
+<tr><td>Governance hooks</td><td>Where a policy check can run, and whether a tool call can bypass it</td></tr>
+<tr><td>Deployment targets</td><td>Which managed runtimes and containers it supports (<a class="xref" data-ch="runtime-sessions-memory" href="runtime-sessions-memory.html">Chapter 37</a>)</td></tr>
+<tr><td>Cadence and maturity</td><td>Release frequency, breaking changes, maintainer commitment, licence</td></tr>
+<tr><td>Ecosystem alignment</td><td>The client's cloud and skills; for a GCP-standard AICoE, ADK is the default and others need a reason</td></tr>
+</tbody></table></div>
+
+<h2 id="hooks"><span class="n">35.6</span>Where governance attaches</h2>
+<p><span class="tag gen">Generic</span> Every framework offers interception points: ADK callbacks and plugins (before and after model and tool calls), LangGraph node wrappers and interrupts, OpenAI Agents SDK guardrails and tool wrappers, Microsoft Agent Framework middleware, Claude Agent SDK hooks and permission modes, Strands hooks. They are the natural place to call your PEP.</p>
+<p>The second prediction question is the trap. An in-process hook is complete mediation only if <em>every</em> path to the effect passes through it. In practice there are bypasses: a tool implemented as plain code that the framework calls directly, a framework feature added in a minor version that calls tools a new way, a developer who registers a tool on a different agent object, or code that imports the business client directly. Hooks help; they are not a boundary.</p>
+<div class="panel p-gotcha">
+  <span class="k">Gotcha · default telemetry is egress</span>
+  <p>Some SDKs export traces to the vendor's endpoint by default. ARB's OpenAI Agents SDK host sets <code>tracing_disabled=True</code> because "traces would otherwise leave the host for a vendor endpoint. The governance evidence is the record." For a regulated client, that is a data transfer to check before the first pilot (the third prediction question).</p>
+</div>
+
+<h2 id="hosts"><span class="n">35.7</span>Frameworks as hosts behind gateways</h2>
+<p><span class="tag own">Reference build</span> D53 turned the bypass problem into an architectural rule. ADK runs in process, with its tools registered only through the chokepoint. Every other framework runs as an out-of-process <strong>host</strong>, in its own project at its own latest stable version, that reaches governance only through two gateways: a tool gateway (MCP in front of the chokepoint) and a model gateway (an OpenAI-compatible endpoint that enforces the model pin and meters the budget). Two hosts exist: LangGraph 1.2.13 and the OpenAI Agents SDK 0.23.1.</p>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="Framework hosts behind governed gateways. A LangGraph host and an OpenAI Agents SDK host each hold no tool implementations, no model credentials, no model address and do not import the governed core. Each reaches the model only through the governed model gateway (pin enforced, tokens metered, issues the turn's tool calls) and tools only through the governed tool gateway (MCP in front of the chokepoint, PEP, PDP and evidence). Every request is signed. The tool gateway admits only tool calls the model gateway issued in that turn, and the model gateway refuses a tool result that is not the text the tool gateway served. ADK runs in process through the same chokepoint.">
+  <defs><marker id="a35" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box" x="10" y="30" width="220" height="80" rx="6"/>
+  <text class="tx-b" x="120" y="56" text-anchor="middle">LangGraph host</text>
+  <text class="tx-s" x="120" y="76" text-anchor="middle">langgraph 1.2.13 · own project</text>
+  <text class="tx-s" x="120" y="94" text-anchor="middle">model → act → model …</text>
+  <rect class="box" x="10" y="140" width="220" height="80" rx="6"/>
+  <text class="tx-b" x="120" y="166" text-anchor="middle">OpenAI Agents SDK host</text>
+  <text class="tx-s" x="120" y="186" text-anchor="middle">openai-agents 0.23.1</text>
+  <text class="tx-s" x="120" y="204" text-anchor="middle">Runner.run loop · tracing off</text>
+  <text class="tx-no" x="120" y="246" text-anchor="middle">hold: no tools · no model creds</text>
+  <text class="tx-no" x="120" y="264" text-anchor="middle">no model address · no aicoe import</text>
+
+  <rect class="box-acc" x="330" y="30" width="250" height="80" rx="6"/>
+  <text class="tx-acc" x="455" y="56" text-anchor="middle">Model gateway</text>
+  <text class="tx-s" x="455" y="76" text-anchor="middle">OpenAI-compatible · pin (CTL-0021)</text>
+  <text class="tx-s" x="455" y="94" text-anchor="middle">budget (CTL-0020) · issues tool calls</text>
+  <rect class="box-acc" x="330" y="140" width="250" height="80" rx="6"/>
+  <text class="tx-acc" x="455" y="166" text-anchor="middle">Tool gateway</text>
+  <text class="tx-s" x="455" y="186" text-anchor="middle">MCP → chokepoint · PEP · PDP</text>
+  <text class="tx-s" x="455" y="204" text-anchor="middle">admits only issued calls · evidence</text>
+
+  <line class="ln" x1="230" y1="60" x2="326" y2="60" marker-end="url(#a35)"/>
+  <line class="ln" x1="230" y1="170" x2="326" y2="170" marker-end="url(#a35)"/>
+  <line class="ln" x1="230" y1="90" x2="326" y2="160" marker-end="url(#a35)"/>
+  <line class="ln" x1="230" y1="160" x2="326" y2="90" marker-end="url(#a35)"/>
+  <text class="tx-s" x="278" y="44" text-anchor="middle">all signed</text>
+  <line class="ln-acc" x1="455" y1="110" x2="455" y2="136" marker-start="url(#a35)" marker-end="url(#a35)"/>
+  <text class="tx-s" x="465" y="128">result must equal served text (D63)</text>
+
+  <rect class="box-ok" x="680" y="30" width="210" height="80" rx="6"/>
+  <text class="tx-ok" x="785" y="56" text-anchor="middle">Model providers</text>
+  <text class="tx-s" x="785" y="76" text-anchor="middle">Vertex · LM Studio</text>
+  <text class="tx-s" x="785" y="94" text-anchor="middle">credentials live here only</text>
+  <rect class="box-ok" x="680" y="140" width="210" height="80" rx="6"/>
+  <text class="tx-ok" x="785" y="166" text-anchor="middle">Business systems</text>
+  <text class="tx-s" x="785" y="186" text-anchor="middle">orders · payments · KB</text>
+  <text class="tx-s" x="785" y="204" text-anchor="middle">reached only after allow</text>
+  <line class="ln" x1="580" y1="70" x2="676" y2="70" marker-end="url(#a35)"/>
+  <line class="ln" x1="580" y1="180" x2="676" y2="180" marker-end="url(#a35)"/>
+  <rect class="box-strong" x="330" y="240" width="250" height="44" rx="6"/>
+  <text class="tx-b" x="455" y="267" text-anchor="middle">ADK in process · same chokepoint</text>
+</svg>
+</div>
+<figcaption><b>Fig 35.1</b>ARB's framework hosts (D53, D62, D63). A framework-native bypass is impossible because the host has nothing to bypass with: no tool code and no credentials.</figcaption>
+</figure>
+<p>The host's code is ordinary framework code; the guarantees come from what it does <em>not</em> hold. "The host process holds no tool implementations and no model credentials", so a framework feature that calls tools a new way still has nowhere to call them except the gateway. Three further rules close the gaps between the two gateways: every request is signed with the host's session credential; the tool gateway admits a tool call only if the model gateway issued it in that turn, so the host cannot invent or edit one; and the model gateway refuses a tool result that is not the text the tool gateway served (D63). The same 25 golden and 39 red-team cases run through both hosts, and the decision-equivalence rule requires that they decide exactly as the in-process path does (<code>tests/test_framework_hosts.py</code>).</p>
+<p>The pattern generalises beyond Python and beyond your builds: MCP and OpenAI-compatible model APIs are what current frameworks already speak, so any framework, in any language, can be governed this way. It is also the shape that the cloud platforms' agent gateways are converging on (<a class="xref" data-ch="across-platforms" href="across-platforms.html">Chapter 45</a>).</p>
+
+<h2 id="reversible"><span class="n">35.8</span>Keeping the choice reversible</h2>
+<ul>
+  <li><strong>Seams.</strong> Keep the framework behind your own interface (<code>Orchestrator</code> in pm-agent, <code>RuntimeAdapter</code> in ARB) and confine its imports with a firewall test (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>).</li>
+  <li><strong>Currency policy.</strong> D53: each host pins the latest stable release at the start of a phase, a currency bump runs at least quarterly, and a host more than one major or two minor versions behind is a named residual, never a silent pin.</li>
+  <li><strong>Equivalence as the upgrade gate.</strong> "A bump that changes any enforced decision is a finding, not a merge."</li>
+  <li><strong>Pin what you use.</strong> D53 also removed ADK's convenience extra after it was found to cap an unused LangGraph version: "a convenience extra that constrains packages the build doesn't import is removed."</li>
+</ul>
+
+<h2 id="fail"><span class="n">35.9</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Framework chosen from a demo</td><td>Criteria table; a two-week spike against your golden set</td></tr>
+<tr><td>Policy only in an in-process callback</td><td>Hosts without tools or credentials, behind gateways</td></tr>
+<tr><td>Vendor telemetry on by default</td><td>Turn it off or point it at your own collector</td></tr>
+<tr><td>Framework types leak through the code base</td><td>Seams and an import firewall</td></tr>
+<tr><td>Framework abandoned or merged</td><td>Equivalence tests make a migration a measured change</td></tr>
+<tr><td>Studio sprawl</td><td>Studio agents enter the same registry and gates as coded ones</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">35.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Which framework should we standardise on?"</strong> "One default per cloud, chosen on a short list of criteria, and an architecture in which the framework is replaceable. Your governance should not care which framework a team picked."</li>
+    <li><strong>"Our framework has guardrails built in."</strong> "Use them as filters. The decision on any effect belongs at a gateway or enforcement point the framework cannot bypass, because the framework will change faster than your controls."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">35.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · lab T07</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The three framework families and the governance character of each.</li>
+    <li><span class="lvl">Recall</span>What an ARB host holds, what it does not, and the three rules between the gateways.</li>
+    <li><span class="lvl">Apply</span>Lab T07: rebuild the target agent in Microsoft Agent Framework as a host behind ARB's gateways. Which middleware did you not need?</li>
+    <li><span class="lvl">Design</span>A framework policy for an AICoE: defaults, allowed alternatives, criteria for exceptions, currency rule.</li>
+    <li><span class="lvl">Trade-off</span>A managed harness (AgentCore Harness or Claude Managed Agents) against a self-run framework host, for a regulated client.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a hook is not a boundary</em> · <em>hosts hold no tools and no credentials</em> · <em>default telemetry is egress</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">35.12</span>Further reading</h2>
+<ul>
+  <li><b>Framework documentation.</b> Google ADK; LangGraph 1.0 release notes (LangChain blog, October 2025); OpenAI Agents SDK; Claude Agent SDK; Microsoft Agent Framework (1.0 announcement, April 2026); Strands Agents.</li>
+  <li><b>Papers.</b> Barbaste et al., "Harness Engineering" (2026), on why production harnesses rarely import frameworks.</li>
+  <li><b>Your library.</b> The LangGraph tutorial playlist; Microsoft Agent Framework playlist (parked until a client needs it).</li>
+  <li><span class="tag own">Your builds</span> ARB <code>hosts/langgraph/README.md</code>, <code>hosts/openai_agents/README.md</code>, D53, D62, D63, <code>tests/test_framework_hosts.py</code>; pm-agent ADR-0001.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="agent-development-lifecycle.html"><small>Previous</small>34 · The agent development lifecycle</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="tools-integration-sandboxes.html"><small>Next</small>36 · Tools, integration, sandboxes and computer use</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

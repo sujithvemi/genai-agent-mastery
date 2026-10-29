@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>3 · Context, memory and state</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part I · The agent as a system</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 3</div>
+  <ol>
+    <li><a href="#four">Four kinds of state</a></li>
+    <li><a href="#context">Context is a budget</a></li>
+    <li><a href="#run">Run state and checkpoints</a></li>
+    <li><a href="#memory">Durable memory</a></li>
+    <li><a href="#control">Control state</a></li>
+    <li><a href="#alts">Alternatives</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART I · CHAPTER 3</div>
+  <h1>Context, memory and state</h1>
+  <p class="lede">An agent keeps state in four places with four lifetimes: the context of one call, the state of one run, memory that outlives runs, and the counters and ledgers its controls decide on. Each needs its own design, and the last one is the one most systems forget until a restart quietly resets a rate limit.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · SYSTEMS</span></div>
+    <div><b>Reps</b><span>R21 · BT11 · SD-05</span></div>
+    <div><b>Build modules</b><span>platform/state · platform/runtime · pm platform/memory · pm platform/runtime</span></div>
+    <div><b>Decisions</b><span>D38 · D42 · D-PM-P4-f · D-PM-P5-i, -l, -p</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-20</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your context window is a million tokens. Why not put the whole knowledge base in it?</li>
+    <li>An agent's refund rate limit is held in a Python dictionary. What can an attacker do?</li>
+    <li>What is the difference between a run checkpoint and memory?</li>
+  </ol>
+</div>
+
+<h2 id="four"><span class="n">3.1</span>Four kinds of state</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 260" role="img" aria-label="Four kinds of agent state by lifetime. Context lives for one model call. Run state lives for one run, across interruptions, in a checkpoint. Durable memory lives across runs, scoped and expiring. Control state (rate counters, dedup windows, approval ledgers) lives as long as the controls' windows and must survive restarts and be shared across replicas.">
+  <line class="ln" x1="150" y1="226" x2="880" y2="226"/>
+  <text class="tx-s" x="160" y="248">one call</text>
+  <text class="tx-s" x="340" y="248">one run (minutes to days)</text>
+  <text class="tx-s" x="600" y="248">across runs (days to months)</text>
+  <text class="tx-b" x="20" y="44">Context</text>
+  <rect class="box" x="150" y="28" width="190" height="26" rx="4"/><text class="tx-s" x="160" y="46">prompt + tools + results</text>
+  <text class="tx-b" x="20" y="96">Run state</text>
+  <rect class="box-strong" x="150" y="80" width="330" height="26" rx="4"/><text class="tx-s" x="160" y="98">checkpointed graph state · survives an approval wait</text>
+  <text class="tx-b" x="20" y="148">Memory</text>
+  <rect class="box-acc" x="150" y="132" width="730" height="26" rx="4"/><text class="tx-s" x="160" y="150">scoped · redacted · expiring · signed · a hint unless verified</text>
+  <text class="tx-b" x="20" y="200">Control state</text>
+  <rect class="box-no" x="150" y="184" width="730" height="26" rx="4"/><text class="tx-s" x="160" y="202">rate and value counters · dedup window · approval ledgers · must survive restarts, shared by replicas</text>
+</svg>
+</div>
+<figcaption><b>Fig 3.1</b>State by lifetime. Each row needs its own store, its own access rules and its own failure behaviour; the bottom row is security-relevant and the easiest to get wrong.</figcaption>
+</figure>
+
+<h2 id="context"><span class="n">3.2</span>Context is a budget</h2>
+<p><span class="tag gen">Generic</span> Everything the model knows on a given call is in its context: the system prompt, tool definitions, the conversation, tool results, retrieved text. Large windows make it tempting to put everything in. Three costs stop you:</p>
+<ul>
+  <li><strong>Money and latency.</strong> Every input token is processed on every call (the "prefill" of <a class="xref" data-ch="inference-serving" href="inference-serving.html">Chapter 9</a>). A loop of ten calls over a 200,000-token context processes two million tokens. Prompt caching helps only for a stable prefix.</li>
+  <li><strong>Accuracy.</strong> Models use long contexts unevenly. Liu and colleagues showed in 2023 that information in the middle of a long context is used less reliably than information at the ends ("lost in the middle"); Anthropic's context-engineering guidance (2025) calls the broader degradation "context rot". More context is not more knowledge.</li>
+  <li><strong>Attack surface.</strong> Every token of untrusted content in the context is a chance to steer the model (<a class="xref" data-ch="guardrails-injection" href="guardrails-injection.html">Chapter 20</a>). Context minimisation is a security pattern, not only a cost one.</li>
+</ul>
+<p>Context engineering is the discipline of putting the right tokens in: retrieval just in time rather than everything up front, compaction of long histories into summaries, tool results trimmed to what the next step needs, and stable content first so caches hit. The harness study found the production coding agents rely on deterministic, just-in-time retrieval (search, syntax trees, file globs, auto-discovered context files) rather than embeddings over code.</p>
+
+<h2 id="run"><span class="n">3.3</span>Run state and checkpoints</h2>
+<p><span class="tag own">Your build</span> The two builds sit at opposite ends here, deliberately.</p>
+<ul>
+  <li><strong>ARB runs each turn in a fresh session.</strong> <code>AdkRuntimeAdapter</code> drives ADK through an in-memory runner and a new session, then collapses the event stream into one result. A turn is self-contained; anything that must outlive it (approvals, counters, evidence) lives in purpose-built stores, never in the framework's session.</li>
+  <li><strong>pm-agent checkpoints its graph.</strong> A run is a LangGraph state graph whose state is saved at every step by a checkpointer: in memory in CI, Postgres behind the same seam, exercised against a real database (D-PM-P4-f). That is what lets a run park for a human approval for hours and resume exactly where it stopped, or end cleanly when cancelled.</li>
+</ul>
+<p><span class="tag gen">Generic</span> The choice follows from the work. Request-response agents with short turns are simplest stateless, which also makes them easy to scale horizontally (<a class="xref" data-ch="state-data-scale" href="state-data-scale.html">Chapter 28</a>). Agents whose runs include waits (approvals, long tool calls, external events) need durable run state: a checkpointer or a durable-execution engine (<a class="xref" data-ch="communication-durable-execution" href="communication-durable-execution.html">Chapter 26</a>). Do not use conversation history as run state; it is unstructured, unbounded and hard to resume deterministically.</p>
+
+<h2 id="memory"><span class="n">3.4</span>Durable memory</h2>
+<p><span class="tag gen">Generic</span> Memory is what an agent keeps across runs so it does not start from zero each time. Useful distinctions, borrowed from cognitive science and common in the agent literature:</p>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>Holds</th><th>Example</th><th>Main risk</th></tr></thead>
+<tbody>
+<tr><td>Episodic</td><td>What happened in past runs</td><td>"Last sprint's plan for PLAT was approved with two changes"</td><td>Stale or poisoned history steering today</td></tr>
+<tr><td>Semantic</td><td>Facts learned</td><td>"Team PLAT uses Story points; MOBI doesn't"</td><td>Wrong facts persisting; personal data accumulating</td></tr>
+<tr><td>Procedural</td><td>How to do things</td><td>Skills, playbooks, learned preferences</td><td>Agent-authored instructions that become standing commands</td></tr>
+</tbody></table></div>
+<p>Memory needs two policies: a <strong>write policy</strong> (what is worth remembering, by whom, with what redaction, for how long) and a <strong>read policy</strong> (when to recall, how much, and how far to trust it). Managed memory services (Vertex AI Memory Bank, Mem0, Zep, graph memories such as Graphiti on Neo4j) differ mostly in how they extract and retrieve; the governance questions are the same for all of them.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's governed memory answers those questions concretely: every record is scoped by principal, project and kind; PII is redacted before write with check-digit validation; time-to-live is bounded to 30 days; records are MAC-signed with a key that has no development fallback; and without a key, memory is retrieval hints only, never planner notes (D-PM-P5-i, -l, -p). <a class="xref" data-ch="data-boundaries" data-sec="#keep" href="data-boundaries.html#keep">Chapter 21</a> covers the design in detail. The principle to carry: <strong>memory is untrusted input that arrives later</strong>. Text an attacker got into memory last week is as dangerous as a poisoned document today, unless its integrity and provenance can be verified.</p>
+
+<h2 id="control"><span class="n">3.5</span>Control state</h2>
+<p><span class="tag own">Your build</span> The fourth kind of state is the one GAP-20 found. ARB's rate and value budgets (<span class="ctl">CTL-0007</span>), its idempotency dedup window (<span class="ctl">CTL-0006</span>), its approval-fatigue ledger and its approval-redemption ledger (RT-01) all lived in process memory. D38 put the consequence in one sentence: <strong>a rate limit a restart clears is a rate limit an attacker who can cause a restart can reset</strong>. In a multi-replica deployment it is worse: each replica has its own counter, so the limit multiplies by the replica count.</p>
+<p>D42's fix is one seam for all four ledgers, <code>StateStore</code>, with three operations: <code>read</code>, <code>keys</code> and <code>transact</code>. All four ledgers reduce to the same shape (a small document keyed by an identifier, changed by a pure function of its current value), and <code>transact</code> runs that change inside the backing store's own transaction (a Firestore transaction in the shipped binding; a Redis WATCH/MULTI/EXEC loop or a SQL row lock would do the same). Two replicas racing on the same key can no longer both read the old value and both win. The Firestore binding has been exercised against a real project, and a contended transaction refuses with a named error rather than proceeding.</p>
+<div class="panel p-note">
+  <span class="k">Honest limit, stated in the seam</span>
+  <p><code>transact</code> closes lost updates. It does not make a rate limit exact under a race between two replicas <em>deciding</em> at the same instant, because the policy decision reads the counter and the increment runs after the decision allows: two steps, as in every optimistic rate limiter. The seam's docstring says so. For a limit that must be exact, reserve before deciding (decrement a token bucket atomically, then decide) and release on refusal.</p>
+</div>
+<p>Two further details are worth copying. Stores are per agent by default, because the point is one agent's ledger surviving restarts and being shared by its replicas, not agents sharing ledgers. And the general principle from D38 applies beyond counters: <strong>a stateful control is only as trustworthy as the durability and tamper-resistance of its state</strong>, the same lesson as an evidence anchor kept in a file the attacker can also truncate.</p>
+
+<h2 id="alts"><span class="n">3.6</span>Alternatives</h2>
+<div class="tw"><table>
+<thead><tr><th>Decision</th><th>Options</th><th>Trade-off</th></tr></thead>
+<tbody>
+<tr><td>Context assembly</td><td>Load everything · retrieve up front · retrieve just in time · compaction</td><td>Just-in-time keeps context small and fresh at the cost of more calls; compaction trades fidelity for length</td></tr>
+<tr><td>Run state</td><td>Stateless turns · framework session · checkpointer · durable-execution engine</td><td>Stateless scales simply; checkpoints enable waits and resume; durable execution adds retries and timers at more operational cost</td></tr>
+<tr><td>Memory</td><td>None · per-session · durable vector · durable graph · managed service</td><td>Durable memory adds value and risk together; add it with scope, redaction, expiry and integrity, or not at all</td></tr>
+<tr><td>Control state</td><td>In process · shared cache · transactional store</td><td>Only a transactional, durable store is safe for security-relevant counters</td></tr>
+</tbody></table></div>
+
+<h2 id="fail"><span class="n">3.7</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Context bloat: cost, latency, lost-in-the-middle</td><td>Just-in-time retrieval; compaction; trimmed tool results</td></tr>
+<tr><td>Conversation history as run state</td><td>Typed, checkpointed state</td></tr>
+<tr><td>Memory poisoning across time</td><td>Signed memory; unsigned memory as hints only</td></tr>
+<tr><td>Personal data accumulating in memory</td><td>Redaction before write; expiry; per-user purge</td></tr>
+<tr><td>Restart resets limits; replicas multiply them</td><td>Durable, shared, transactional control state</td></tr>
+<tr><td>Assuming transactions make rate limits exact</td><td>Reserve-then-decide for exact limits</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">3.8</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"Where do your agent's limits live?"</strong> If the answer is the application process, ask what happens on restart and with two replicas.</li>
+    <li><strong>"Should our agents remember users?"</strong> "Only with a scope, an expiry, redaction before write and a way to verify a memory wasn't planted. Otherwise memory is a privacy store and an injection channel."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">3.9</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · pairs with R21, BT11, SD-05</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four kinds of state, their lifetimes and their stores in each build.</li>
+    <li><span class="lvl">Recall</span>D38's sentence and D42's seam, including its stated limit.</li>
+    <li><span class="lvl">Apply</span>Make CTL-0007 exact under concurrency: write the reserve-then-decide sequence.</li>
+    <li><span class="lvl">Design</span>Give pm-agent episodic memory of past sprint plans: write policy, read policy, scope, expiry, integrity.</li>
+    <li><span class="lvl">Trade-off</span>Stateless turns (ARB) versus checkpointed graphs (pm-agent) for a customer-support agent that sometimes needs approval.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a rate limit a restart clears…(D38)</em> · <em>transact closes lost updates, not check-then-act</em> · <em>memory is untrusted input that arrives later</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">3.10</span>Further reading</h2>
+<ul>
+  <li><b>Papers and guidance.</b> Nelson F. Liu et al., "Lost in the Middle: How Language Models Use Long Contexts" (2023, <a href="https://arxiv.org/abs/2307.03172">arXiv:2307.03172</a>); Anthropic, "Effective context engineering for AI agents" (September 2025).</li>
+  <li><b>Books.</b> Kleppmann and Riccomini, <cite>Designing Data-Intensive Applications</cite> (2nd ed.), on transactions, isolation levels and lost updates. Chip Huyen, <cite>AI Engineering</cite>, on agent memory.</li>
+  <li><b>Your library.</b> The Neural Maze, "Building Agent Memory with Knowledge Graphs" (Graphiti and Neo4j); the LangGraph tutorial playlist for checkpointers and interrupts.</li>
+  <li><span class="tag own">Your build</span> <code>platform/state/__init__.py</code> docstring, <code>platform/runtime/adk.py</code>; D38, D42. pm-agent <code>platform/runtime</code>, <code>platform/memory/</code>; D-PM-P4-f, D-PM-P5-i, -l, -p.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="loop-tools-typed-outputs.html"><small>Previous</small>2 · The loop, tools and typed outputs</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="retrieval-grounding.html"><small>Next</small>4 · Retrieval and grounding</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

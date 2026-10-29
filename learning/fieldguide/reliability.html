@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>29 · Reliability for LLM systems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part V · The system around the agent</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 29</div>
+  <ol>
+    <li><a href="#why">Why agents fail differently</a></li>
+    <li><a href="#timeouts">Timeouts</a></li>
+    <li><a href="#retries">Retries that respect effects</a></li>
+    <li><a href="#breakers">Circuit breakers and bulkheads</a></li>
+    <li><a href="#limits">Rate limits, back-pressure and load shedding</a></li>
+    <li><a href="#degrade">Graceful degradation</a></li>
+    <li><a href="#failclosed">Fail closed, fail open, per control</a></li>
+    <li><a href="#stuck">Stuck runs and runaway loops</a></li>
+    <li><a href="#chaos">Testing failure</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART V · CHAPTER 29</div>
+  <h1>Reliability for LLM systems</h1>
+  <p class="lede">Agents depend on a shared, rate-limited, slow and occasionally wrong component, the model, and on tools whose effects cannot always be undone. The classic stability patterns (timeouts, retries, circuit breakers, bulkheads, load shedding) all apply, with one twist that changes everything: a retry can repeat an effect. This chapter adapts the patterns to agents and decides, control by control, whether failure should close or open.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>SYSTEMS</span></div>
+    <div><b>Reps</b><span>SD-07 · stability-pattern decks</span></div>
+    <div><b>Build links</b><span>ARB D71 (429 handling) · CTL-0006 (idempotency) · CTL-0020 (budget) · pm-agent CTL-0007 (fan-out cap), CTL-0022 (degraded-context disclosure), CTL-0023 (safe interruption) · design/pm-agent-at-scale.md §7</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21 (resilience services)</span></div>
+</div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>A tool call times out. Did the effect happen?</li>
+    <li>The approval service is down. Should refunds wait, proceed or fail?</li>
+    <li>A planning agent cannot read three of the twenty issues in an epic. What should the plan say?</li>
+  </ol>
+</div>
+
+<h2 id="why"><span class="n">29.1</span>Why agents fail differently</h2>
+<ul>
+  <li><strong>The model is a shared, quota-limited dependency</strong> with long, variable latency; 429s are normal weather on shared capacity (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>).</li>
+  <li><strong>Outputs can be wrong without erroring</strong>: a malformed tool call, an untyped answer, a fabricated id. Validation failures are reliability events.</li>
+  <li><strong>Runs are long and multi-step</strong>, so partial failure is the common case.</li>
+  <li><strong>Effects are real</strong>, so the usual reflex (retry) is dangerous.</li>
+  <li><strong>Loops can run away</strong>: a model that keeps calling tools, or two agents that keep asking each other.</li>
+</ul>
+
+<h2 id="timeouts"><span class="n">29.2</span>Timeouts</h2>
+<p><span class="tag gen">Generic</span> Every remote call gets a timeout, and the budgets nest: the turn's deadline is shorter than the run's, each model call's is shorter than the turn's remaining budget, each tool call's shorter still. Without timeouts, slow dependencies exhaust threads and connections and the failure spreads (Nygard's "integration points" are the first stability antipattern). The first prediction question: a timeout tells you only that you stopped waiting. The effect may have happened, may not, or may happen later. That is why effectful tools need idempotency keys and a way to query outcome by key.</p>
+
+<h2 id="retries"><span class="n">29.3</span>Retries that respect effects</h2>
+<p><span class="tag gen">Generic</span> Retry only what is safe to retry:</p>
+<div class="tw"><table>
+<thead><tr><th>Call</th><th>Retry?</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>Model call (no effect)</td><td>Yes, on 429, 503 and timeouts</td><td>Exponential back-off with jitter, a retry budget, honour <code>Retry-After</code></td></tr>
+<tr><td>Read tool</td><td>Yes</td><td>Same</td></tr>
+<tr><td>Write tool with idempotency key</td><td>Yes, with the same key</td><td>Target de-duplicates</td></tr>
+<tr><td>Write tool without idempotency</td><td>No</td><td>Query outcome; reconcile; escalate</td></tr>
+<tr><td>Whole turn after an effect</td><td>No</td><td>Abort and resume from the checkpoint after the effect</td></tr>
+</tbody></table></div>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 330" role="img" aria-label="Effect-aware retry decision. A call fails. Is the error retryable (429, 503, timeout)? If no, fail fast and record the error body. If yes: has an effect completed in this attempt? If yes, abort the turn and resume after the effect. If no: is this call itself an effect? If no, retry with back-off, jitter, a retry budget and Retry-After. If yes: does it carry an idempotency key? If yes, retry with the same key and let the target de-duplicate. If no, do not retry; query the outcome, reconcile and escalate.">
+<defs><marker id="r29" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="139" width="110" height="52" rx="6"/>
+<text class="tx-b" x="65" y="161" text-anchor="middle">Call fails</text>
+<text class="tx-s" x="65" y="180" text-anchor="middle">model or tool</text>
+<rect class="box-strong" x="145" y="139" width="160" height="52" rx="6"/>
+<text class="tx-b" x="225" y="161" text-anchor="middle">Retryable error?</text>
+<text class="tx-s" x="225" y="180" text-anchor="middle">429 · 503 · timeout</text>
+<rect class="box-strong" x="330" y="139" width="160" height="52" rx="6"/>
+<text class="tx-b" x="410" y="161" text-anchor="middle">Effect completed</text>
+<text class="tx-s" x="410" y="180" text-anchor="middle">in this attempt?</text>
+<rect class="box-strong" x="515" y="139" width="170" height="52" rx="6"/>
+<text class="tx-b" x="600" y="161" text-anchor="middle">Is this call</text>
+<text class="tx-s" x="600" y="180" text-anchor="middle">itself an effect?</text>
+<rect class="box-strong" x="715" y="139" width="175" height="52" rx="6"/>
+<text class="tx-b" x="802.5" y="161" text-anchor="middle">Idempotency key?</text>
+<text class="tx-s" x="802.5" y="180" text-anchor="middle">honoured by target</text>
+<rect class="box-no" x="145" y="255" width="160" height="52" rx="6"/>
+<text class="tx-no" x="225" y="277" text-anchor="middle">Fail fast</text>
+<text class="tx-s" x="225" y="296" text-anchor="middle">record the error body</text>
+<rect class="box-no" x="330" y="22" width="160" height="52" rx="6"/>
+<text class="tx-no" x="410" y="44" text-anchor="middle">Abort the turn</text>
+<text class="tx-s" x="410" y="63" text-anchor="middle">resume after the effect</text>
+<rect class="box-ok" x="515" y="255" width="170" height="52" rx="6"/>
+<text class="tx-ok" x="600" y="277" text-anchor="middle">Retry with back-off</text>
+<text class="tx-s" x="600" y="296" text-anchor="middle">jitter · budget · Retry-After</text>
+<rect class="box-ok" x="715" y="22" width="175" height="52" rx="6"/>
+<text class="tx-ok" x="802.5" y="44" text-anchor="middle">Retry, same key</text>
+<text class="tx-s" x="802.5" y="63" text-anchor="middle">target de-duplicates</text>
+<rect class="box-no" x="715" y="255" width="175" height="52" rx="6"/>
+<text class="tx-no" x="802.5" y="277" text-anchor="middle">Do not retry</text>
+<text class="tx-s" x="802.5" y="296" text-anchor="middle">query · reconcile · escalate</text>
+<line class="ln" x1="120" y1="165" x2="143" y2="165" marker-end="url(#r29)"/>
+<line class="ln" x1="305" y1="165" x2="328" y2="165" marker-end="url(#r29)"/>
+<text class="tx-s" x="307.5" y="158">yes</text>
+<line class="ln" x1="490" y1="165" x2="513" y2="165" marker-end="url(#r29)"/>
+<text class="tx-s" x="492.5" y="158">no</text>
+<line class="ln" x1="685" y1="165" x2="713" y2="165" marker-end="url(#r29)"/>
+<text class="tx-s" x="690" y="158">yes</text>
+<line class="ln" x1="225" y1="191" x2="225" y2="253" marker-end="url(#r29)"/>
+<text class="tx-s" x="231" y="228">no</text>
+<line class="ln" x1="410" y1="139" x2="410" y2="76" marker-end="url(#r29)"/>
+<text class="tx-s" x="416" y="112">yes</text>
+<line class="ln" x1="600" y1="191" x2="600" y2="253" marker-end="url(#r29)"/>
+<text class="tx-s" x="606" y="228">no</text>
+<line class="ln" x1="802.5" y1="139" x2="802.5" y2="76" marker-end="url(#r29)"/>
+<text class="tx-s" x="808.5" y="112">yes</text>
+<line class="ln" x1="802.5" y1="191" x2="802.5" y2="253" marker-end="url(#r29)"/>
+<text class="tx-s" x="808.5" y="228">no</text>
+</svg>
+</div>
+<figcaption><b>Fig 29.1</b>The retry decision, in the order to ask it. The second question is the one most retry libraries cannot answer, because they see a failed call, not the turn it belongs to; that is why ARB's D71 retries at the turn level and checks for completed effects first.</figcaption>
+</figure>
+<p><span class="tag own">Reference build</span> D71's ruling is the worked example: retry a whole turn only on 429 or RESOURCE_EXHAUSTED and "only if no effectful tool call completed in that attempt", from a fresh enforcement plane, at most three attempts with 120, 240 and 480 second back-off and ten retries per measurement, recording the full error body; "a 429 after an effectful call aborts". The retry is keyed on the error class, never on the outcome, so it cannot be used to fish for a different decision (<a class="xref" data-ch="inference-serving" data-sec="#quota" href="inference-serving.html#quota">Chapter 9</a>). ARB's CTL-0006 requires idempotency on writes for the same reason.</p>
+<p>Retries also need a <strong>budget</strong>: if every layer retries three times, five layers produce 243 attempts. Limit retries per request and per dependency, and prefer retrying at one layer.</p>
+
+<h2 id="breakers"><span class="n">29.4</span>Circuit breakers and bulkheads</h2>
+<ul>
+  <li><strong>Circuit breakers</strong> stop calling a failing dependency for a while, so callers fail fast instead of piling up; half-open probes test recovery. Use them on model providers (per model and region), on tools and on gateways. Azure API Management's breaker, for example, honours the back end's <code>Retry-After</code> to decide how long to stay open.</li>
+  <li><strong>Bulkheads</strong> isolate resources so one failure cannot sink everything: separate connection pools and concurrency limits per tenant, per model provider and per tool; separate worker pools for interactive and background agents.</li>
+</ul>
+
+<h2 id="limits"><span class="n">29.5</span>Rate limits, back-pressure and load shedding</h2>
+<p><span class="tag gen">Generic</span> Protect the system and fair shares within it: token-bucket rate limits per tenant at the gateway; quotas in tokens, not requests (<a class="xref" data-ch="capacity-cost-regions" href="capacity-cost-regions.html">Chapter 33</a>); back-pressure from workers to the queue (stop pulling when saturated); and load shedding when overloaded, rejecting low-priority work early with <code>429</code> and <code>Retry-After</code> rather than accepting everything and timing out later. Prioritise interactive over background work, and approvals and cancellations above all, because they unblock or stop other work.</p>
+<p><span class="tag own">pm-agent</span> pm-agent's CTL-0007 caps a run's fan-out of issue reads and its token and cost use per principal and window, with a time-boxed, approved exception path. A planning agent asked about a huge epic should throttle, not exhaust the quota for every tenant.</p>
+
+<h2 id="degrade"><span class="n">29.6</span>Graceful degradation</h2>
+<p><span class="tag gen">Generic</span> Decide in advance what the agent does when part of it fails:</p>
+<ul>
+  <li><strong>Fallback model</strong>: a declared, priced and gated alternative pin, never a silent vendor fallback (<a class="xref" data-ch="model-choice-risk" data-sec="#routing" href="model-choice-risk.html#routing">Chapter 10</a>).</li>
+  <li><strong>Read-only mode</strong>: answer and propose, but take no actions, when the enforcement path or a write dependency is unhealthy.</li>
+  <li><strong>Queue for later</strong>: accept the request, finish when the dependency recovers, and say so.</li>
+  <li><strong>Hand to a human</strong> with the context gathered so far.</li>
+</ul>
+<p>The third prediction question has a control in pm-agent: CTL-0022, degraded-context disclosure, requires that "partial or failed retrieval is disclosed in the output, not hidden"; its test reads a partial epic and checks that the plan names the gap. An agent that silently plans from incomplete data is less reliable than one that fails.</p>
+
+<h2 id="failclosed"><span class="n">29.7</span>Fail closed, fail open, per control</h2>
+<p><span class="tag gen">Generic</span> Every control needs an explicit answer to "what happens when the control itself is unavailable?" The second prediction question: refunds wait. The rule in your builds is consistent:</p>
+<div class="tw"><table>
+<thead><tr><th>Component down</th><th>Behaviour</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>PDP or PIP</td><td>Deny</td><td>No decision, no effect</td></tr>
+<tr><td>Evidence write before the effect</td><td>Deny (GBL-EVID-01)</td><td>No unrecorded effects</td></tr>
+<tr><td>Budget ledger</td><td>Refuse: "an unreachable budget is not an empty one" (D58)</td><td>Fail-open would make the limit decorative</td></tr>
+<tr><td>Approval service</td><td>Park the run</td><td>Wait, never assume approval</td></tr>
+<tr><td>Model-based screen (classifier)</td><td>Hold for review (D52)</td><td>A screen may only restrict</td></tr>
+<tr><td>Anchoring of evidence</td><td>Proceed, but alarm</td><td>Detective control; the window widening is an incident (ARB SLO 2)</td></tr>
+<tr><td>Tracing</td><td>Proceed</td><td>Observability is not a control</td></tr>
+</tbody></table></div>
+<p>Write these down per control (the catalog's <code>exception_path</code> and detection window are the place), and test each failure path; a fail-closed claim that has never been exercised is an assumption (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>).</p>
+
+<h2 id="stuck"><span class="n">29.8</span>Stuck runs and runaway loops</h2>
+<ul>
+  <li><strong>Bounded loops</strong>: per-turn model-call caps, step limits and token budgets end runaway reasoning (ARB's CTL-0020 per-turn call cap; its golden case for a runaway loop must stay refused after any recalibration).</li>
+  <li><strong>Cross-agent ping-pong</strong> is bounded per agent turn in ARB, not end to end, a named residual (D58); a hop count or deadline carried in the provenance envelope closes it.</li>
+  <li><strong>Watchdogs</strong> find runs with no progress past a deadline and cancel them safely (pm-agent's CTL-0023: cancel leaves consistent state and an evidence event).</li>
+  <li><strong>Dead-letter queues</strong> catch messages that keep failing, with alerts and an owner.</li>
+</ul>
+
+<h2 id="chaos"><span class="n">29.9</span>Testing failure</h2>
+<p>Inject the failures the design claims to handle: provider 429s and timeouts, tool timeouts after the effect, evidence-store outages, a ledger that is unreachable, a classifier that times out. Fakes behind seams make this cheap (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>); game days in staging test the runbooks and the people.</p>
+<div class="panel p-build">
+  <span class="k">Feeds design/pm-agent-at-scale.md §7</span>
+  <p>List every dependency with its timeout, retry rule, breaker and bulkhead; the degradation mode for each; the fail-closed or fail-open behaviour of each control; and the watchdog for stuck runs.</p>
+</div>
+
+<h2 id="services"><span class="n">29.10</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> Most resilience is design, not a product, but each platform provides the pieces: throttling at the edge, failover for model capacity, breakers in the mesh or gateway, and a service for injecting faults on purpose.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Rate limits and quotas at the edge</td><td>Cloud Armor rate-based rules; Apigee Quota and SpikeArrest; API Gateway quotas</td><td>API Gateway throttling and usage plans; AWS WAF rate-based rules</td><td>API Management <code>rate-limit-by-key</code>, <code>quota-by-key</code>, <code>llm-token-limit</code></td><td>Envoy global rate limiting; Kong; NGINX</td></tr>
+<tr><td>Model capacity failover</td><td>Vertex AI global endpoint; Provisioned Throughput with spill-over to pay-as-you-go</td><td>Bedrock cross-region inference profiles (geographic and global)</td><td>Azure OpenAI Global and Data Zone deployments; API Management backend pools with priorities and weights</td><td>LiteLLM router fallbacks; Portkey; OpenRouter</td></tr>
+<tr><td>Circuit breakers and outlier detection</td><td>Cloud Service Mesh and load balancer outlier detection</td><td>ECS Service Connect; VPC Lattice (App Mesh reached end of support in September 2026) <span class="tag ver">Verify</span></td><td>API Management backend circuit breaker (honours <code>Retry-After</code>); Dapr resiliency policies on Container Apps</td><td>Envoy; Istio; resilience4j; Polly</td></tr>
+<tr><td>Buffering and back-pressure</td><td>Pub/Sub; Cloud Tasks dispatch rates</td><td>SQS with Lambda maximum concurrency</td><td>Service Bus; KEDA scaling on Container Apps</td><td>KEDA; Kafka consumer lag</td></tr>
+<tr><td>Fault injection</td><td>No first-party fault service; Cloud Service Mesh (Envoy) fault injection</td><td>AWS Fault Injection Service</td><td>Azure Chaos Studio</td><td>Gremlin; Chaos Mesh; LitmusChaos; Toxiproxy</td></tr>
+<tr><td>Resilience posture and provider health</td><td>Personalized Service Health</td><td>AWS Resilience Hub; AWS Health</td><td>Azure Service Health; Advisor reliability recommendations</td><td>Provider status pages via your alerting</td></tr>
+</tbody></table></div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Throttling looks different on each provider: Vertex AI returns 429 with <code>RESOURCE_EXHAUSTED</code>, Bedrock raises a <code>ThrottlingException</code>, and Azure OpenAI returns 429 with <code>retry-after</code> headers. A retry policy written for one will misclassify another, so test classification against each provider you route to, and confirm which quotas are per region, per model or per project.</p>
+</div>
+
+<h2 id="fail"><span class="n">29.11</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Retrying a turn that already made an effect</td><td>Effect-aware retry; resume from checkpoint</td></tr>
+<tr><td>Retry storms</td><td>Back-off with jitter; retry budgets; one retrying layer</td></tr>
+<tr><td>One tenant exhausts the model quota</td><td>Per-tenant bulkheads and quotas</td></tr>
+<tr><td>Silent planning on partial data</td><td>Degraded-context disclosure</td></tr>
+<tr><td>Control outage silently allows</td><td>Explicit fail-closed behaviour, tested</td></tr>
+<tr><td>Runaway loops</td><td>Call caps, step limits, budgets, watchdogs</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">29.12</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"What happens when the model provider is down?"</strong> "The agent fails fast rather than hanging, sends work to a second region or model where we have agreed one, and degrades to 'queued for later' or 'hand to a person'. It never skips a control to stay up."</li>
+    <li><strong>"Could a retry send the same email twice?"</strong> "Only something with no effect is retried freely. A step that changes something is retried only with a key the other system uses to ignore duplicates; otherwise we check what happened and ask a person."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">29.13</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · SD-07</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The retry table: what may be retried and how.</li>
+    <li><span class="lvl">Recall</span>Fail-closed or fail-open for six components, with reasons.</li>
+    <li><span class="lvl">Apply</span>Explain D71's 429 rule to an SRE who wants "just retry the turn".</li>
+    <li><span class="lvl">Design</span>Bulkheads for pm-agent: pools, limits and priorities for 20 tenants and two model providers.</li>
+    <li><span class="lvl">Trade-off</span>Read-only degradation against queue-for-later, for a customer-service refund agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>a timeout says only that you stopped waiting</em> · <em>a 429 after an effect aborts</em> · <em>an unreachable budget is not an empty one</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">29.14</span>Further reading</h2>
+<ul>
+  <li><b>Books.</b> Michael Nygard, <cite>Release It!</cite> 2nd ed. (2018); Google, <cite>Site Reliability Engineering</cite> (2016), chapters on handling overload and cascading failures.</li>
+  <li><b>Your library.</b> <code>stability_patterns_for_microservices.pdf</code> and <code>scalability_availability_stability_patterns.pdf</code> (Flueras 2019; Bonér).</li>
+  <li><b>Articles.</b> AWS Builders' Library, "Timeouts, retries and backoff with jitter".</li>
+  <li><span class="tag own">Your builds</span> ARB D58, D71, CTL-0006; pm-agent CTL-0007, CTL-0022, CTL-0023.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="state-data-scale.html"><small>Previous</small>28 · State, data and scale</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="deployment-cicd.html"><small>Next</small>30 · Deployment and CI/CD for agents</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

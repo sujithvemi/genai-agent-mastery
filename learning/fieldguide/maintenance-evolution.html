@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>40 · Maintenance and evolution</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VI · The agent lifecycle</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 40</div>
+  <ol>
+    <li><a href="#decay">Agents decay without anyone touching them</a></li>
+    <li><a href="#sources">Sources of change</a></li>
+    <li><a href="#models">Model deprecations</a></li>
+    <li><a href="#deps">Framework and dependency upgrades</a></li>
+    <li><a href="#drift">Drift</a></li>
+    <li><a href="#knowledge">Knowledge and memory hygiene</a></li>
+    <li><a href="#docs">Living documentation</a></li>
+    <li><a href="#recert">Recertification</a></li>
+    <li><a href="#retire">Retirement</a></li>
+    <li><a href="#budget">Planning the maintenance budget</a></li>
+    <li><a href="#services">Managed services across clouds</a></li>
+    <li><a href="#fail">Failure modes</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VI · CHAPTER 40</div>
+  <h1>Maintenance and evolution</h1>
+  <p class="lede">An agent that nobody changes still changes: its model is updated or retired, its framework moves on, its knowledge goes stale, its users ask new things and its adversaries learn. Maintenance is therefore planned work with a budget, not a residue. This chapter covers the sources of change, how to absorb each without losing control, how to recertify agents that have not changed, and how to retire one properly.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>OWN · OPERATE</span></div>
+    <div><b>Reps</b><span>SD-08 · SD-09</span></div>
+    <div><b>Decisions</b><span>D48 · D50 · D53 · D57 · D66 · D-PM-P5 eval drift</span></div>
+    <div><b>Read</b><span>~35 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your provider retires the model version an agent is pinned to in 90 days. Is that a code change, a configuration change or a re-approval?</li>
+    <li>The person who sponsored an agent leaves the company. What should happen to the agent?</li>
+    <li>When an agent is retired, which of its records should you keep, and which should you delete?</li>
+  </ol>
+</div>
+
+<h2 id="decay"><span class="n">40.1</span>Agents decay without anyone touching them</h2>
+<p><span class="tag gen">Generic</span> Sculley et al.'s "Hidden Technical Debt in Machine Learning Systems" (2015) warned that ML systems accumulate debt through entanglement, hidden feedback loops and dependencies on external data. Agents add more: a dependency on a model you do not control, on prompts whose behaviour shifts with the model, on tools other teams own, and on content that ages. The first 2026 lessons are already in: Microsoft moved Semantic Kernel and AutoGen to maintenance mode in favour of Agent Framework; OpenAI announced that Agent Builder and its hosted Evals leave the platform on 30 November 2026; Google renamed Vertex AI's agent services when it launched the Gemini Enterprise Agent Platform. Each forced work on teams that had changed nothing.</p>
+
+<h2 id="sources"><span class="n">40.2</span>Sources of change</h2>
+<div class="tw"><table>
+<thead><tr><th>Source</th><th>What changes</th><th>Detection</th><th>Response</th></tr></thead>
+<tbody>
+<tr><td>Model provider</td><td>Version retirements, alias moves, silent quality changes, API and product deprecations</td><td>Provider lifecycle pages; identity checks; drift evals</td><td>Re-pin through the release path (<a class="sref" href="#models">40.3</a>)</td></tr>
+<tr><td>Framework and dependencies</td><td>New majors, merged or abandoned frameworks, security advisories</td><td>Currency checks; vulnerability scanning</td><td>Regression-guarded upgrade (<a class="sref" href="#deps">40.4</a>)</td></tr>
+<tr><td>Tools and MCP servers</td><td>Descriptions, schemas, endpoints, API versions</td><td>Hash pins (CTL-0024); contract tests</td><td>Review and re-pin</td></tr>
+<tr><td>Knowledge and data</td><td>Stale articles, schema changes in source systems, index drift</td><td>Content review dates; retrieval evals</td><td>Content ownership; index rebuilds</td></tr>
+<tr><td>Users</td><td>New intents, new languages, new volumes</td><td>Intent clustering of traffic; failure clusters</td><td>New golden cases; scope decisions</td></tr>
+<tr><td>Adversaries</td><td>New injection and misuse techniques</td><td>Threat intelligence; red-team refresh</td><td>New red-team cases; control changes</td></tr>
+<tr><td>Policy and regulation</td><td>Limits, obligations, supervisory guidance</td><td>Regulatory watch (<a class="xref" data-ch="standards-law-crosswalk" href="standards-law-crosswalk.html">Chapter 48</a>)</td><td>Parameter or control changes through the gate</td></tr>
+<tr><td>Platform</td><td>Preview to GA, renames, pricing, quota regimes</td><td>Release notes; this book's register (<a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>)</td><td>Re-verify and update bindings</td></tr>
+</tbody></table></div>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 300" role="img" aria-label="Maintenance as one loop. Six sources of change, each with its detection: model providers (lifecycle pages, identity checks); frameworks (currency checks, advisories); tools and MCP servers (hash pins, contract tests); knowledge and data (review dates, retrieval evaluations); users and adversaries (intent clusters, red-team refresh); policy and platform (regulatory watch, release notes). All feed one release path: change class, evaluate, re-sign if the tier requires, shadow and canary. Separately, recertification runs on a calendar even if nothing changed; an agent no longer needed is retired: revoke, archive, keep the evidence.">
+<defs><marker id="f40" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+<rect class="box" x="10" y="14" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="38" text-anchor="middle">Model provider</text>
+<rect class="box" x="190" y="14" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="38" text-anchor="middle">lifecycle pages · identity checks</text>
+<line class="ln" x1="170" y1="33" x2="188" y2="33" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="33" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box" x="10" y="60" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="84" text-anchor="middle">Frameworks</text>
+<rect class="box" x="190" y="60" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="84" text-anchor="middle">currency checks · advisories</text>
+<line class="ln" x1="170" y1="79" x2="188" y2="79" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="79" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box" x="10" y="106" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="130" text-anchor="middle">Tools and MCP</text>
+<rect class="box" x="190" y="106" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="130" text-anchor="middle">hash pins · contract tests</text>
+<line class="ln" x1="170" y1="125" x2="188" y2="125" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="125" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box" x="10" y="152" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="176" text-anchor="middle">Knowledge and data</text>
+<rect class="box" x="190" y="152" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="176" text-anchor="middle">review dates · retrieval evals</text>
+<line class="ln" x1="170" y1="171" x2="188" y2="171" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="171" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box" x="10" y="198" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="222" text-anchor="middle">Users, adversaries</text>
+<rect class="box" x="190" y="198" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="222" text-anchor="middle">intent clusters · red-team refresh</text>
+<line class="ln" x1="170" y1="217" x2="188" y2="217" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="217" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box" x="10" y="244" width="160" height="38" rx="6"/>
+<text class="tx-b" x="90" y="268" text-anchor="middle">Policy, platform</text>
+<rect class="box" x="190" y="244" width="250" height="38" rx="6"/>
+<text class="tx-b" x="315" y="268" text-anchor="middle">regulatory watch · release notes</text>
+<line class="ln" x1="170" y1="263" x2="188" y2="263" marker-end="url(#f40)"/>
+<line class="ln" x1="440" y1="263" x2="538" y2="150" marker-end="url(#f40)"/>
+<rect class="box-strong" x="540" y="14" width="200" height="268" rx="8"/>
+<text class="tx-b" x="640" y="40" text-anchor="middle">One release path</text>
+<rect class="box" x="555" y="58" width="170" height="38" rx="6"/>
+<text class="tx-b" x="640" y="82" text-anchor="middle">change class</text>
+<line class="ln" x1="640" y1="96" x2="640" y2="110" marker-end="url(#f40)"/>
+<rect class="box" x="555" y="112" width="170" height="38" rx="6"/>
+<text class="tx-b" x="640" y="136" text-anchor="middle">evaluate</text>
+<line class="ln" x1="640" y1="150" x2="640" y2="164" marker-end="url(#f40)"/>
+<rect class="box-acc" x="555" y="166" width="170" height="38" rx="6"/>
+<text class="tx-acc" x="640" y="190" text-anchor="middle">re-sign if tier requires</text>
+<line class="ln" x1="640" y1="204" x2="640" y2="218" marker-end="url(#f40)"/>
+<rect class="box" x="555" y="220" width="170" height="38" rx="6"/>
+<text class="tx-b" x="640" y="244" text-anchor="middle">shadow · canary</text>
+<rect class="box" x="770" y="14" width="120" height="96" rx="6"/>
+<text class="tx-b" x="830" y="48" text-anchor="middle">Recertify</text>
+<text class="tx-s" x="830" y="66" text-anchor="middle">on a calendar,</text>
+<text class="tx-s" x="830" y="84" text-anchor="middle">even if unchanged</text>
+<rect class="box-no" x="770" y="186" width="120" height="96" rx="6"/>
+<text class="tx-no" x="830" y="220" text-anchor="middle">Retire</text>
+<text class="tx-s" x="830" y="238" text-anchor="middle">revoke · archive</text>
+<text class="tx-s" x="830" y="256" text-anchor="middle">keep evidence</text>
+<line class="ln" x1="770" y1="62" x2="742" y2="62" marker-end="url(#f40)"/>
+<line class="ln" x1="830" y1="110" x2="830" y2="184" marker-end="url(#f40)"/>
+<text class="tx-s" x="836" y="152">not needed</text>
+</svg>
+</div>
+<figcaption><b>Fig 40.1</b>Maintenance is one loop with many inputs. Each source of change has its own detector, and every response, however small, goes through the same release path as a feature; recertification asks the questions nobody's change would have triggered.</figcaption>
+</figure>
+
+
+<h2 id="models"><span class="n">40.3</span>Model deprecations</h2>
+<p><span class="tag gen">Generic</span> Every hosted model version has a retirement date, and providers publish lifecycle schedules with notice periods that vary by provider and model <span class="tag ver">Verify</span>. The first prediction question: it is all three. The pin is configuration, the migration may need prompt or code changes, and the new pin is a new model identity that must be evaluated and, at high tiers, re-approved. A playbook:</p>
+<ol>
+  <li><strong>Know your exposure.</strong> The registry lists every agent's pins, so a retirement notice maps to affected agents in minutes.</li>
+  <li><strong>Choose a candidate</strong> per task, from models already priced and approved where possible (<a class="xref" data-ch="model-choice-risk" href="model-choice-risk.html">Chapter 10</a>).</li>
+  <li><strong>Measure</strong>: golden set over repeated runs (pass^k), red-team subset and injection obey rate, typed-output rate, cost and latency.</li>
+  <li><strong>Adapt</strong> prompts and tool descriptions if needed; these are part of the same release.</li>
+  <li><strong>Release</strong> through shadow and canary; re-sign where the tier requires it (<a class="xref" data-ch="versioning-release" href="versioning-release.html">Chapter 38</a>).</li>
+  <li><strong>Keep a fallback pin</strong> tested, because the retired model cannot be a rollback target.</li>
+</ol>
+<p><span class="tag own">Reference build</span> ARB treated its move from a local Qwen model to Vertex Gemini as "a deliberate configuration change" that "re-gates through CTL-0021/0022. It is a demo beat, not a chore" (D57, D66). The first live runs on the new pin then exposed typed-output and budget issues that the old pin had hidden (D71). That is the normal shape of a model migration: the controls hold, and the measurements move.</p>
+
+<h2 id="deps"><span class="n">40.4</span>Framework and dependency upgrades</h2>
+<p><span class="tag own">Reference build</span> Two decisions give a complete method:</p>
+<ul>
+  <li><strong>D48, the method.</strong> "Regression-guarded native rewrite, not TDD: pin the target version, run the suite, and let the red tests draw the worklist." The ADK version swap came up green, touching two pins and zero code, because every framework import sat behind two adapter files (<a class="xref" data-ch="chassis-seams-tests" data-sec="#swap" href="chassis-seams-tests.html#swap">Chapter 7</a>).</li>
+  <li><strong>D53, the policy.</strong> Pin the latest stable release at the start of each phase; run a currency bump at least quarterly; a host more than one major or two minor versions behind is a named residual; "a bump that changes any enforced decision is a finding, not a merge"; remove convenience extras that constrain packages the build does not import.</li>
+</ul>
+<p>Add the usual software hygiene: lock files committed, automated dependency update proposals, vulnerability scanning on every build, and an image rebuild cadence for base-layer patches (<a class="xref" data-ch="security-multitenancy" href="security-multitenancy.html">Chapter 32</a>).</p>
+
+<h2 id="drift"><span class="n">40.5</span>Drift</h2>
+<div class="tw"><table>
+<thead><tr><th>Kind</th><th>Example</th><th>Measure</th></tr></thead>
+<tbody>
+<tr><td>Behaviour drift</td><td>The same requests get worse answers after a provider update</td><td>Scheduled golden runs; online judges; pm-agent's windowed <code>eval-drift</code></td></tr>
+<tr><td>Input drift</td><td>Users start asking about a new product line</td><td>Intent clusters of traffic; share of unknown intents</td></tr>
+<tr><td>Concept drift</td><td>The refund policy changed, so yesterday's correct answer is wrong</td><td>Golden-set review when source policies change</td></tr>
+<tr><td>Cost and latency drift</td><td>Turns grow longer; thinking tokens rise</td><td>Tokens per successful task; p95 latency</td></tr>
+<tr><td>Control drift</td><td>A control's refusal rate moves sharply</td><td>Decision rates per control from evidence</td></tr>
+</tbody></table></div>
+<p>Each drift signal needs a threshold and an owner who acts on it; a dashboard nobody owns is not monitoring (<a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>).</p>
+
+<h2 id="knowledge"><span class="n">40.6</span>Knowledge and memory hygiene</h2>
+<ul>
+  <li><strong>Every retrieval source has an owner and a review date.</strong> Stale content produces confident, well-cited wrong answers, which grounding checks will not catch because the citation is real (<a class="xref" data-ch="retrieval-grounding" href="retrieval-grounding.html">Chapter 4</a>).</li>
+  <li><strong>Index rebuilds are releases.</strong> A new embedding model or chunking strategy changes retrieval; evaluate before switching.</li>
+  <li><strong>Memories expire.</strong> Time-to-live by memory type; memories tagged with the agent version and session that wrote them, so a bad version's memories can be purged.</li>
+  <li><strong>Erasure works end to end</strong>: sessions, memories, caches, evaluation samples and traces, with evidence handled under its own retention rule (<a class="xref" data-ch="data-boundaries" href="data-boundaries.html">Chapter 21</a>).</li>
+</ul>
+
+<h2 id="docs"><span class="n">40.7</span>Living documentation</h2>
+<p><span class="tag own">Reference build</span> D50 draws a line that every agent programme needs. A <strong>living</strong> document states current posture and is corrected, with a pointer, when a later decision supersedes it; a <strong>dated</strong> document records what was true on its date and is never rewritten. ARB found seven living lines that contradicted later decisions, some for weeks, while a sales pack was quoting them. The fix was a test over a declared list of living files that fails when they contradict the ratified state, reading the state from parsed configuration rather than text matches. Documentation that a test can falsify stays maintained.</p>
+
+<h2 id="recert"><span class="n">40.8</span>Recertification</h2>
+<p><span class="tag gen">Generic</span> An unchanged agent still needs periodic re-approval, because its context changed: users, data, threats, owners, regulation. <span class="tag asm">Assumption</span> A starting cadence: CRITICAL quarterly, HIGH twice a year, MEDIUM yearly, LOW on change only. A recertification reviews:</p>
+<ul>
+  <li>Is it still needed, and is its value case still true?</li>
+  <li>Are the owner and sponsor still in role?</li>
+  <li>Incidents, escalations and control-decision trends since the last review.</li>
+  <li>Evaluation and drift trends; red-team results against current techniques.</li>
+  <li>Permissions actually used against permissions granted (remove the unused).</li>
+  <li>Dependencies approaching end of life: model pins, frameworks, MCP servers.</li>
+</ul>
+<p>The second prediction question has a platform answer now: Microsoft Entra Agent ID assigns owners, sponsors and managers to agent identities, with sponsor lifecycle workflows for when people leave. Whatever the platform, an agent without an accountable sponsor should be suspended, not left running. ARB's inventory reconciliation flags orphans and agents running on a maker's personal credentials for exactly this reason (D59).</p>
+
+<h2 id="retire"><span class="n">40.9</span>Retirement</h2>
+<p><span class="tag gen">Generic</span> Retirement is a designed event with a checklist:</p>
+<ol>
+  <li><strong>Decide and announce</strong>: reason, date, replacement, and who is told (users, dependent agents, owners of tools it uses).</li>
+  <li><strong>Stop new work</strong>: refuse new sessions; let in-flight runs finish or cancel them safely with compensation where needed.</li>
+  <li><strong>Revoke</strong> the agent's identity, credentials, tokens and delegated grants; remove it from gateways, tool allow-lists and A2A directories.</li>
+  <li><strong>Mark it retired in the registry</strong>; do not delete the entry. Its id must never be reused.</li>
+  <li><strong>Data</strong>: delete or archive sessions, memories and caches by retention policy.</li>
+  <li><strong>Keep the evidence</strong> for its retention period, with the verification keys needed to check it later (<a class="xref" data-ch="evidence-plane" href="evidence-plane.html">Chapter 22</a>).</li>
+  <li><strong>Close the record</strong>: a short retirement report stating what was done and what remains.</li>
+</ol>
+<p>The third prediction question: keep decision evidence, sign-offs and the registry entry (they are what an auditor asks for later); delete operational personal data on schedule. The two have different owners and different clocks.</p>
+
+<h2 id="budget"><span class="n">40.10</span>Planning the maintenance budget</h2>
+<p><span class="tag asm">Assumption</span> Plan a standing share of each agent team's capacity for maintenance, from the first release. Quarterly model and framework currency work, monthly drift review, red-team refresh, content reviews and recertification add up. Budget it per agent in the business case at intake, so "maintenance" is not discovered as an overrun (<a class="xref" data-ch="agent-development-lifecycle" data-sec="#intake" href="agent-development-lifecycle.html#intake">Chapter 34</a>). This book uses the same mechanism on itself: every dependency on something unfinished or fast-moving carries a trigger in <a class="xref" data-ch="appendix-register" href="appendix-register.html">Appendix H</a>.</p>
+
+<h2 id="services"><span class="n">40.11</span>Managed services across clouds</h2>
+<p><span class="tag gen">Generic</span> What each platform offers for keeping an agent current. Most of it is general-purpose (lifecycle pages, dependency scanning, access reviews); the agent-specific rows are online evaluation and inventory.</p>
+<div class="tw"><table>
+<thead><tr><th>Concern</th><th>Google Cloud</th><th>AWS</th><th>Microsoft Azure</th><th>Independent and open source</th></tr></thead>
+<tbody>
+<tr><td>Model lifecycle notices</td><td>Vertex AI model versions and retirement dates</td><td>Bedrock model lifecycle (Active, Legacy, end of life)</td><td>Foundry model retirements; deployment version-upgrade policy</td><td>Anthropic and OpenAI deprecation pages</td></tr>
+<tr><td>Dependency currency and advisories</td><td>Artifact Analysis; Assured Open Source Software</td><td>Amazon Inspector</td><td>GitHub Advanced Security for Azure DevOps; Defender for Cloud DevOps security</td><td>Dependabot; Renovate; OSV-Scanner</td></tr>
+<tr><td>Drift and quality monitoring</td><td>Agent Evaluation online monitors</td><td>AgentCore Evaluations online</td><td>Foundry continuous evaluation</td><td>Langfuse; Arize; Evidently</td></tr>
+<tr><td>Unused permissions</td><td>IAM role recommendations</td><td>IAM Access Analyzer unused access findings</td><td>Entra access reviews, including for agent identities</td><td>—</td></tr>
+<tr><td>Inventory and orphans</td><td>Agent Registry; Cloud Asset Inventory</td><td>AWS Agent Registry; AWS Config</td><td>Agent 365; Defender orphaned-agent detection; Entra Agent ID sponsors</td><td>ServiceNow AI Control Tower; your registry of record</td></tr>
+<tr><td>Retention and deletion</td><td>Cloud Storage lifecycle rules; Firestore TTL; Memory Bank expiry <span class="tag ver">Verify</span></td><td>S3 Lifecycle; DynamoDB TTL; AgentCore Memory time-to-live</td><td>Blob lifecycle management; Cosmos DB TTL</td><td>—</td></tr>
+</tbody></table></div>
+<div class="panel p-verify">
+  <span class="k">Check before quoting</span>
+  <p>Notice periods for model retirement differ by provider, model family and deployment type, and some deployments upgrade automatically unless told not to. Check the current lifecycle page and the deployment's upgrade setting for every pinned model before promising a client a migration window.</p>
+</div>
+
+<h2 id="fail"><span class="n">40.12</span>Failure modes</h2>
+<div class="tw"><table>
+<thead><tr><th>Failure</th><th>Counter</th></tr></thead>
+<tbody>
+<tr><td>Retirement notice discovered late</td><td>Registry of pins mapped to provider lifecycles</td></tr>
+<tr><td>Upgrade merged because tests compiled</td><td>Decision equivalence as the upgrade gate</td></tr>
+<tr><td>Stale knowledge, perfect citations</td><td>Content owners and review dates</td></tr>
+<tr><td>Living docs contradict decisions</td><td>Tests over living files</td></tr>
+<tr><td>Orphaned agents</td><td>Sponsors, reconciliation, suspension on orphaning</td></tr>
+<tr><td>Retirement by deletion</td><td>Retire in the registry; revoke; keep evidence</td></tr>
+</tbody></table></div>
+
+<h2 id="client"><span class="n">40.13</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"What does an agent cost after launch?"</strong> "Tokens, plus a standing maintenance load: model migrations, framework upgrades, drift review, content upkeep and recertification. Budget it per agent from the start."</li>
+    <li><strong>"How do we turn an agent off safely?"</strong> "Stop new sessions, drain or cancel the rest, revoke its identity everywhere, mark it retired in the registry, and keep its evidence. Deleting it is the one thing not to do first."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">40.14</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>Eight sources of change and how each is detected.</li>
+    <li><span class="lvl">Recall</span>D48's method and D53's policy in one sentence each.</li>
+    <li><span class="lvl">Apply</span>Write the migration plan for ARB's CRITICAL agent if <code>gemini-3.8-flash</code> is retired in 90 days.</li>
+    <li><span class="lvl">Design</span>A recertification template for an AICoE, with cadence by tier.</li>
+    <li><span class="lvl">Trade-off</span>Recertify on a calendar against recertify on change only, for a MEDIUM agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>an unchanged agent still changes</em> · <em>a retired model is not a rollback target</em> · <em>retire, don't delete</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">40.15</span>Further reading</h2>
+<ul>
+  <li><b>Papers.</b> Sculley et al., "Hidden Technical Debt in Machine Learning Systems" (NeurIPS 2015).</li>
+  <li><b>Books.</b> Google, <cite>Site Reliability Engineering</cite> (2016) and <cite>The Site Reliability Workbook</cite> (2018), on toil and planned operational work.</li>
+  <li><b>Provider documentation.</b> Model lifecycle and deprecation pages for Gemini on GEAP, Amazon Bedrock and Azure OpenAI / Foundry; Microsoft Entra Agent ID (sponsors and lifecycle workflows).</li>
+  <li><span class="tag own">Your builds</span> ARB D48, D50, D53, D57, D66, <code>tests/test_living_docs.py</code>; pm-agent <code>make eval-drift</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="evaluation-simulation-optimization.html"><small>Previous</small>39 · Evaluation, simulation and optimization</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="google-cloud.html"><small>Next</small>41 · Google Cloud: Gemini Enterprise Agent Platform</a>
+</nav>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>45 · Across platforms: capability map and governance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..800;1,8..60,400&display=swap">
+<link rel="stylesheet" href="book.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="index.html">Architect's Field Guide</a>
+  <a href="index.html#contents">Contents</a>
+  <span class="sp"></span>
+  <span class="muted part-label">Part VII · Platforms and tools</span>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="In this chapter">
+  <div class="t">Chapter 45</div>
+  <ol>
+    <li><a href="#problem">No platform sees the others</a></li>
+    <li><a href="#map">The capability map</a></li>
+    <li><a href="#pattern">Centralise, federate, normalise, prove</a></li>
+    <li><a href="#registry">The registry of record</a></li>
+    <li><a href="#policy">Policy portability</a></li>
+    <li><a href="#evidence">Evidence normalisation</a></li>
+    <li><a href="#identity">Identity across platforms</a></li>
+    <li><a href="#portable">How portable to be</a></li>
+    <li><a href="#cadence">Keeping the map current</a></li>
+    <li><a href="#client">In the room</a></li>
+    <li><a href="#prove">Prove it</a></li>
+    <li><a href="#deeper">Further reading</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="chead">
+  <div class="num">PART VII · CHAPTER 45</div>
+  <h1>Across platforms: capability map and governance</h1>
+  <p class="lede">A large enterprise does not choose one agent platform; it ends up with several. This chapter puts the platforms side by side on one capability map, says where each leads and lags as of October 2026, and then gives the architecture for governing across them: centralise the rules, the registry and the evidence; federate enforcement to each platform's native points and to your own gateways; normalise what comes back; and prove, with tests, that the layers decide the same way.</p>
+  <div class="meta">
+    <div><b>Lane</b><span>LANDSCAPE · CLIENT</span></div>
+    <div><b>Reps</b><span>Capstone B3 · GF-4</span></div>
+    <div><b>Build links</b><span>ARB D22 (policy parity), D32 (portability), D51 (decision equivalence), D53 (gateways), D59 (reconciliation), D63 (AGT)</span></div>
+    <div><b>Read</b><span>~45 min</span></div>
+    <div><b>Facts as of</b><span>2026-10-21</span></div>
+  </div>
+</div>
+
+<div class="panel p-predict">
+  <span class="k">Predict first</span>
+  <ol>
+    <li>Your refund rule is enforced in AgentCore Policy for one agent and in your Rego PDP for another. How do you know they mean the same thing?</li>
+    <li>Three platforms each keep an agent registry. Which one is right when they disagree?</li>
+    <li>Should a GCP-standard AICoE make its agents portable to AWS?</li>
+  </ol>
+</div>
+
+<h2 id="problem"><span class="n">45.1</span>No platform sees the others</h2>
+<p><span class="tag gen">Generic</span> Each platform's governance stops at its edge: GEAP's registry lists GEAP agents, Agent 365 lists the Microsoft tenant's agents, AWS Agent Registry lists what is registered in AWS, and SaaS vendors list their own. Several now offer to register "agents from anywhere" (Foundry Control Plane, ServiceNow AI Control Tower, IBM's control plane), but registration is voluntary and enforcement still happens platform by platform. A CISO's question, "which agents can reach customer data, and who approved them?", spans all of them.</p>
+
+<h2 id="map"><span class="n">45.2</span>The capability map</h2>
+<p>As of October 2026, from each vendor's documentation and announcements (Parts VI and VII give sources). Legend: <strong>●</strong> GA and strong; <strong>◐</strong> present, preview or partial; <strong>○</strong> absent or not documented. <span class="tag asm">Assumption</span> the ratings are the author's judgement.</p>
+<div class="tw"><table>
+<thead><tr><th>Capability</th><th>Google GEAP</th><th>AWS</th><th>Microsoft</th><th>Data platforms</th><th>SaaS (Agentforce, ServiceNow)</th></tr></thead>
+<tbody>
+<tr><td colspan="6"><b>Build</b></td></tr>
+<tr><td>Code-first framework</td><td>● ADK</td><td>● Strands; any on Runtime</td><td>● Agent Framework</td><td>◐ Agent Bricks; Cortex Agents</td><td>◐ Agent Script; agent studios</td></tr>
+<tr><td>Low-code or no-code</td><td>● Agent Studio; Agent Designer</td><td>◐ Amazon Quick</td><td>● Copilot Studio</td><td>◐ Genie Agents; Snowflake Intelligence</td><td>● Agentforce Builder</td></tr>
+<tr><td>First-party frontier models</td><td>● Gemini</td><td>◐ Nova; partners</td><td>● OpenAI, MAI; partners</td><td>○ partners</td><td>◐ Koa (pilot); partners</td></tr>
+<tr><td>Managed harness</td><td>◐ Managed Agents API</td><td>● Harness</td><td>◐ hosted agents</td><td>◐</td><td>● native</td></tr>
+<tr><td colspan="6"><b>Scale</b></td></tr>
+<tr><td>Managed runtime, long runs</td><td>● Agent Runtime (7 days)</td><td>● Runtime</td><td>◐ hosted agents, Routines</td><td>◐ Apps</td><td>● native; long-horizon (Nov)</td></tr>
+<tr><td>Memory service</td><td>● Memory Bank</td><td>● Memory</td><td>◐ memory (preview)</td><td>◐</td><td>◐</td></tr>
+<tr><td>Code and computer-use sandboxes</td><td>● Sandbox</td><td>● Code Interpreter, Browser</td><td>◐</td><td>◐ code execution</td><td>○</td></tr>
+<tr><td colspan="6"><b>Tools and integration</b></td></tr>
+<tr><td>Tool and MCP gateway</td><td>● Agent Gateway</td><td>● Gateway</td><td>● API Management</td><td>◐ Unity AI Gateway; Cortex AI Gateway</td><td>◐ ServiceNow AI Gateway</td></tr>
+<tr><td>Agent payments</td><td>◐ AP2, UCP (protocols)</td><td>● Payments</td><td>○</td><td>○</td><td>◐ commerce flows</td></tr>
+<tr><td colspan="6"><b>Govern</b></td></tr>
+<tr><td>Per-agent identity</td><td>● Agent Identity (SPIFFE, DPoP)</td><td>● AgentCore Identity</td><td>● Entra Agent ID</td><td>◐ verified agent identity</td><td>◐ platform users</td></tr>
+<tr><td>Identity lifecycle (sponsors, reviews, conditional access)</td><td>◐</td><td>◐</td><td>● Entra, Agent 365</td><td>◐</td><td>◐ Veza (ServiceNow)</td></tr>
+<tr><td>Deterministic tool-call policy on arguments</td><td>◐ destinations only (CEL); extension hook</td><td>● Policy (Cedar, Dogwood)</td><td>◐ APIM expressions; ACS spec</td><td>◐ caps and guardrails</td><td>◐ deterministic paths</td></tr>
+<tr><td>Model-judged policy</td><td>◐ semantic governance (pre-GA)</td><td>◐ Guardrails in Policy</td><td>◐ task adherence</td><td>◐</td><td>◐</td></tr>
+<tr><td>Content and injection screening</td><td>● Model Armor</td><td>● Guardrails (any model)</td><td>● Content Safety, Prompt Shields</td><td>◐ gateway guardrails</td><td>● trust layers</td></tr>
+<tr><td>Agent registry</td><td>● Agent Registry</td><td>● Agent Registry</td><td>● Agent 365; Foundry assets</td><td>◐ catalogues</td><td>● AI Control Tower (ServiceNow)</td></tr>
+<tr><td>Estate-wide discovery beyond own platform</td><td>○</td><td>○</td><td>● Agent 365, Defender</td><td>○</td><td>● AI Control Tower</td></tr>
+<tr><td>Data-loss prevention for agents</td><td>◐ Model Armor, VPC-SC</td><td>◐ Guardrails PII</td><td>● Purview</td><td>● native permissions</td><td>◐</td></tr>
+<tr><td>Tamper-evident decision evidence</td><td>○</td><td>○</td><td>○</td><td>○</td><td>○</td></tr>
+<tr><td>Sign-off bound to configuration</td><td>○</td><td>◐ configuration bundles</td><td>◐ versioned guardrail policies</td><td>◐ versions, aliases</td><td>○</td></tr>
+<tr><td colspan="6"><b>Optimize</b></td></tr>
+<tr><td>Offline and online evaluation</td><td>● evaluation, online monitors</td><td>● Evaluations</td><td>◐ evaluations (preview), continuous eval</td><td>● Cortex Evaluations; MLflow</td><td>● testing, scorers</td></tr>
+<tr><td>User simulation</td><td>● Simulation</td><td>◐ performance loop</td><td>◐ ASSERT, red teaming</td><td>○</td><td>◐ persona testing (beta)</td></tr>
+<tr><td>Optimizer and A/B</td><td>◐ Optimizer; traffic split (preview)</td><td>● recommendations, A/B</td><td>◐ announced</td><td>○</td><td>● optimizer; A/B (beta)</td></tr>
+</tbody></table></div>
+<p>Two rows are empty across the board, and they are the core of your reference build: <strong>tamper-evident decision evidence</strong> and <strong>sign-off bound to configuration</strong>. A third, deterministic policy over <em>trusted facts</em> (not just arguments), is absent everywhere too; even AgentCore Policy decides on what the agent asserted. These are the gaps a client framework and toolkit must fill on any platform (<a class="xref" data-ch="capstone-b" href="capstone-b.html">Chapter 53</a>).</p>
+
+<h2 id="pattern"><span class="n">45.3</span>Centralise, federate, normalise, prove</h2>
+<figure>
+<div class="fx">
+<svg viewBox="0 0 900 340" role="img" aria-label="Governing across platforms. A central hub holds the rulebook and catalog, the registry of record, the evidence store and the lifecycle gate. Spokes go to GEAP (Agent Gateway, IAM access policies, Model Armor, service extension to your PDP), AWS (AgentCore Gateway and Policy, Guardrails), Microsoft (API Management, Entra Agent ID, Purview, Agent 365), and SaaS platforms (configuration and identity inside; your gateway on calls leaving). Policies flow out as translated rules with parity tests; evidence and inventory flow back, normalised. A shared checkpoint (your gateway and PDP with trusted facts) sits in front of the systems that matter.">
+  <defs><marker id="a45" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+  <rect class="box-acc" x="320" y="110" width="260" height="120" rx="10"/>
+  <text class="tx-acc" x="450" y="136" text-anchor="middle">Central (yours)</text>
+  <text class="tx-s" x="450" y="158" text-anchor="middle">rulebook and catalog</text>
+  <text class="tx-s" x="450" y="176" text-anchor="middle">registry of record · gate</text>
+  <text class="tx-s" x="450" y="194" text-anchor="middle">evidence store (normalised)</text>
+  <text class="tx-s" x="450" y="212" text-anchor="middle">parity and equivalence tests</text>
+  <rect class="box" x="20" y="20" width="250" height="80" rx="6"/>
+  <text class="tx-b" x="145" y="44" text-anchor="middle">GEAP</text>
+  <text class="tx-s" x="145" y="64" text-anchor="middle">Agent Gateway · access policies</text>
+  <text class="tx-s" x="145" y="82" text-anchor="middle">Model Armor · extension → your PDP</text>
+  <rect class="box" x="630" y="20" width="250" height="80" rx="6"/>
+  <text class="tx-b" x="755" y="44" text-anchor="middle">AWS</text>
+  <text class="tx-s" x="755" y="64" text-anchor="middle">AgentCore Gateway and Policy</text>
+  <text class="tx-s" x="755" y="82" text-anchor="middle">Guardrails · Identity</text>
+  <rect class="box" x="20" y="240" width="250" height="80" rx="6"/>
+  <text class="tx-b" x="145" y="264" text-anchor="middle">Microsoft</text>
+  <text class="tx-s" x="145" y="284" text-anchor="middle">API Management · Entra Agent ID</text>
+  <text class="tx-s" x="145" y="302" text-anchor="middle">Purview · Agent 365</text>
+  <rect class="box" x="630" y="240" width="250" height="80" rx="6"/>
+  <text class="tx-b" x="755" y="264" text-anchor="middle">SaaS and data platforms</text>
+  <text class="tx-s" x="755" y="284" text-anchor="middle">configuration and identity inside</text>
+  <text class="tx-s" x="755" y="302" text-anchor="middle">your gateway on calls leaving</text>
+  <line class="ln" x1="270" y1="70" x2="316" y2="130" marker-start="url(#a45)" marker-end="url(#a45)"/>
+  <line class="ln" x1="630" y1="70" x2="584" y2="130" marker-start="url(#a45)" marker-end="url(#a45)"/>
+  <line class="ln" x1="270" y1="270" x2="316" y2="210" marker-start="url(#a45)" marker-end="url(#a45)"/>
+  <line class="ln" x1="630" y1="270" x2="584" y2="210" marker-start="url(#a45)" marker-end="url(#a45)"/>
+  <text class="tx-s" x="450" y="40" text-anchor="middle">rules out (translated, with parity tests)</text>
+  <text class="tx-s" x="450" y="58" text-anchor="middle">inventory and evidence back (normalised)</text>
+  <rect class="box-ok" x="330" y="260" width="240" height="60" rx="6"/>
+  <text class="tx-ok" x="450" y="284" text-anchor="middle">Shared checkpoint</text>
+  <text class="tx-s" x="450" y="304" text-anchor="middle">your gateway + PDP with trusted facts</text>
+  <line class="ln-acc" x1="450" y1="230" x2="450" y2="256"/>
+</svg>
+</div>
+<figcaption><b>Fig 45.1</b>Central rules, registry, evidence and gate; federated enforcement through each platform's native points; one shared checkpoint in front of the systems that matter most.</figcaption>
+</figure>
+<ol>
+  <li><strong>Centralise</strong> what must be one thing: the catalog of controls and their semantics, the tiering, the registry of record, the evidence store and the release gate.</li>
+  <li><strong>Federate</strong> enforcement: for each control and each platform, name the enforcement point, native where it meets the control's contract, your gateway or PDP where it does not (the mapping tables in the previous three chapters).</li>
+  <li><strong>Normalise</strong> what comes back: inventory, decision logs and traces, into one schema with provenance labels.</li>
+  <li><strong>Prove the layers agree</strong>: run the same golden and adversarial cases through every enforcement path and compare decisions. ARB does this at small scale already: OPA against Cedar (D22), in-process against framework hosts behind gateways (D51, D53), direct against FastMCP gateways (D32).</li>
+</ol>
+<p>And add one <strong>shared checkpoint</strong> in front of the systems that matter most (payments, customer records, HR): your gateway and PDP with trusted facts, which every platform's agents must pass. It is the one enforcement point you fully control, and it makes the platform mix matter less for the highest-risk effects.</p>
+
+<h2 id="registry"><span class="n">45.4</span>The registry of record</h2>
+<p>The second prediction question: none of them by default. Choose a registry of record explicitly and reconcile the others into it:</p>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Strength</th><th>Weakness</th></tr></thead>
+<tbody>
+<tr><td>The dominant platform's registry (for example Agent 365 in a Microsoft-heavy estate)</td><td>Native identity and lifecycle integration</td><td>Other platforms' agents are second-class</td></tr>
+<tr><td>An IT service and risk platform (ServiceNow AI Control Tower, IBM)</td><td>Risk workflows, approvals, CMDB linkage</td><td>Enforcement still elsewhere</td></tr>
+<tr><td>Your own (as in ARB's CTL-0023)</td><td>Exactly your schema; feeds your gate and enforcement</td><td>You build and run it</td></tr>
+</tbody></table></div>
+<p>Whichever you choose, reconcile on a schedule by <em>resolved subject</em>, not by display name, and treat orphans, maker-credential agents and unauthenticated agents as findings (D59).</p>
+
+<h2 id="policy"><span class="n">45.5</span>Policy portability</h2>
+<p><span class="tag gen">Generic</span> Each platform speaks a different policy language: Cedar and Dogwood (AWS), CEL in IAM access policies (Google), API Management policy expressions (Microsoft), ACS policy YAML (Microsoft's open specification), Rego or Cedar in your PDP. The first prediction question's answer is the same as within your build: author the rule once, in your catalog's terms, translate it per platform, and keep a <strong>parity test</strong> that runs the same cases against every translation. ARB's OPA/Cedar parity suite (every golden refund, boundary case, read and fixture order) and its AGT parity spike (D63, which found rules AGT could not express) are the template. A translation that cannot pass parity is a finding, not a deployment.</p>
+
+<h2 id="evidence"><span class="n">45.6</span>Evidence normalisation</h2>
+<ul>
+  <li><strong>One decision schema</strong>: subject, agent, version digest, action, inputs (minimised), facts read, rule and control ids, decision, enforcement point, platform, timestamp, provenance.</li>
+  <li><strong>Provenance labels</strong>: your chained and signed records versus imported platform logs; the second kind is useful but weaker, and reports should say which is which.</li>
+  <li><strong>Traces</strong> in OpenTelemetry with the GenAI semantic conventions, joined to decisions by run and step ids (<a class="xref" data-ch="observability-agentops" href="observability-agentops.html">Chapter 31</a>).</li>
+  <li><strong>Catalog ids namespaced</strong> by catalog, so two builds' CTL-0020 cannot be confused (finding F-02).</li>
+</ul>
+
+<h2 id="identity"><span class="n">45.7</span>Identity across platforms</h2>
+<p>Each platform issues its own agent identities (SPIFFE-based Agent Identity, Entra Agent ID, AgentCore Identity). Cross-platform calls need federation: workload identity federation between clouds, OAuth on-behalf-of flows for user delegation, and signed A2A agent cards between agents. Above them, your directory resolves every identity to one subject, as ARB's D33 resolves many spellings to one subject; that resolved subject is what the registry, the PDP and the evidence use (<a class="xref" data-ch="identity-delegation" href="identity-delegation.html">Chapter 18</a>).</p>
+
+<h2 id="portable"><span class="n">45.8</span>How portable to be</h2>
+<p>The third prediction question: build on one platform, govern across all. A GCP-standard AICoE gains most by building its own agents on GEAP well, and keeping three things portable because they are its own: the rulebook and catalog, the evidence and registry, and the enforcement logic behind seams and gateways. Full portability of every agent costs a lot and is rarely exercised. ARB's design shows the cheap version that pays: seams and an import firewall, gateways that any framework can reach, and decision-equivalence tests, so that moving is a measured change rather than a rewrite (<a class="xref" data-ch="chassis-seams-tests" href="chassis-seams-tests.html">Chapter 7</a>).</p>
+
+<h2 id="cadence"><span class="n">45.9</span>Keeping the map current</h2>
+<p>The capability map above was true for about a quarter. Treat it as a living document: re-verify it quarterly against release notes (this book's register lists it), and adopt a native feature only when it meets the control's contract and passes the control's falsifiers on that platform (<a class="xref" data-ch="proving-controls-fire" href="proving-controls-fire.html">Chapter 24</a>). A native feature that is easier but weaker is a decision to record, not a default.</p>
+
+<h2 id="client"><span class="n">45.10</span>In the room</h2>
+<div class="panel p-client">
+  <span class="k">In the room</span>
+  <ul>
+    <li><strong>"We're on three clouds and two SaaS platforms. Can one product govern all our agents?"</strong> "Discovery and inventory, nearly. Enforcement, no. Keep one rulebook, one registry of record and one evidence store; enforce through each platform's native points plus your own checkpoint in front of the systems that matter; and test that the platforms decide alike."</li>
+    <li><strong>"Which platform governs agents best?"</strong> "It depends on the job: Microsoft for estate identity and data protection, AWS for deterministic tool policy, Google for agent identity design and the model path. None provides tamper-evident decision evidence or configuration-bound sign-off; those are yours everywhere."</li>
+  </ul>
+</div>
+
+<h2 id="prove"><span class="n">45.11</span>Prove it</h2>
+<div class="panel p-prove">
+  <span class="k">Defend cold · Capstone B3</span>
+  <ol class="q">
+    <li><span class="lvl">Recall</span>The four verbs of the cross-platform pattern and one mechanism for each.</li>
+    <li><span class="lvl">Recall</span>The three rows that are empty for every platform.</li>
+    <li><span class="lvl">Apply</span>Write a parity test plan for CTL-0001 enforced in Rego, AgentCore Policy and a GEAP service extension.</li>
+    <li><span class="lvl">Design</span>A registry-of-record decision for a client with Microsoft 365, AWS and Salesforce, with reconciliation flows.</li>
+    <li><span class="lvl">Trade-off</span>Native platform enforcement against a shared checkpoint for a CRITICAL payments agent.</li>
+  </ol>
+  <p class="small">Card candidates: <em>centralise, federate, normalise, prove</em> · <em>no platform gives tamper-evident decisions</em> · <em>build on one, govern across all</em>.</p>
+</div>
+
+<h2 id="deeper"><span class="n">45.12</span>Further reading</h2>
+<ul>
+  <li>The three platform chapters before this one, and their sources.</li>
+  <li><b>Standards.</b> OpenTelemetry GenAI semantic conventions; A2A 1.0 (signed agent cards); the Cedar and CEL language references.</li>
+  <li><span class="tag own">Your builds</span> ARB D22, D32, D51, D53, D59, D63; <code>tests/test_policy_parity.py</code>, <code>test_framework_hosts.py</code>, <code>test_gateway_equivalence.py</code>.</li>
+</ul>
+
+<nav class="pager" aria-label="Chapters">
+  <a href="data-saas-model-platforms.html"><small>Previous</small>44 · Data, SaaS and model-provider platforms</a>
+  <a href="index.html#contents"><small>Contents</small>All chapters</a>
+  <a href="tool-landscape.html"><small>Next</small>46 · The independent tool landscape and build vs buy</a>
+</nav>
+</main>
+</div>
+</body>
+</html>
