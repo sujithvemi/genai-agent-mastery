@@ -2,6 +2,8 @@
 
 **Updated:** 2026-10-16 · **Priority:** Part A (tools your builds use) is part of the OWN lane; Part B (other market tools) is low priority, about one lab every 2 weeks or a bonus slot. **Goal:** for each architecture component, you have run the leading tools yourself at least once, can compare them from experience, and know when you'd pick which. Depth stays at "hello-world plus one real integration"; mastery comes from the OWN and SYSTEMS lanes.
 
+**📖 Field guide:** Ch46 is the component map and the build-vs-buy method (§46.5); Ch35–37 frame frameworks, tools and sandboxes, and runtimes; Appendix I maps each managed service across Google Cloud, AWS and Microsoft. Read the component's chapter before its lab (📖 column in `NEXT.md`).
+
 ## How labs work (one target, many tools)
 - Every lab instruments the **same small target**: your own `agents/hello_agent` in genai-agent-mastery, grown into a 2-tool ADK agent (Capstone A's agent once it exists). One target means every tool comparison is like-for-like.
 - Each component gets a **bake-off**: 2–4 tools wired to the same target, then one row per tool in `labs/<component>/COMPARISON.md`: setup time, what it showed you, what it couldn't, cost model, when you'd pick it.

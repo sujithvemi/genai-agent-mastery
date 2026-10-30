@@ -1,6 +1,7 @@
 # Comprehension Map — your debt ledger for the two builds
 
-**Updated:** 2026-10-26 (weekly sync). Rate each module after a rep touches it. Leave ⬜ until then — honest beats optimistic.
+**Updated:** 2026-10-30 (rows added from field guide Appendix G, L-02). Rate each module after a rep touches it. Leave ⬜ until then — honest beats optimistic.
+**Explanations:** the field guide chapter for each module is in `maps/fieldguide_map.md` and on the rep's 📖 line. The chapter helps you reach **E**; only a rep proves it.
 
 | Rating | Means | Test |
 |---|---|---|
@@ -40,7 +41,9 @@ Target by 2026-12-13: shared core all **E**, chokepoint + evidence chain + tieri
 | Gateways (model + network tool) | `gateways/` (1,741), `platform/gateway` (1,122) | One enforcement path for any framework (E3) | ⬜ |
 | A2A | `platform/a2a`, `enforcement/a2a_wiring.py` | Agent-to-agent governed edges | ⬜ |
 | Evidence anchoring + signing | `evidence/anchoring.py`, `platform/signing.py`, `platform/signing_kms.py` (148, new E4-S3), `platform/anchor` | Ed25519 / Cloud KMS, GCS anchor (E4) | ⬜ |
-| Approval UI | `approval_ui/` (1,110) | Human trust boundary (E4) | ⬜ |
+| Approval UI | `approval_ui/` (1,110) | Human trust boundary (E4): what the approver sees, what a click binds to, why the console is a trust boundary, fatigue signals (D43) — Ch19, R30 | ⬜ |
+| Gateway result integrity (D63) | `gateways/`, `platform/gateway` | At a network boundary the gateway owns issued-call, in-order and expiring semantics, stricter than in process — Ch5 §5.2, Ch20 §20.9, Ch47 | ⬜ |
+| Classifier review queue (CTL-0025 exception path) | `enforcement/classifier_gate.py`, `platform/classifier/` | A HOLD is released per item by a human reviewer from the review queue (recorded, SoD), never by a standing waiver — Ch20 §20.6, Ch24 | ⬜ |
 | GCP bindings | `infra/gcp/`, `platform/{model,state,screening}` | Vertex, Firestore, Model Armor (E4) | ⬜ |
 | Evidence pack, config digest, sign-off | `governance/{evidence_pack,config_digest,signoff}.py` (`evidence_pack.py` 787; GR1-U1/F1: the pack now discloses what it does not show) | GTM demo assurance | ⬜ |
 | Demo harness | `demo/` (2,643; + `portability` beat GR1-U1: ADK / LangGraph / OpenAI Agents SDK on one screen) | The GTM demo you'll present — GR1 self-test R37 | ⬜ |

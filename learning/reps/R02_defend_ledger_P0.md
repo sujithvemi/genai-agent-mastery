@@ -1,6 +1,7 @@
 # R02 · DEFEND · Ledger P0 — seams, the do-nothing chokepoint, evidence
 
 **Lane:** OWN · **Source:** `aicoe-reference-build/docs/LEARNING_LEDGER.md` → section **P0** · **Time:** 25 min
+**📖 Read (consume):** [Ch7 The chassis](../fieldguide/chassis-seams-tests.html#why) §7.1–7.4 and [Ch22 The evidence plane](../fieldguide/evidence-plane.html#record) §22.1–22.3 — ideally the day before; close the book before step 2 so your answers stay cold. [Ch7 Prove it](../fieldguide/chassis-seams-tests.html#prove) is extra practice afterwards.
 
 1. Read only the **Concepts** list for P0 (2 min). Do **not** open the `<details>` model answers.
 2. Answer the 3 self-test questions **cold**, below, in your own words (15 min). Bullet points are fine.

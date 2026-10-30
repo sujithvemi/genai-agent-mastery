@@ -1,6 +1,6 @@
 # Resource Registry — every saved resource, one verdict each
 
-**Updated:** 2026-10-13 · **Rule:** a resource earns time only through a rep. Nothing here is a "someday read".
+**Updated:** 2026-10-30 · **Rule:** a resource earns time only through a rep. Nothing here is a "someday read".
 
 | Verdict | Meaning |
 |---|---|
@@ -92,6 +92,7 @@ Surveyed by sender over ~10 months; older pages not exhaustive. Topic for lesser
 
 | Item | Verdict |
 |---|---|
+| `learning/fieldguide/` — *Architect's Field Guide*, edition 1 (55 chapters, appendices A–I, PDF) | **CORE** — the consume step for every rep (L-23). Appendix E lists the further reading behind each chapter; anything there that is not in this registry earns time only through a rep (R7) |
 | `Governance/_Agentic_Governance_Mastery/library/L0…L9` guides | **PICK** — the per-layer index you search when a gap needs a resource |
 | Learning Ledgers in both repos | **CORE** — the Defend reps |
 | `Learning_Methodology.md` (Socratic + consume-first) | **CORE** — how rep sessions are coached |

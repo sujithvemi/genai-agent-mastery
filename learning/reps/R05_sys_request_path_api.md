@@ -1,6 +1,7 @@
 # R05 · SYSTEMS · SD-01 + SD-02 — the request path and the run API
 
 **Lane:** SYSTEMS · **Repo:** project_management_building_agent (PM) · **Time:** 40 min · **Output:** sections §1 and §2 of `design/pm-agent-at-scale.md`
+**📖 Read (consume):** [Ch25 Edge, request path and API design](../fieldguide/edge-api-design.html#path) §25.1–25.6 is the default **Learn** pick (§25.3 reads pm-agent's run API closely — open it after "Read your code"). Its [managed-services table](../fieldguide/edge-api-design.html#services) helps with §1 on GCP.
 
 ## Predict (5 min)
 A user in team A clicks "plan this epic". Before opening anything, write the hops from the browser to the first model call **in production on GCP** (not today's laptop setup). Where is TLS terminated? Where is the user authenticated? Which component could reject the request for rate limit? What does the client get back immediately, given a run takes up to 2 minutes?
@@ -14,6 +15,7 @@ A user in team A clicks "plan this epic". Before opening anything, write the hop
 > _Answers:_
 
 ## Learn (15 min, pick ONE)
+- **Field guide Ch25 §25.1–25.6** (default — written against your own code), *or*
 - Hello Interview — core concepts: API gateway + load balancer, *or*
 - Backend from first principles — the HTTP / REST video, *or*
 - Postman API Design — the async API / long-running operations video.

@@ -3,6 +3,7 @@
 **Added:** 2026-10-18 · **Requested by:** the portfolio strategy thread (S-21 handoff) · **Budget:** the learning/misc reserve (S-14: 15–20%, never below 10%), outside the 3 OWN : 2 SYSTEMS : 1 MODEL cycle.
 **Why:** before building pm-agent's next releases, know what the tools in each corner of its market map do, so pm-agent integrates the strong ones instead of out-drafting them.
 **Matrix (source of truth, dated, cited):** `Governance Local/_portfolio-strategy/inbox/landscape_matrix_2026-10-18.md`. Read its "Strategy-relevant" table first.
+**📖 Field guide frame:** Ch6 §6.5–6.6 (pm-agent as a meta-harness), Ch34 (the agent development lifecycle), Ch44 §44.4 (the SaaS-agent problem), Ch46 (independent tools, build vs buy). The book does not cover these products by name; the matrix stays the source.
 
 ## Rules
 - **Glance first:** about 15–20 minutes per tool, grouped into one rep per category (40–60 min). You read the matrix row, open the tool's own page, and fill the per-tool card below.

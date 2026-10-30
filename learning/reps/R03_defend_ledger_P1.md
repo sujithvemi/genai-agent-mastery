@@ -2,6 +2,7 @@
 
 **Lane:** OWN · **Source:** `aicoe-reference-build/docs/LEARNING_LEDGER.md` → section **P1** · **Time:** 25 min
 **Bonus anchor (optional, 5 min):** `tests/test_customer_service_ops.py::test_the_agent_refunds_whatever_it_is_scripted_to_refund` — read it; it is P1's whole thesis as a test.
+**📖 Read (consume):** [Ch16 §16.1 An instruction is not a control](../fieldguide/governed-action.html#instruction) and [Ch11 What governance must do when software acts](../fieldguide/governance-when-software-acts.html#acts) §11.1–11.3 — ideally the day before; close the book before you answer. [Ch11 Prove it](../fieldguide/governance-when-software-acts.html#prove) afterwards.
 
 Same protocol as R02: concepts (2 min) → 3 questions cold → model answers → ✅/🟨/❌ → grade → update ledger status.
 

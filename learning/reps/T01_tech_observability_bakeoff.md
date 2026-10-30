@@ -1,6 +1,7 @@
 # T01 · TECH · Observability bake-off, part 1 — Langfuse vs Arize Phoenix
 
 **Lane:** TECH (low priority / bonus slot) · **Repo:** genai-agent-mastery (your hand-written code) · **Time:** 60–90 min · **Needs:** Docker Desktop running
+**📖 Read (consume):** [Ch31 §31.3 OpenTelemetry for agents](../fieldguide/observability-agentops.html#otel) and [§31.9 AgentOps tools](../fieldguide/observability-agentops.html#tools), plus [Ch46 §46.2](../fieldguide/tool-landscape.html#map) — before Step 2. Check current free-tier terms yourself [Verify].
 
 ## Step 0 — Predict (5 min)
 Your ARB already sends OpenTelemetry traces to Langfuse. Before starting: what does a trace of one agent turn contain (spans for what?), and what would make one observability tool better than another for an *agent* rather than a web app?

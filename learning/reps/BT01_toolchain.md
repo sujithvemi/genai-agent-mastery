@@ -1,6 +1,7 @@
 # BT01 · OWN · Rebuild — the Python toolchain both builds stand on
 
 **Lane:** OWN · Rebuild (build-tool lab) · **Where:** `genai-agent-mastery/labs/build-tools/toolchain/` · **Time:** 45 min · **Claude:** answers questions only, writes nothing
+**📖 Read (consume):** [Ch7 The chassis](../fieldguide/chassis-seams-tests.html#why) §7.1 and §7.7–7.9 — why the builds' toolchain is strict (tests that guard the governance, falsifiers, pinned baselines). The tools' own docs stay the source for Step 1.
 
 ## Step 0 — Predict (3 min)
 Both builds run `make check` = ruff + mypy strict + pytest. Before starting: what does each of those catch that the others don't? Why would a governance build pin mypy to *strict*?

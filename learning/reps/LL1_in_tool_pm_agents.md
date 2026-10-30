@@ -1,6 +1,7 @@
 # LL1 · LANDSCAPE · In-tool PM agents — what Jira, Linear and Notion agents already do
 
 **Lane:** LANDSCAPE (reserve budget) · **Time:** 45 min · **Output:** `frameworks/landscape/in_tool_pm_agents.md`
+**📖 Read (consume):** [Ch6 §6.5–6.6](../fieldguide/orchestration-meta-harness.html#meta) (pm-agent as a meta-harness) and [Ch44 §44.4 The SaaS problem](../fieldguide/data-saas-model-platforms.html#problem) — the frame for judging in-tool agents. The book does not cover these products by name; the dated matrix stays the source.
 
 ## Step 0 — Predict (3 min)
 Before reading: which of pm-agent's jobs (status report, backlog hygiene, PRD upkeep, release notes, drift detection) do you expect Jira's Rovo agents to already cover? Which do you expect none of them to cover?

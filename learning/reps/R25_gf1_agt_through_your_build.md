@@ -2,6 +2,7 @@
 
 **Lane:** OWN (governance frameworks track) · **Repo:** aicoe-reference-build (ARB) · **Time:** 40 min · **Claude needed:** no
 **Why now:** "Why not just use Microsoft's toolkit?" is the first build-vs-buy question a client or GTM will ask. Your build already ran the experiment; this rep makes the answer yours.
+**📖 Read (consume):** [Ch47 Microsoft AGT through your build](../fieldguide/agt-through-your-build.html#model) §47.2–47.6 — after Step 0. Open [§47.7 The mapping table](../fieldguide/agt-through-your-build.html#map) only after you have filled in your own in Step 3. Platform facts in the chapter are dated 2026-10-21; per D63, quote the version your spike pinned, not the latest release.
 
 ## Step 0 — Predict (5 min)
 Without opening anything: what would you expect a vendor OSS toolkit's policy language to handle well, and where would you expect it to struggle compared with Rego? If it could only express *some* of your controls, how would you wire it so that it could never weaken enforcement?
