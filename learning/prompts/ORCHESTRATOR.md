@@ -14,6 +14,10 @@ and the newest Radar_*.md in Governance/_Agentic_Governance_Mastery/research/bri
    revise that chapter in learning/fieldguide/ (the code wins; date the fact), run `python build.py` (and `python tools/make_pdf.py`),
    republish to the same link (https://claude.ai/artifact/A18JhEfBV1x2tEKkXBeFmg) and record it in Appendix G or H. One chapter per
    check-in unless I ask for more.
-5. Anything in the system that is not working — propose one change max. Lanes, rules and layout are fixed (L-11); content is re-synced weekly while the builds are active.
+5. Capability gap register (maps/capability_gap_register.md): check its gate (Defended chapters in maps/fieldguide_map.md ≥ 40, or R01–R48 all Done,
+   or I said "open the capability register"; or one item marked `pulled`). If open or pulled: for the next P1 item, first refresh the prior work it
+   depends on (Governance/repos/project_repos_reference, P-1…P-5 — dates, market changes; re-derive picks generically, keep the learning repo synthetic, L-27),
+   then write its field guide edition-2 material, rebuild, republish, and set the item to `book` so the weekly sync can promote it. One item per check-in.
+6. Anything in the system that is not working — propose one change max. Lanes, rules and layout are fixed (L-11); content is re-synced weekly while the builds are active.
 Do the file edits yourself; give me the git command.
 ```

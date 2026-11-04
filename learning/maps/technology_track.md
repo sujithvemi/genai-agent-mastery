@@ -54,7 +54,7 @@ Inventory taken from both builds' `pyproject.toml`, Dockerfiles, compose files, 
 | TC-07 | **Guardrails & content safety** | ★ Model Armor ✅ · ★ NeMo Guardrails · ★ Llama Guard · Guardrails AI · Microsoft Presidio (PII) · Azure AI Content Safety · Bedrock Guardrails · Lakera | Model Armor (E4), own guardrails | T04 |
 | TC-08 | **Policy & authorization** | ★ OPA/Rego ✅ · ★ Cedar ✅ · ★ Microsoft AGT ✅ · Cerbos · OpenFGA / SpiceDB (relationship-based) | OPA, Cedar, AGT spike | T08 |
 | TC-09 | **Identity** | ★ OIDC with Keycloak or Auth0 · ★ GCP Workload Identity Federation ✅ (your M0) · Microsoft Entra ID · SPIFFE/SPIRE | WIF (yours), ARB tokens | T09 |
-| TC-10 | **Edge, API gateway, load balancing** | ★ GCP HTTPS Load Balancer + Cloud Run ingress · ★ Envoy or Kong · Apigee · MuleSoft Flex (Ingram) · nginx | — | T11 |
+| TC-10 | **Edge, API gateway, load balancing** | ★ GCP HTTPS Load Balancer + Cloud Run ingress · ★ Envoy or Kong · Apigee · MuleSoft Flex · nginx | — | T11 |
 | TC-11 | **Messaging, workflows, durable execution** | ★ GCP Pub/Sub · ★ Temporal · Kafka · Redis Streams · Cloud Tasks / Workflows | — | T12 |
 | TC-12 | **Data & vector stores** | ★ Postgres + pgvector ✅ (PM seam) · ★ Firestore ✅ · ★ Redis · Vertex Vector Search · Qdrant · Pinecone · AlloyDB · BigQuery | Postgres seam, Firestore (E4) | T13 |
 | TC-13 | **RAG & document processing** | ★ LlamaIndex · ★ Docling or Unstructured · Vertex AI Search · Haystack (you know it) | ARB KB retrieval | T14 |
@@ -80,4 +80,4 @@ Ordered so each lab lands on something a current OWN or SYSTEMS rep is already t
 | T09 | Identity | OIDC login with Keycloak in front of the target's API; validate JWTs | R06 (SD-04) |
 | T10–T18 | the rest of the map | one lab each, in the order the queue reaches the paired topic | |
 
-**Done means** the `COMPARISON.md` row exists and you can answer, without notes: "for a regulated GCP client, which would you pick and why not the others?"
+**Done means** the `COMPARISON.md` row exists and you can answer, without notes: "for a regulated enterprise on GCP, which would you pick and why not the others?"

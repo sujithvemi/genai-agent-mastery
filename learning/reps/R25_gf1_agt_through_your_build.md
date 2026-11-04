@@ -1,7 +1,7 @@
 # R25 · OWN · GF-1 — Microsoft's Agent Governance Toolkit, through your own build
 
 **Lane:** OWN (governance frameworks track) · **Repo:** aicoe-reference-build (ARB) · **Time:** 40 min · **Claude needed:** no
-**Why now:** "Why not just use Microsoft's toolkit?" is the first build-vs-buy question a client or GTM will ask. Your build already ran the experiment; this rep makes the answer yours.
+**Why now:** "Why not just use Microsoft's toolkit?" is the first build-vs-buy question a CISO, an architect or an interviewer will ask. Your build already ran the experiment; this rep makes the answer yours.
 **📖 Read (consume):** [Ch47 Microsoft AGT through your build](../fieldguide/agt-through-your-build.html#model) §47.2–47.6 — after Step 0. Open [§47.7 The mapping table](../fieldguide/agt-through-your-build.html#map) only after you have filled in your own in Step 3. Platform facts in the chapter are dated 2026-10-21; per D63, quote the version your spike pinned, not the latest release.
 
 ## Step 0 — Predict (5 min)
@@ -31,7 +31,7 @@ Answer:
 | (add any other AGT component you found in Step 1) | | |
 
 ## Step 4 — Defend (5 min)
-Write the 3-sentence answer to a client's "why not just use Microsoft's toolkit?" that obeys the **D63 wording rule** (versioned, factual, reproducible). Then: when *would* you recommend AGT?
+Write the 3-sentence answer to a stakeholder's "why not just use Microsoft's toolkit?" that obeys the **D63 wording rule** (versioned, factual, reproducible). Then: when *would* you recommend AGT?
 > _Your answer:_
 
 ## Done when

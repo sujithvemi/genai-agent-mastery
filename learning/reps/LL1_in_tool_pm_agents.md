@@ -9,7 +9,7 @@ Before reading: which of pm-agent's jobs (status report, backlog hygiene, PRD up
 
 ## Step 1 — Read (25 min, ~8 min per tool)
 1. Matrix rows for Rovo, Linear, Notion in `_portfolio-strategy/inbox/landscape_matrix_2026-10-18.md`, plus strategy flags S1 and S8.
-2. Atlassian Rovo MCP page: developer.atlassian.com/cloud/rovo-mcp — what can a client read and write? What costs credits?
+2. Atlassian Rovo MCP page: developer.atlassian.com/cloud/rovo-mcp — what can an MCP client read and write? What costs credits?
 3. Linear changelog 2026-04-23 (Linear Agent + MCP) and Notion 3.3 release notes (custom agents, run logs).
 Skim the Asana / monday / ClickUp rows only.
 
@@ -17,7 +17,7 @@ Skim the Asana / monday / ClickUp rows only.
 Fill one card per tool (template in `maps/product_lifecycle_landscape_track.md`) in `frameworks/landscape/in_tool_pm_agents.md`.
 
 ## Step 3 — The one question (5 min)
-"If a client already has Rovo, why would they add pm-agent?" Write a 3-sentence answer that names what Rovo does **not** do (cross-tool, signed evidence, approval model, self-hosting) and is honest about what it does better.
+"If a team already has Rovo, why would they add pm-agent?" Write a 3-sentence answer that names what Rovo does **not** do (cross-tool, signed evidence, approval model, self-hosting) and is honest about what it does better.
 > _Answer:_
 
 ## Done when

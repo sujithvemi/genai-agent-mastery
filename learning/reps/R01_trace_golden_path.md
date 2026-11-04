@@ -1,7 +1,7 @@
 # R01 · TRACE · A refund, from the model's tool call to the evidence log
 
 **Lane:** OWN · **Repo:** aicoe-reference-build (branch `adk-2.5.0`, as checked out) · **Time:** 30–40 min · **Claude needed:** no (optional check after)
-**Why first:** this one path *is* your governance story. Every demo, client question and interview answer about the build hangs off it.
+**Why first:** this one path *is* your governance story. Every demo, stakeholder question and interview answer about the build hangs off it.
 **📖 Read (consume):** [Ch16 The governed action](../fieldguide/governed-action.html#mediation) §16.3–16.8, then [Ch22 The evidence plane](../fieldguide/evidence-plane.html#record) §22.1–22.3 — after Step 0, before Step 1 (predict first, R3). Afterwards, [Ch16 Prove it](../fieldguide/governed-action.html#prove) is extra Defend practice.
 
 ## Step 0 — Predict (5 min, before opening any file)

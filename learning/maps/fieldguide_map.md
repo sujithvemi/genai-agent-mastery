@@ -27,8 +27,8 @@ A chapter is the **consume** step. Its rep is the **defend** step. Reading never
 | Before the GTM showcase | 11 → 12 → 13 → 14 → 15 → 16 → 22 → 24 → 54 | You need to answer the hard questions about the reference build yourself |
 | System design | 25 … 33, then 55 | One chapter per SYSTEMS rep; each feeds `design/pm-agent-at-scale.md` |
 | Building and running agents | 34 … 40, then 30, 31 | Lifecycle end to end (SD-13…SD-16) |
-| Enterprise platforms | 37, then 41 → 46 | Managed services you will meet in a client estate (GF-4, SD-14) |
-| Client framework | 11, 12, 45, 47, 48, 50, 51, 53 | Capstone B; anything you would say to a CDO or CISO |
+| Enterprise platforms | 37, then 41 → 46 | Managed services you will meet in an enterprise estate (GF-4, SD-14) |
+| Client framework (the book's name) | 11, 12, 45, 47, 48, 50, 51, 53 | Capstone B; anything you would say to a CDO or CISO |
 | The model gap | 8 → 9 → 10 | The MODEL lane |
 | Practice | 52 → 53 → 54 → 55 | The PROVE lane |
 
@@ -145,7 +145,7 @@ Leave **Read** and **Defended** blank until true. Lanes as in `README.md`; "Caps
 
 | Appendix | Use it for |
 |---|---|
-| [A Glossary](../fieldguide/appendix-glossary.html) | A term at engineering resolution, before you use it with a client |
+| [A Glossary](../fieldguide/appendix-glossary.html) | A term at engineering resolution, before you use it with a stakeholder |
 | [B Control catalog](../fieldguide/appendix-control-catalog.html) | Every control in both builds, generated from `governance/catalog/` — Capstone A2 and B2 |
 | [C Patterns](../fieldguide/appendix-patterns.html) | Named patterns and where they live in the builds — design-doc sections, Capstone A3 |
 | [D Decisions](../fieldguide/appendix-decisions.html) | Both builds' decision logs with the chapters that discuss each — Defend reps and "who decided" |

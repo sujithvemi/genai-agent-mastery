@@ -8,7 +8,7 @@
 5. Optional (5–10 min): new chat in the Governance project → paste `prompts/REP_SESSION.md` → it checks your answers, grades you and does the bookkeeping (including `maps/fieldguide_map.md`).
 Gap since last time? Do 2 overdue cards from `cards/REVIEW.md` first. No catch-up.
 
-## This weekend (Sat 31 Oct – Sun 1 Nov) — ~2.5 hours total, split however you like
+## This weekend (Sat 7 – Sun 8 Nov) — ~2.5 hours total, split however you like
 - [ ] **Sat · R01** Trace a refund end to end (40 m) · 📖 Ch16 §16.3–16.8, Ch22 §22.1–22.3
 - [ ] **Sat · R02** Defend Ledger P0 (25 m) · 📖 Ch7 §7.1–7.4, Ch22 §22.1–22.3
 - [ ] **Sun · R05** Systems: request path + run API → write §1–2 of your design doc (40 m) · 📖 Ch25 §25.1–25.6
@@ -57,7 +57,7 @@ Stop wherever the time runs out — one rep is a win. Leftovers simply stay at t
 | R26 | OWN · Frameworks | GF-2: OWASP Top 10 for Agentic Applications mapped to your catalog + red-team corpus → `frameworks/OWASP_agentic.md` | ARB `tests/redteam/` | Ch48 §48.2 · Ch32 §32.2 · Ch20 §20.1–20.3 |
 | R27 | OWN · Frameworks | GF-5: OPA/Rego vs Cedar vs AGT — same control in all three; which fails open where | ARB `platform/policy/` | Ch17 §17.2–17.4 · Ch47 §47.4 |
 | R28 | CAPSTONE A | A0–A1: pick your new agent, write its agent card, build it ungoverned in GAM → `capstones/A_govern_a_new_agent.md` | GAM | Ch52 §52.1–52.3 · Ch34 §34.3–34.4 |
-| R29 | PROVE · CAPSTONE B | B1–B2 (December PROVE slot): tiering model + control-catalog cut for the two-platform client scenario → `capstones/B_client_framework.md` | | Ch53 §53.2–53.3 · Ch13 §13.2–13.3 · Ch12 §12.4 |
+| R29 | PROVE · CAPSTONE B | B1–B2 (December PROVE slot): tiering model + control-catalog cut for the two-platform enterprise scenario → `capstones/B_client_framework.md` | | Ch53 §53.2–53.3 · Ch13 §13.2–13.3 · Ch12 §12.4 |
 | R30 | OWN · Defend | Ledger E4 — live bindings EXERCISED only by recorded runs, verifiers can't sign (Ed25519/KMS), approval page as trust boundary (self-test Q1–6) | ARB `docs/LEARNING_LEDGER.md` §E4 | Ch41 §41.9 · Ch22 §22.5–22.7 · Ch19 §19.6 |
 | R31 | OWN · Defend | Ledger E5 + E5-S5 + E5.1 — monotone classifiers, typed answers, fairness HELD, retry only effect-free attempts (Q1–10) | ARB `docs/LEARNING_LEDGER.md` §E5 | Ch20 §20.6 · Ch2 §2.6 · Ch23 §23.7 · Ch29 §29.3 |
 | R32 | OWN · Trace | A classifier that can only over-block + the typed answer: `make demo-content-safety` and `make demo-groundedness` (no make: `uv run python -m aicoe.cli demo content-safety` / `... demo groundedness`), then read the composition | ARB `enforcement/classifier_gate.py`, `enforcement/answer_contract.py` | Ch20 §20.6 · Ch2 §2.6–2.7 |
@@ -77,6 +77,9 @@ Stop wherever the time runs out — one rep is a win. Leftovers simply stay at t
 | R46 | OWN · Frameworks | GF-6 + regulated overlays: Singapore agentic framework / CSA agentic work, then one industry overlay (banking) on your catalog → `frameworks/agentic_and_overlays.md` | your catalog + crosswalk | Ch48 §48.6 · Ch49 |
 | R47 | PROVE · CAPSTONE B | B6: operating model + 90-day plan for the Capstone B scenario (decision rights, earned autonomy, KPIs, interim vs target state) | | Ch50 · Ch51 · Ch53 §53.7 |
 | R48 | MODEL | Model choice, routing and model risk: pick models for pm-agent's planner, workers and classifier per task; routing, pinning, budgets; what model-risk management asks of an agent | ARB model pin (CTL-0021), PM ADR-0006 routing | Ch10 |
+| R49 | OWN · Trace | The R1-S3 loop breaker: why "what was requested" stopped being read from natural language and became a typed RequestScope the requester confirms (bound to run id + proposal hash); walk `run_gate` (parse → cites → sanitise → lane → eligibility, all-or-nothing preflight) and say the disclosed residual — confirming the auto-draft unread executes 23 of 32 attacks (D-PM-R1-74, -89, -90) | PM `actions/pipeline.py`, `request_scope.py`, `provenance.py`; DECISIONS D-PM-R1-62..94 | Ch20 §20.5, §20.7 · Ch17 §17.7 · Ch24 §24.5 |
+| R50 | OWN · Trace | Egress control before any model call: data class derived from the source (synthetic / owner_repo / third_party), per-provider allowlist, payload secret scan, pre-call worst-case budget, served ≠ configured → excluded; why AI Studio is allowed only owner data | PM `platform/egress/{classes,guard,secrets}.py`, `platform/model/route.py`; ADR-0006 interim amendment (D-PM-R1-35..40, -48..52) | Ch10 §10.7–10.9 · Ch21 §21.5 · Ch32 §32.4–32.5 |
+| R51 | OWN · Defend | Proving a policy isn't vacuous: run `make hostile-gate` and `make mutation-eligibility` (no make: `uv run python -m pm_agent.evals.hostile_gate` / `uv run python -m pm_agent.evals.mutation_eligibility`); explain kill rate 1.0 over 226 mutants, the 8 falsifiers and why a deny row pins its rule id | PM `evals/mutation_eligibility.py`, `evals/hostile_gate.py`, `governance/gate/conformance_r1.py` | Ch24 §24.3–24.5 · Ch17 §17.5 |
 
 ## Build-tool labs (OWN · Rebuild — every third OWN rep can be one)
 Hands-on with each tool Claude Code used in your builds: build a minimal version yourself, then diff against the build. Full list BT01–BT16 in `maps/technology_track.md` Part A.
@@ -110,6 +113,8 @@ Hands-on with each tool Claude Code used in your builds: build a minimal version
 Full map of 17 components and the lab order: `maps/technology_track.md`. Build-vs-buy method for any of them: Ch46 §46.5.
 
 SYSTEMS modules SD-11…SD-16 are in the backlog as R38–R43 (SD-13…SD-16 cover the agent lifecycle, added 2026-10-30, L-24). The weekly sync also inserts reps for whatever the builds shipped that week, each with its 📖 chapter.
+
+**After this queue (L-26):** `maps/capability_gap_register.md` — evaluate, compose, decide, build — opens when 40 chapters are defended or R01–R48 are done (or when you say so). Until then the weekly sync only reports the count.
 
 ## Done
 

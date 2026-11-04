@@ -51,8 +51,8 @@
 | API Design | Postman · 13 | **PICK** | pm-agent FastAPI run-API trace |
 | CI/CD/DevOps | Triet Bui Minh · 16 | **PICK** | M1 rebuild rep (your own WIF pipeline) |
 | AIGP Certification Masterclass | Dr. David · 58 | **PARK** | Governance is your strength; only if you pursue AIGP |
-| Microsoft Agent Framework (MAF) | Shweta Lodha · 13 | **PARK** | GTM asks for Microsoft-estate depth |
-| Generative AI on AWS | AWS Developers · 97 | **PARK** | GTM/client on AWS |
+| Microsoft Agent Framework (MAF) | Shweta Lodha · 13 | **PARK** | when a build or Capstone B needs Microsoft-estate depth |
+| Generative AI on AWS | AWS Developers · 97 | **PARK** | when R41/R45 or Capstone B needs AWS depth |
 | Generative AI Program | Stanford Online · 24 | **PARK** | — |
 | Experts on AI: LLM Eval/Training | Microsoft for Startups · 20 | **PARK** | — |
 | State space models, Mamba · Diffusion Model · Diffusion Generative Models (155) | various | **DROP** | Off-goal |
@@ -72,7 +72,7 @@ Surveyed by sender over ~10 months; older pages not exhaustive. Topic for lesser
 | System Design One (`systemdesignone`) | System design, concept-level |
 | ByteByteGo (`bytebytego`) | System design visuals for PROVE |
 | Ken Huang (`kenhuangus`) | Agentic AI security — OWASP/CSA work you cite |
-| Oliver Patel (`oliverpatel`) | Enterprise AI governance — your GTM domain |
+| Oliver Patel (`oliverpatel`) | Enterprise AI governance — your specialism |
 
 **ASSET-ONLY** (keep the asset, drop the feed): `himanshuramchandani` (playbook PDF), `aiengineeringinsider` (handbook).
 
