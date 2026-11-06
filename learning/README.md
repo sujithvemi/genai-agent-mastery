@@ -19,7 +19,7 @@
 3. Write your answers **in the rep file** (`reps/R0xx_*.md`) before asking Claude anything.
 4. Optional check: paste `prompts/REP_SESSION.md` into a new chat in the Governance project → Socratic check + model answer + grade A–D.
 5. Close: one line in `LOG.md`, move the rep to Done in `NEXT.md`, add 1–3 cards to `cards/REVIEW.md` (only for things you *defended*, grade ≥ B; start from the chapter's card candidates), tick the chapter in `maps/fieldguide_map.md`.
-6. `git add learning && git commit -m "rep: R0xx" && git push`.
+6. In the VS Code terminal (PowerShell), one line: `cd "C:\Users\sujith\Documents\Claude Local\Projects\repos\genai-agent-mastery"; git add learning; git commit -m "rep: R0xx"; git push` — PowerShell needs `;` between commands, not `&&` (L-28).
 
 **Coming back after a gap (any length):** do the 2 most-overdue cards in `cards/REVIEW.md`, then the top rep. No catch-up, no guilt, no re-planning.
 

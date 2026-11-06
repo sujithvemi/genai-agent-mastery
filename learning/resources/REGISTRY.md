@@ -88,6 +88,28 @@ Surveyed by sender over ~10 months; older pages not exhaustive. Topic for lesser
 |---|---|---|---|
 | *Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents* (arXiv 2609.00006, Jul 2026) | Source-code study of 11 coding harnesses; 7 subsystems, 29 design patterns, 18 recommendations, a 90-line minimal harness | **CORE** | LL10, and a lens for your own builds: map ARB's and PM's runtime onto its 7 subsystems |
 
+## 3c. Added 2026-11-05 — Fanout and the prompt-lifecycle tools
+
+**Fanout** (fanout.sh): mapped courses, interactive labs and daily paper notes. Introductory lessons are free; a Pro plan unlocks the full catalog (monthly, quarterly, annual or lifetime, with a regional discount). Facts as of 2026-11-05 [Verify at use].
+**Decision:** Pro is not bought. Use the free lessons and labs; where the free tier stops, the Orchestrator writes our own material from primary sources (papers, vLLM / SGLang / llama.cpp docs) into the field guide or a rep — never a copy of Fanout's paid lessons.
+
+| Fanout stream | What it is | Verdict | Where it lands |
+|---|---|---|---|
+| Inference Engineering course (~26 modules: setup and GPU basics, first serving, forward pass, KV cache, metrics, saturation, batching, PagedAttention, prefix caching and chunked prefill, quantisation, profiling, Triton, FlashAttention, compilation, speculative decoding, runtimes, parallelism, MoE, prefill–decode disaggregation, multi-LoRA) | Hands-on syllabus for serving models | **PICK** — the MODEL lane's primary hands-on source; kernels and profiling (modules 12–15) **PARK** (below architect depth) | R13, R53–R58 |
+| System Design course (18 modules: foundations, APIs, data modelling, NoSQL and partitioning, caching, distributed coordination, storage engines, async and streams, search, analytics and sketches, realtime and feeds, geo, media and CDN, reliability, design cases, case studies) | Classic distributed-systems design | **PICK** — GROUND for what your builds don't teach (modules 03–08); cases 15–18 feed PROVE drills | R11, R12, R20, R59, R60; PROVE |
+| Interactive labs (16) | Browser labs: tokenizer, sampling, KV cache, latency numbers, scale, model router, timeouts, eval confidence, memory, RAG chunking, agent control room, math decoder | **CORE** as 10-minute warm-ups before the paired rep | `NEXT.md` → Fanout warm-ups |
+| AI Research course (12 modules: math, PyTorch, transformers, RL, LLM from scratch, research writing, fine-tuning, MLOps) | Research-engineer track | **SKIM** — overlaps Raschka (CORE); fine-tuning and MLOps stay PARK | R07 |
+| ML Mathematics course · Math Decoder · notation library | Math for ML papers | **PICK** — only when a MODEL rep or a paper needs the math | MODEL reps |
+| Daily papers · blog | Paper notes and essays | Radar source — logged, not learned | research radar |
+| Open Robotics | Robotics track | **PARK** — off the architect path | — |
+
+| Prompt-lifecycle tool | What it is | Verdict | Where it lands |
+|---|---|---|---|
+| DSPy (+ GEPA optimiser, `dspy.GEPA`) | Prompts and few-shot examples as parameters tuned against a metric; GEPA evolves prompts from a model's reflection on failures | **CORE** in T22 | T22, R42 |
+| promptfoo | CLI for prompt and agent evals and red-team; acquired by OpenAI (announced 9 Mar 2026), stated to remain open source [Verify] | **CORE** in T21 | T21, T03 |
+| PromptHub | Hosted prompt management (versions, environments, testing); free plan [Verify limits] | **PICK** in T20 | T20 |
+| Langfuse prompt management | Prompt versions and labels in the Langfuse you already run for tracing | **CORE** in T20 | T20, R52 |
+
 ## 4. Existing curated material (kept, re-purposed)
 
 | Item | Verdict |

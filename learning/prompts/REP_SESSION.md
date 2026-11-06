@@ -25,7 +25,8 @@ builds = "Governance Local/aicoe-reference-build" (ARB) and "Governance Local/pr
    "This weekend" checklist (with ticks, each with its first action and 📖 chapter sections) and Ready queue (with 📖),
    plus the FRONTS of cards due in the next 3 days (never the backs), and the "Updated" date.
    The phone nudge reads only that page, because the repo is private.
-5. Tell me the git command to commit and push. Stop.
+5. Give me the commit command as ONE line for Windows PowerShell — `cd "C:\Users\sujith\Documents\Claude Local\Projects\repos\genai-agent-mastery"; git add learning; git commit -m "rep: R0xx"; git push` — with `;` between commands, never `&&`.
+   Any command you put in a rep file must also run in PowerShell (L-28). Stop.
 
 Today's rep: <R0xx or "top">
 ```

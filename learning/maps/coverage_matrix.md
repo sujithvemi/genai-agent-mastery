@@ -39,6 +39,7 @@ Status — 🟩 in your code (learn by tracing) · 🟨 partly in code · 🟥 n
 | Fairness evaluation (matched pairs) | ARB `evals/fairness.py`, `governance/gate/fairness.py` — CTL-0027 measured, HELD as a gate: criterion can't separate noise from bias (D74) | FG Ch23 §23.7 | 🟨 |
 | Tracing (OTel → Langfuse) | ARB `platform/observability`, PM `platform/observability` (1.4k) | FG Ch31 · Arize playlist (pick) | 🟩 |
 | Cost / token budgets, routing | ARB `enforcement/model_budget.py` (CTL-0020 calibrated on the per-turn peak, E5.1); PM `platform/budget`, ADR-0006 model routing (R1); R1-S2 provider-agnostic route `platform/model/route.py`: pre-call worst-case budget on every provider, per-call-type output caps, unpriced model refused (D-PM-R1-40, S2-f/j) | FG Ch10, Ch33 · Himanshu #5, #17 | 🟨 |
+| Prompt lifecycle: management, evaluation, optimisation, caching | PM prompts versioned in the repo (`src/pm_agent/prompts/`); ARB sign-off digest covers governing configuration (CTL-0022); no prompt service, no optimiser, no measured cache | FG Ch34 §34.6, Ch39 §39.8, Ch9 §9.6, Ch10 §10.6 · DSPy/GEPA docs, promptfoo, Langfuse, PromptHub (R52, R53, T20–T23) | 🟨 |
 
 ## D. Platform & cloud
 
@@ -85,15 +86,15 @@ Covered in depth in **`maps/system_design_track.md`** (SD-01…SD-16: edge & rou
 | Idempotency, caching | ARB `enforcement/idempotency.py`, PM `platform/cache` | FG Ch25 §25.5, Ch28 · redis PDF (pick) | 🟩 |
 | Reliability patterns (timeouts, breakers, bulkheads, budgets) | partial: gateways, budgets; ARB `evals/retry.py` (bounded retry of effect-free attempts on 429, E5.1); PM `platform/bounded.py` (deny on timeout in every fail-closed path, D-PM-R1-18) | FG Ch29 · stability-patterns PDFs (core) | 🟨 |
 | Databases & state (Postgres, Firestore) | PM Postgres checkpointer + memory store (both ran for real at P5 close); ARB `platform/state` (Firestore: contended txn → `StateUnavailableError`; `local.py`); PM product ledger as a derived SQLite index `ledger/store/sqlite.py` (ADR-0007) | FG Ch28 · Hussein Postgres (pick) | 🟨 |
-| Distributed systems (replication, partitioning, consensus, streams) | — | FG Ch26, Ch28 · **DDIA 2e** (pick chapters); Arpit pre-reqs | 🟥 |
+| Distributed systems (replication, partitioning, consensus, streams) | — | FG Ch26, Ch28 · **DDIA 2e** (pick chapters); Fanout System Design (modules 03–08); Arpit pre-reqs (R20, R59, R60) | 🟥 |
 
 ## F. Model layer (the honest gap — none of your code teaches it)
 
 | Topic | Source | Status |
 |---|---|---|
-| Transformers & attention | FG Ch8 · Raschka playlist (core) + AIEFS Ph7 L2–L5, L14 | 🟥 |
+| Transformers & attention | FG Ch8 · Raschka playlist (core) + AIEFS Ph7 L2–L5, L14 · Fanout labs (Tokenizer and Context, Sampling Playground) | 🟥 |
 | Tokenization | FG Ch8 §8.3 · AIEFS Ph5 subword lesson | 🟥 |
-| Inference & serving: KV cache, batching, paged attention, speculative decoding | FG Ch9 · AIEFS Ph7 KV + spec-decoding; Himanshu #2 vLLM, #10 Character.AI | 🟥 |
+| Inference & serving: KV cache, batching, paged attention, caching, quantisation, speculative decoding, runtimes, parallelism | FG Ch9 · **Fanout Inference Engineering** (hands-on syllabus; free intro lessons) · AIEFS Ph7 KV + spec-decoding; Himanshu #2 vLLM, #10 Character.AI (R13, R53–R58) | 🟥 |
 | Model choice, MoE, routing economics | FG Ch10 · Himanshu #11, #17 | 🟥 |
 | Fine-tuning / post-training | FG Ch8 §8.8 (concept only) | PARK (not on your path in the next 9 months) |
 

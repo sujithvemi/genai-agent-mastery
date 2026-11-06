@@ -4,7 +4,7 @@
 1. Double-click **`genai-agent-mastery/learning.code-workspace`** → VS Code opens the learning folder and both builds side by side.
 2. Below, take the **first unticked rep** in "This weekend" (or the top Ready rep). Open its file in `reps/`.
 3. Write your answers **in that file**, top to bottom. Each rep tells you exactly what to open and run. Its **📖 Read** line names the field guide sections: for a Trace rep, read them *after* Step 0's predictions; for a Defend rep, read them, close the book, then answer cold. Already read them on your phone during the week? Skip straight to the rep.
-4. Finish: one line in `LOG.md`, tick the rep here, then `git add . && git commit -m "rep R0x" && git push`.
+4. Finish: one line in `LOG.md`, tick the rep here, then paste this one line into the VS Code terminal (PowerShell): `cd "C:\Users\sujith\Documents\Claude Local\Projects\repos\genai-agent-mastery"; git add learning; git commit -m "rep R0x"; git push`
 5. Optional (5–10 min): new chat in the Governance project → paste `prompts/REP_SESSION.md` → it checks your answers, grades you and does the bookkeeping (including `maps/fieldguide_map.md`).
 Gap since last time? Do 2 overdue cards from `cards/REVIEW.md` first. No catch-up.
 
@@ -80,6 +80,15 @@ Stop wherever the time runs out — one rep is a win. Leftovers simply stay at t
 | R49 | OWN · Trace | The R1-S3 loop breaker: why "what was requested" stopped being read from natural language and became a typed RequestScope the requester confirms (bound to run id + proposal hash); walk `run_gate` (parse → cites → sanitise → lane → eligibility, all-or-nothing preflight) and say the disclosed residual — confirming the auto-draft unread executes 23 of 32 attacks (D-PM-R1-74, -89, -90) | PM `actions/pipeline.py`, `request_scope.py`, `provenance.py`; DECISIONS D-PM-R1-62..94 | Ch20 §20.5, §20.7 · Ch17 §17.7 · Ch24 §24.5 |
 | R50 | OWN · Trace | Egress control before any model call: data class derived from the source (synthetic / owner_repo / third_party), per-provider allowlist, payload secret scan, pre-call worst-case budget, served ≠ configured → excluded; why AI Studio is allowed only owner data | PM `platform/egress/{classes,guard,secrets}.py`, `platform/model/route.py`; ADR-0006 interim amendment (D-PM-R1-35..40, -48..52) | Ch10 §10.7–10.9 · Ch21 §21.5 · Ch32 §32.4–32.5 |
 | R51 | OWN · Defend | Proving a policy isn't vacuous: run `make hostile-gate` and `make mutation-eligibility` (no make: `uv run python -m pm_agent.evals.hostile_gate` / `uv run python -m pm_agent.evals.mutation_eligibility`); explain kill rate 1.0 over 226 mutants, the 8 falsifiers and why a deny row pins its rule id | PM `evals/mutation_eligibility.py`, `evals/hostile_gate.py`, `governance/gate/conformance_r1.py` | Ch24 §24.3–24.5 · Ch17 §17.5 |
+| R52 | OWN · Trace | Prompts are configuration: where pm-agent's prompts (`src/pm_agent/prompts/*.txt`) and ARB's manifests and parameters live, how the sign-off digest (CTL-0022) covers them so a changed prompt re-gates, and what a prompt-management service or an optimiser would bypass; sketch the integration that keeps the digest in charge (pairs with T20–T22) | ARB `governance/config_digest.py`, `signoff.py`; PM `src/pm_agent/prompts/` | Ch34 §34.6 · Ch38 §38.1–38.2 · Ch15 §15.5 · Ch39 §39.8 |
+| R53 | MODEL | Prompt, prefix and semantic caching: how provider prompt caching matches a prefix (layout, minimum length, lifetime), how to order a prompt so the stable part caches, what a gateway semantic cache adds and its tenant-isolation risk; measure one cache hit (pairs with T23; Fanout lab: Inference Memory and KV Cache) | 🟥 | Ch9 §9.6 · Ch10 §10.6 · Ch25 §25.7 · Ch32 §32.7 |
+| R54 | MODEL | Inference metrics and saturation: TTFT, TPOT, inter-token latency, goodput, P50/P95/P99; load a local model until it misses its SLO and say why (Fanout Inference Engineering modules 04–05) | 🟥 · LM Studio / llama.cpp | Ch9 §9.1–9.3 · Ch31 §31.4 |
+| R55 | MODEL | Quantisation: BF16, FP8, INT8, 4-bit; AWQ / GPTQ; KV-cache quantisation — run one model at two quantisations locally and compare memory, latency and answer quality (Fanout module 11) | 🟥 · local model | Ch9 §9.8 · Ch10 §10.2 |
+| R56 | MODEL | Speculative decoding: draft and target models, parallel verification, Medusa / EAGLE / multi-token prediction; when it helps an agent workload and when it doesn't (Fanout module 16) | 🟥 | Ch9 §9.7 |
+| R57 | MODEL | Serving runtimes: vLLM vs SGLang vs TensorRT-LLM vs llama.cpp — architecture, when each fits, and what a managed endpoint (Vertex, Bedrock, Foundry) hides from you (Fanout module 17; vLLM/SGLang hands-on needs a GPU: free notebook GPU or a short rental [Verify cost]) | 🟥 | Ch9 §9.10 · Ch37 §37.2 |
+| R58 | MODEL | Scale-out for serving: tensor / pipeline / context / expert parallelism, prefill–decode disaggregation, multi-LoRA serving — the questions an architect asks a serving team (Fanout modules 18, 19, 21, 26) | 🟥 | Ch9 §9.9 · Ch10 §10.1 |
+| R59 | SYSTEMS | Distributed coordination: consensus (Raft), leader election, locks, leases and fencing tokens; where ARB's evidence chain and PM's checkpointer assume a single writer, and what breaks with two (Fanout System Design module 06 · DDIA 2e) | ARB `evidence/chain.py`; PM `platform/runtime` | Ch28 §28.4 · Ch22 §22.3 · Ch26 §26.6 |
+| R60 | SYSTEMS | Storage engines and the evidence store: B-tree vs LSM, write-ahead log, compaction; append-only evidence at fleet scale — object storage with retention plus an index (Fanout System Design module 07 · DDIA 2e) | ARB `evidence/`, GCS anchor | Ch28 §28.8 · Ch22 §22.4 |
 
 ## Build-tool labs (OWN · Rebuild — every third OWN rep can be one)
 Hands-on with each tool Claude Code used in your builds: build a minimal version yourself, then diff against the build. Full list BT01–BT16 in `maps/technology_track.md` Part A.
@@ -109,10 +118,31 @@ Hands-on with each tool Claude Code used in your builds: build a minimal version
 | T02 | Observability bake-off 2: LangSmith + Datadog LLM Observability; finish the comparison | generated when reached | Ch31 §31.9 · App. I |
 | T03 | Evals bake-off: DeepEval vs Ragas vs Vertex Gen AI Eval | generated when reached | Ch39 §39.3, §39.11 · Ch23 |
 | T04 | Guardrails bake-off: Model Armor vs NeMo Guardrails vs Llama Guard (+ Presidio for PII) | generated when reached | Ch20 §20.3, §20.6 |
+| T20 | Prompt management: one prompt kept three ways — in the repo, in Langfuse prompt management (self-hosted, reuse T01's Langfuse) and in PromptHub (free plan [Verify limits]); labels per environment, rollback, and how each stays inside the sign-off digest (pairs with R52) | generated when reached | Ch34 §34.6 · Ch38 §38.3–38.4 |
+| T21 | promptfoo: assertions and red-team cases on the target agent's prompts, run in CI as a regression gate; compare with DeepEval from T03. OpenAI acquired Promptfoo (announced 9 Mar 2026) and says it stays open source — check the licence when you start [Verify] | generated when reached | Ch23 §23.2–23.4 · Ch24 §24.6 |
+| T22 | DSPy + GEPA: optimise one prompt of the target (tool selection or a classifier) against a metric with a held-out split; compare GEPA with a simpler DSPy optimiser; record what changed and send the result through the gate as a candidate change (pairs with R42, R52) | generated when reached | Ch39 §39.8, §39.4 · Ch38 §38.8 |
+| T23 | Caching: provider prompt caching vs a gateway semantic cache on the target — hit rate, latency, cost, and the tenant-isolation rule you would enforce (pairs with R53) | generated when reached | Ch9 §9.6 · Ch10 §10.6 · Ch25 §25.7 |
 
 Full map of 17 components and the lab order: `maps/technology_track.md`. Build-vs-buy method for any of them: Ch46 §46.5.
 
+## Fanout warm-ups (optional, about 10 minutes before the paired rep)
+Interactive labs at fanout.sh/labs (most run in the browser). A warm-up is never a rep and never counts on its own (R1). Verdicts and streams: `resources/REGISTRY.md` §3c.
+
+| Fanout lab | Before |
+|---|---|
+| Tokenizer and Context · Sampling Playground | R07 (attention), R48 (model choice) |
+| Inference Memory and KV Cache | R13 (KV cache, batching), R53 (caching) |
+| Latency Numbers · Fanout Scale | R38 (capacity and cost), R54 (inference metrics) |
+| Model Router and Pareto Explorer | R48 (model choice), R38 |
+| Timeout Architect | R18 (reliability) |
+| Eval Confidence | R22 (observability and SLOs), R42 (evaluation loop), T03 |
+| How AI remembers · Memory workbench | R34 (governed memory), R12 (state) |
+| RAG Chunking and Retrieval · PDF-to-RAG Readiness Scan | any retrieval rep (Ch4); none queued yet |
+| Agent Control Room | R21 (HITL) — check what it covers first |
+
 SYSTEMS modules SD-11…SD-16 are in the backlog as R38–R43 (SD-13…SD-16 cover the agent lifecycle, added 2026-10-30, L-24). The weekly sync also inserts reps for whatever the builds shipped that week, each with its 📖 chapter.
+
+**Commands (L-28):** every command in this repo runs in Windows PowerShell — one line, `;` between commands, never `&&`.
 
 **After this queue (L-26):** `maps/capability_gap_register.md` — evaluate, compose, decide, build — opens when 40 chapters are defended or R01–R48 are done (or when you say so). Until then the weekly sync only reports the count.
 

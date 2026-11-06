@@ -19,5 +19,5 @@ and the newest Radar_*.md in Governance/_Agentic_Governance_Mastery/research/bri
    depends on (Governance/repos/project_repos_reference, P-1…P-5 — dates, market changes; re-derive picks generically, keep the learning repo synthetic, L-27),
    then write its field guide edition-2 material, rebuild, republish, and set the item to `book` so the weekly sync can promote it. One item per check-in.
 6. Anything in the system that is not working — propose one change max. Lanes, rules and layout are fixed (L-11); content is re-synced weekly while the builds are active.
-Do the file edits yourself; give me the git command.
+Do the file edits yourself; give me the commit command as one Windows PowerShell line (`;` between commands, never `&&`; L-28).
 ```

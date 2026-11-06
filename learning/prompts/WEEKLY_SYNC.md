@@ -27,7 +27,7 @@ STEP 3 — Write learning/sync/SYNC_YYYY-MM-DD.md (≤ 350 words): what moved in
 
 STEP 4 — Refresh the Notion page "Learning OS — nudge snapshot" (id 3fbc050d-01d2-8191-a450-ec5b3b4963e0) so it mirrors the updated NEXT.md: the "This weekend" checklist (with ticks, a first action per rep taken from each rep file's first step, and its 📖 sections), the Ready queue (with 📖 chapters), and the FRONTS of cards in cards/REVIEW.md due within the next 7 days (never the backs). Keep the "Book:" line. Put today's date on its "Updated" line. The cloud phone nudge reads only this page because the repo is private.
 
-STEP 5 — Send a ≤ 50-word message: the one change he should know about (a fired book trigger or the capability register opening counts) + "commit: git add learning && git commit -m 'sync' && git push".
+STEP 5 — Send a ≤ 50-word message: the one change he should know about (a fired book trigger or the capability register opening counts) + the commit line for Windows PowerShell: `cd "C:\Users\sujith\Documents\Claude Local\Projects\repos\genai-agent-mastery"; git add learning; git commit -m "sync"; git push` (never `&&`, L-28).
 
 If the computer/folders are unreachable, send one line saying the sync was skipped and why. Never edit the build repos.
 ```

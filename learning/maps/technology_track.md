@@ -48,7 +48,7 @@ Inventory taken from both builds' `pyproject.toml`, Dockerfiles, compose files, 
 | TC-01 | **Agent frameworks** | ★ Google ADK ✅ · ★ LangGraph ✅ · ★ OpenAI Agents SDK ✅ (ARB E3 host) · ★ Microsoft Agent Framework · CrewAI · AWS Strands Agents · Pydantic AI · LlamaIndex agents | ADK, LangGraph, OpenAI Agents SDK | T07 |
 | TC-02 | **Protocols** | ★ MCP via FastMCP ✅ · ★ A2A SDK · MCP Inspector | ARB gateways, a2a | T05 |
 | TC-03 | **Model access & AI gateways** | ★ LiteLLM ✅ · ★ Vertex AI ✅ · Azure AI Foundry · AWS Bedrock · Portkey · Kong AI Gateway · Apigee | LiteLLM, Vertex (E4) | T06 |
-| TC-04 | **Local inference & serving** | ★ Ollama / LM Studio ✅ · ★ vLLM · llama.cpp · SGLang · TGI | LM Studio | T10 (pairs with the MODEL lane) |
+| TC-04 | **Local inference & serving** | ★ Ollama / LM Studio ✅ · ★ vLLM · llama.cpp · SGLang · TGI | LM Studio | T10 (pairs with the MODEL lane, R53–R58; follow Fanout's Inference Engineering syllabus — free introductory lessons) |
 | TC-05 | **Observability & tracing** | ★ OpenTelemetry (GenAI conventions) ✅ · ★ Langfuse ✅ · ★ LangSmith · ★ Arize Phoenix / AX · ★ Datadog LLM Observability · W&B Weave · Helicone · OpenLLMetry | OTel → Langfuse in ARB and PM | **T01, T02** |
 | TC-06 | **Evaluation** | ★ DeepEval ✅ · ★ Ragas · ★ Vertex Gen AI Evaluation ✅ · promptfoo · Inspect AI · Braintrust · LangSmith evals | DeepEval, Vertex eval | T03 |
 | TC-07 | **Guardrails & content safety** | ★ Model Armor ✅ · ★ NeMo Guardrails · ★ Llama Guard · Guardrails AI · Microsoft Presidio (PII) · Azure AI Content Safety · Bedrock Guardrails · Lakera | Model Armor (E4), own guardrails | T04 |
@@ -60,7 +60,7 @@ Inventory taken from both builds' `pyproject.toml`, Dockerfiles, compose files, 
 | TC-13 | **RAG & document processing** | ★ LlamaIndex · ★ Docling or Unstructured · Vertex AI Search · Haystack (you know it) | ARB KB retrieval | T14 |
 | TC-14 | **Agent memory** | ★ Vertex AI Memory Bank · ★ Graphiti + Neo4j (Neural Maze lab) · Mem0 · Zep | PM memory seam | T15 |
 | TC-15 | **Deployment & runtime** | ★ Docker ✅ · ★ Cloud Run · ★ Vertex AI Agent Engine · ★ GKE basics (kubectl, Helm) · Terraform ✅ · GitHub Actions ✅ · Argo CD | Docker, Terraform, GH Actions | T16 |
-| TC-16 | **Prompt & model lifecycle (AgentOps)** | ★ Langfuse prompt management · ★ MLflow (models + LLM tracking) · Vertex Model Registry · LangSmith Hub | — | T17 |
+| TC-16 | **Prompt lifecycle: management, evaluation, optimisation, caching** (+ model registry) | ★ Langfuse prompt management · ★ PromptHub · ★ promptfoo (OpenAI-owned since 2026, open source [Verify]) · ★ DSPy + GEPA · provider prompt caching (Gemini, Anthropic, OpenAI) · gateway semantic cache · MLflow · Vertex prompt management and Model Registry · LangSmith Hub | PM prompts in the repo; ARB config digest covers governing config | T20–T23 (prompts), T17 (model registry) |
 | TC-18 | **Open-source agent harnesses** | ★ OpenHands · ★ Goose · ★ opencode · DeepSeek Harness (preview, DeepSeek-only) · Cline · Hermes Agent · Aider | — (your builds hand-roll their own harness) | T19 — run the same small coding task through two of them; compare loop, permissions, sandbox, logs |
 | TC-17 | **Security testing / red-team** | ★ garak · ★ PyRIT · promptfoo red-team | ARB red-team corpus | T18 |
 
@@ -78,6 +78,10 @@ Ordered so each lab lands on something a current OWN or SYSTEMS rep is already t
 | T07 | Frameworks | Rebuild the target in **Microsoft Agent Framework** and **CrewAI**; note where governance hooks attach | GF-1, R15 |
 | T08 | Policy engines | Same rule in OPA, Cedar, AGT, and **OpenFGA** (ReBAC) | R27 |
 | T09 | Identity | OIDC login with Keycloak in front of the target's API; validate JWTs | R06 (SD-04) |
+| T20 | Prompt management | One prompt in the repo, in Langfuse prompt management and in PromptHub; environments, rollback, digest | R52 |
+| T21 | Prompt evaluation in CI | **promptfoo** assertions + red-team as a regression gate; compare with DeepEval | R22, T03 |
+| T22 | Prompt optimisation | **DSPy + GEPA** on one prompt with a held-out split; the result goes through the gate as a candidate change | R42, R52 |
+| T23 | Caching | Provider prompt caching vs a gateway semantic cache; hit rate, latency, cost, tenant isolation | R53 |
 | T10–T18 | the rest of the map | one lab each, in the order the queue reaches the paired topic | |
 
 **Done means** the `COMPARISON.md` row exists and you can answer, without notes: "for a regulated enterprise on GCP, which would you pick and why not the others?"
